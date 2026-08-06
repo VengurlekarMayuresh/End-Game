@@ -8,9 +8,12 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import StudentDashboard from './pages/StudentDashboard'
+import Resume from './pages/student/Resume'
+import Placeholder from './pages/student/Placeholder'
 import RecruiterDashboard from './pages/RecruiterDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import Jobs from './pages/Jobs'
+import JobDetails from './pages/JobDetails'
 import Company from './pages/Company'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
@@ -33,6 +36,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/jobs" element={<Jobs />} />
+          <Route path="/jobs/:id" element={<JobDetails />} />
           <Route path="/company" element={<Company />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/404" element={<NotFound />} />
@@ -51,6 +55,12 @@ function App() {
           <Route element={<StudentLayout />}>
             <Route index element={<StudentDashboard />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="resume" element={<Resume />} />
+            <Route path="education" element={<Placeholder title="Education Management" />} />
+            <Route path="projects" element={<Placeholder title="Projects Showcase" />} />
+            <Route path="experience" element={<Placeholder title="Work Experience" />} />
+            <Route path="certifications" element={<Placeholder title="Certifications" />} />
+            <Route path="documents" element={<Placeholder title="Additional Documents" />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>

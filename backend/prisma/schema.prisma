@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file
 
 generator client {
   provider = "prisma-client-js"
@@ -40,23 +39,174 @@ model User {
   recruiterProfile   Recruiter?
 }
 
+// -----------------------------------------
+// STUDENT MODULE MODELS
+// -----------------------------------------
+
 model Student {
   id             String   @id @default(uuid())
   userId         String   @unique
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Personal Info
   phone          String?
-  college        String?
+  gender         String?
+  dob            DateTime?
+  address        String?
+  city           String?
+  state          String?
+  country        String?
+  pincode        String?
+
+  // Relations
+  education      StudentEducation[]
+  skills         StudentSkill[]
+  projects       StudentProject[]
+  certifications StudentCertification[]
+  experiences    StudentExperience[]
+  languages      StudentLanguage[]
+  documents      StudentDocument[]
+  socialLinks    StudentSocial?
+  preferences    StudentPreference?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model StudentEducation {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  institution    String
   university     String?
-  degree         String?
-  branch         String?
-  graduationYear Int?
+  degree         String
+  branch         String
   cgpa           Float?
-  skills         String[]
+  percentage     Float?
+  startYear      Int
+  endYear        Int?
+  isCurrent      Boolean  @default(false)
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+model StudentSkill {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name           String
+  category       String?
+  level          SkillLevel @default(INTERMEDIATE)
+}
+
+model StudentProject {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title          String
+  description    String   @db.Text
+  techStack      String[]
+  role           String?
+  duration       String?
+  githubUrl      String?
+  liveUrl        String?
+}
+
+model StudentCertification {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title          String
+  organization   String
+  issueDate      DateTime
+  expiryDate     DateTime?
+  credentialId   String?
+  credentialUrl  String?
+}
+
+model StudentExperience {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  company        String
+  role           String
+  employmentType String
+  startDate      DateTime
+  endDate        DateTime?
+  isCurrent      Boolean  @default(false)
+  description    String?  @db.Text
+}
+
+enum Proficiency {
+  BASIC
+  CONVERSATIONAL
+  FLUENT
+  NATIVE
+}
+
+model StudentLanguage {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  language       String
+  read           Boolean  @default(true)
+  write          Boolean  @default(true)
+  speak          Boolean  @default(true)
+  proficiency    Proficiency @default(FLUENT)
+}
+
+enum DocumentType {
+  RESUME
+  PICTURE
+  CERTIFICATE
+  OTHER
+}
+
+model StudentDocument {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type           DocumentType
+  url            String
+  filename       String
+  size           Int?         // in bytes
+  mimetype       String?
+  createdAt      DateTime     @default(now())
+}
+
+model StudentSocial {
+  id             String   @id @default(uuid())
+  studentId      String   @unique
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   github         String?
   linkedin       String?
   portfolio      String?
-  address        String?
+  leetcode       String?
+  codechef       String?
+  hackerrank     String?
+  codeforces     String?
 }
+
+model StudentPreference {
+  id               String   @id @default(uuid())
+  studentId        String   @unique
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  preferredRoles   String[]
+  preferredLocations String[]
+  expectedSalary   String?
+  employmentType   String?
+  remotePreference String?
+}
+
+
+// -----------------------------------------
+// RECRUITER / ADMIN MODELS (From Module 1)
+// -----------------------------------------
 
 model Recruiter {
   id                 String   @id @default(uuid())
