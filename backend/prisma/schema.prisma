@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  STUDENT
+  RECRUITER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  googleId           String?   @unique
+  fullName           String
+  email              String    @unique
+  profilePicture     String?
+  role               Role?
+  status             UserStatus @default(PENDING)
+  isProfileCompleted Boolean   @default(false)
+  lastLogin          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  studentProfile     Student?
+  recruiterProfile   Recruiter?
+}
+
+model Student {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone          String?
+  college        String?
+  university     String?
+  degree         String?
+  branch         String?
+  graduationYear Int?
+  cgpa           Float?
+  skills         String[]
+  github         String?
+  linkedin       String?
+  portfolio      String?
+  address        String?
+}
+
+model Recruiter {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName        String?
+  designation        String?
+  industry           String?
+  companyWebsite     String?
+  companySize        String?
+  companyDescription String?
+  phone              String?
+  companyLogo        String?
+  officeAddress      String?
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
