@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api from '../lib/axios';
+import api from '../../lib/axios';
 import {
   Briefcase, Plus, Users, Eye, Pencil, Trash2,
   MapPin, Clock, CheckCircle2, Pause, XCircle,

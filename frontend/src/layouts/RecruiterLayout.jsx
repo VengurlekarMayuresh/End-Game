@@ -11,12 +11,12 @@ const RecruiterLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard',    path: '/recruiter',         icon: <LayoutDashboard size={20} />, end: true },
-    { name: 'My Profile',   path: '/recruiter/profile', icon: <UserCircle size={20} /> },
-    { name: 'Post a Job',   path: '/recruiter/jobs/new',icon: <Briefcase size={20} /> },
-    { name: 'My Jobs',      path: '/recruiter/jobs',    icon: <Building2 size={20} /> },
-    { name: 'Candidates',   path: '/recruiter/candidates', icon: <Users size={20} /> },
-    { name: 'Settings',     path: '/recruiter/settings',icon: <Settings size={20} /> },
+    { name: 'Dashboard',    path: '/recruiter',             icon: <LayoutDashboard size={20} />, end: true },
+    { name: 'My Profile',   path: '/recruiter/profile',     icon: <UserCircle size={20} /> },
+    { name: 'Post a Job',   path: '/recruiter/jobs/new',    icon: <Briefcase size={20} /> },
+    { name: 'My Jobs',      path: '/recruiter/jobs',        icon: <Building2 size={20} /> },
+    { name: 'Candidates',   path: '/recruiter/candidates',  icon: <Users size={20} /> },
+    { name: 'Settings',     path: '/recruiter/settings',    icon: <Settings size={20} /> },
   ];
 
   return (

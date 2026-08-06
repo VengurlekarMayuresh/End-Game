@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../lib/axios';
+import api from '../../lib/axios';
 import {
   Briefcase, MapPin, DollarSign, Users, Clock,
   Plus, X, Save, ArrowLeft, CheckCircle2, AlertCircle

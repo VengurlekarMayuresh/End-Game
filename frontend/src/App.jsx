@@ -16,6 +16,10 @@ import Certifications from './pages/student/Certifications'
 import Documents from './pages/student/Documents'
 import RecruiterDashboard from './pages/RecruiterDashboard'
 import RecruiterProfile from './pages/RecruiterProfile'
+import PostJob from './pages/recruiter/PostJob'
+import MyJobs from './pages/recruiter/MyJobs'
+import Candidates from './pages/recruiter/Candidates'
+import RecruiterSettings from './pages/recruiter/RecruiterSettings'
 import AdminDashboard from './pages/AdminDashboard'
 import Jobs from './pages/Jobs'
 import JobDetails from './pages/JobDetails'
@@ -75,7 +79,10 @@ function App() {
           <Route element={<RecruiterLayout />}>
             <Route index element={<RecruiterDashboard />} />
             <Route path="profile" element={<RecruiterProfile />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="jobs" element={<MyJobs />} />
+            <Route path="jobs/new" element={<PostJob />} />
+            <Route path="candidates" element={<Candidates />} />
+            <Route path="settings" element={<RecruiterSettings />} />
           </Route>
         </Route>
 
