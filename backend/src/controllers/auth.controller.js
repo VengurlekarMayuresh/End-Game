@@ -92,17 +92,29 @@ const completeProfile = async (req, res, next) => {
           data: {
             userId,
             phone: profileData.phone,
-            college: profileData.college,
-            university: profileData.university,
-            degree: profileData.degree,
-            branch: profileData.branch,
-            graduationYear: profileData.graduationYear ? parseInt(profileData.graduationYear) : null,
-            cgpa: profileData.cgpa ? parseFloat(profileData.cgpa) : null,
-            skills: profileData.skills || [],
-            github: profileData.github,
-            linkedin: profileData.linkedin,
-            portfolio: profileData.portfolio,
             address: profileData.address,
+            education: {
+              create: [{
+                institution: profileData.college || 'Unknown',
+                university: profileData.university,
+                degree: profileData.degree || 'Unknown',
+                branch: profileData.branch || 'Unknown',
+                startYear: profileData.graduationYear ? parseInt(profileData.graduationYear) - 4 : new Date().getFullYear(),
+                endYear: profileData.graduationYear ? parseInt(profileData.graduationYear) : null,
+                cgpa: profileData.cgpa ? parseFloat(profileData.cgpa) : null,
+                isCurrent: true,
+              }]
+            },
+            skills: {
+              create: (profileData.skills || []).map(skill => ({ name: skill }))
+            },
+            socialLinks: {
+              create: {
+                github: profileData.github,
+                linkedin: profileData.linkedin,
+                portfolio: profileData.portfolio,
+              }
+            }
           },
         });
       } else if (role === 'RECRUITER') {

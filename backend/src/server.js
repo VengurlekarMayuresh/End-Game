@@ -23,7 +23,10 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const path = require('path');
+
 // Routes
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api', routes);
 
 // Error Handling

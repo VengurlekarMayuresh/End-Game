@@ -9,6 +9,9 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().default('supersecretjwtkey'),
   GOOGLE_CLIENT_ID: z.string().optional(), // Make it optional for now to prevent crashes during initial setup
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);

@@ -1,132 +1,420 @@
 const { PrismaClient } = require('@prisma/client');
+const path = require('path');
+const fs = require('fs');
 const prisma = new PrismaClient();
 
-// Get full student profile including all relations
+// Save file to local uploads directory
+const saveFileLocally = (file) => {
+  const uploadsDir = path.join(__dirname, '../../uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  const uniqueName = `${Date.now()}-${file.originalname}`;
+  const filePath = path.join(uploadsDir, uniqueName);
+  fs.writeFileSync(filePath, file.buffer);
+  return { secure_url: `/uploads/${uniqueName}`, filePath };
+};
+
+// ─── PROFILE ─────────────────────────────────────────────────────────────────
+
 const getProfile = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const student = await prisma.student.findUnique({
       where: { userId },
       include: {
-        education: true,
-        skills: true,
-        projects: true,
-        certifications: true,
-        experiences: true,
-        languages: true,
-        documents: true,
-        socialLinks: true,
-        preferences: true,
+        education: true, skills: true, projects: true, certifications: true,
+        experiences: true, languages: true, documents: true, socialLinks: true, preferences: true,
       },
     });
-
-    if (!student) {
-      return res.status(404).json({ message: 'Student profile not found' });
-    }
-
+    if (!student) return res.status(404).json({ message: 'Student profile not found' });
     res.json(student);
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
-// Update base personal info
 const updateProfile = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const { phone, gender, dob, address, city, state, country, pincode } = req.body;
-
     const student = await prisma.student.update({
       where: { userId },
-      data: {
-        phone,
-        gender,
-        dob: dob ? new Date(dob) : null,
-        address,
-        city,
-        state,
-        country,
-        pincode,
-      },
+      data: { phone, gender, dob: dob ? new Date(dob) : null, address, city, state, country, pincode },
     });
-
-    res.json({ message: 'Profile updated successfully', student });
-  } catch (error) {
-    next(error);
-  }
+    res.json({ message: 'Profile updated', student });
+  } catch (error) { next(error); }
 };
 
-// Generic array updater for Education, Projects, etc.
+// ─── EDUCATION ────────────────────────────────────────────────────────────────
+
 const addEducation = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const student = await prisma.student.findUnique({ where: { userId } });
-    
+    const { institution, university, degree, branch, cgpa, percentage, startYear, endYear, isCurrent } = req.body;
     const newEdu = await prisma.studentEducation.create({
       data: {
-        ...req.body,
-        studentId: student.id,
+        studentId: student.id, institution, university, degree, branch,
+        cgpa: cgpa ? parseFloat(cgpa) : null,
+        percentage: percentage ? parseFloat(percentage) : null,
+        startYear: parseInt(startYear),
+        endYear: endYear ? parseInt(endYear) : null,
+        isCurrent: isCurrent === true || isCurrent === 'true',
       }
     });
     res.status(201).json(newEdu);
   } catch (error) { next(error); }
 };
 
+const updateEducation = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const { institution, university, degree, branch, cgpa, percentage, startYear, endYear, isCurrent } = req.body;
+    const edu = await prisma.studentEducation.findFirst({ where: { id, studentId: student.id } });
+    if (!edu) return res.status(404).json({ message: 'Education record not found' });
+    const updated = await prisma.studentEducation.update({
+      where: { id },
+      data: {
+        institution, university, degree, branch,
+        cgpa: cgpa ? parseFloat(cgpa) : null,
+        percentage: percentage ? parseFloat(percentage) : null,
+        startYear: parseInt(startYear),
+        endYear: endYear ? parseInt(endYear) : null,
+        isCurrent: isCurrent === true || isCurrent === 'true',
+      }
+    });
+    res.json(updated);
+  } catch (error) { next(error); }
+};
+
+const deleteEducation = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const edu = await prisma.studentEducation.findFirst({ where: { id, studentId: student.id } });
+    if (!edu) return res.status(404).json({ message: 'Education record not found' });
+    await prisma.studentEducation.delete({ where: { id } });
+    res.json({ message: 'Education deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── SKILLS ───────────────────────────────────────────────────────────────────
+
+const addSkill = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { name, category, level } = req.body;
+    const skill = await prisma.studentSkill.create({
+      data: { studentId: student.id, name, category, level: level || 'INTERMEDIATE' }
+    });
+    res.status(201).json(skill);
+  } catch (error) { next(error); }
+};
+
+const updateSkill = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const { name, category, level } = req.body;
+    const skill = await prisma.studentSkill.findFirst({ where: { id, studentId: student.id } });
+    if (!skill) return res.status(404).json({ message: 'Skill not found' });
+    const updated = await prisma.studentSkill.update({ where: { id }, data: { name, category, level } });
+    res.json(updated);
+  } catch (error) { next(error); }
+};
+
+const deleteSkill = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const skill = await prisma.studentSkill.findFirst({ where: { id, studentId: student.id } });
+    if (!skill) return res.status(404).json({ message: 'Skill not found' });
+    await prisma.studentSkill.delete({ where: { id } });
+    res.json({ message: 'Skill deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
+
+const toArray = (val) => {
+  if (Array.isArray(val)) return val.filter(Boolean);
+  if (!val || !val.trim()) return [];
+  return val.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+};
+
 const addProject = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const student = await prisma.student.findUnique({ where: { userId } });
-    
-    const newProject = await prisma.studentProject.create({
+    const { title, description, techStack, role, duration, githubUrl, liveUrl } = req.body;
+    const project = await prisma.studentProject.create({
       data: {
-        ...req.body,
-        studentId: student.id,
+        studentId: student.id, title, description, role, duration, githubUrl, liveUrl,
+        techStack: toArray(techStack),
       }
     });
-    res.status(201).json(newProject);
+    res.status(201).json(project);
   } catch (error) { next(error); }
 };
 
-// Handle document upload (Resume/Profile Pic)
-const uploadDocument = async (req, res, next) => {
+const updateProject = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
     const { userId } = req.user;
     const student = await prisma.student.findUnique({ where: { userId } });
-    const { type } = req.body; // RESUME, PICTURE, CERTIFICATE
-
-    const document = await prisma.studentDocument.create({
+    const { id } = req.params;
+    const { title, description, techStack, role, duration, githubUrl, liveUrl } = req.body;
+    const project = await prisma.studentProject.findFirst({ where: { id, studentId: student.id } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    const updated = await prisma.studentProject.update({
+      where: { id },
       data: {
-        studentId: student.id,
-        type: type || 'OTHER',
-        url: req.file.path,
-        filename: req.file.originalname,
-        size: req.file.size,
-        mimetype: req.file.mimetype,
+        title, description, role, duration, githubUrl, liveUrl,
+        techStack: toArray(techStack),
       }
     });
+    res.json(updated);
+  } catch (error) { next(error); }
+};
 
-    // If it's a picture, also update the main User table
+const deleteProject = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const project = await prisma.studentProject.findFirst({ where: { id, studentId: student.id } });
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    await prisma.studentProject.delete({ where: { id } });
+    res.json({ message: 'Project deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── CERTIFICATIONS ───────────────────────────────────────────────────────────
+
+const addCertification = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { title, organization, issueDate, expiryDate, credentialId, credentialUrl } = req.body;
+    const cert = await prisma.studentCertification.create({
+      data: {
+        studentId: student.id, title, organization, credentialId, credentialUrl,
+        issueDate: new Date(issueDate),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+      }
+    });
+    res.status(201).json(cert);
+  } catch (error) { next(error); }
+};
+
+const updateCertification = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const { title, organization, issueDate, expiryDate, credentialId, credentialUrl } = req.body;
+    const cert = await prisma.studentCertification.findFirst({ where: { id, studentId: student.id } });
+    if (!cert) return res.status(404).json({ message: 'Certification not found' });
+    const updated = await prisma.studentCertification.update({
+      where: { id },
+      data: {
+        title, organization, credentialId, credentialUrl,
+        issueDate: new Date(issueDate),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+      }
+    });
+    res.json(updated);
+  } catch (error) { next(error); }
+};
+
+const deleteCertification = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const cert = await prisma.studentCertification.findFirst({ where: { id, studentId: student.id } });
+    if (!cert) return res.status(404).json({ message: 'Certification not found' });
+    await prisma.studentCertification.delete({ where: { id } });
+    res.json({ message: 'Certification deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── EXPERIENCE ───────────────────────────────────────────────────────────────
+
+const addExperience = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { company, role, employmentType, startDate, endDate, isCurrent, description } = req.body;
+    const exp = await prisma.studentExperience.create({
+      data: {
+        studentId: student.id, company, role, employmentType, description,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        isCurrent: isCurrent === true || isCurrent === 'true',
+      }
+    });
+    res.status(201).json(exp);
+  } catch (error) { next(error); }
+};
+
+const updateExperience = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const { company, role, employmentType, startDate, endDate, isCurrent, description } = req.body;
+    const exp = await prisma.studentExperience.findFirst({ where: { id, studentId: student.id } });
+    if (!exp) return res.status(404).json({ message: 'Experience not found' });
+    const updated = await prisma.studentExperience.update({
+      where: { id },
+      data: {
+        company, role, employmentType, description,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        isCurrent: isCurrent === true || isCurrent === 'true',
+      }
+    });
+    res.json(updated);
+  } catch (error) { next(error); }
+};
+
+const deleteExperience = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const exp = await prisma.studentExperience.findFirst({ where: { id, studentId: student.id } });
+    if (!exp) return res.status(404).json({ message: 'Experience not found' });
+    await prisma.studentExperience.delete({ where: { id } });
+    res.json({ message: 'Experience deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── LANGUAGES ────────────────────────────────────────────────────────────────
+
+const addLanguage = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { language, read, write, speak, proficiency } = req.body;
+    const lang = await prisma.studentLanguage.create({
+      data: {
+        studentId: student.id, language, proficiency: proficiency || 'FLUENT',
+        read: read !== false, write: write !== false, speak: speak !== false,
+      }
+    });
+    res.status(201).json(lang);
+  } catch (error) { next(error); }
+};
+
+const updateLanguage = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const { language, read, write, speak, proficiency } = req.body;
+    const lang = await prisma.studentLanguage.findFirst({ where: { id, studentId: student.id } });
+    if (!lang) return res.status(404).json({ message: 'Language not found' });
+    const updated = await prisma.studentLanguage.update({
+      where: { id },
+      data: { language, proficiency, read, write, speak }
+    });
+    res.json(updated);
+  } catch (error) { next(error); }
+};
+
+const deleteLanguage = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const lang = await prisma.studentLanguage.findFirst({ where: { id, studentId: student.id } });
+    if (!lang) return res.status(404).json({ message: 'Language not found' });
+    await prisma.studentLanguage.delete({ where: { id } });
+    res.json({ message: 'Language deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── DOCUMENTS ────────────────────────────────────────────────────────────────
+
+const uploadDocument = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { type } = req.body;
+    const result = saveFileLocally(req.file);
+    const document = await prisma.studentDocument.create({
+      data: {
+        studentId: student.id, type: type || 'OTHER',
+        url: result.secure_url, filename: req.file.originalname,
+        size: req.file.size, mimetype: req.file.mimetype,
+      }
+    });
     if (type === 'PICTURE') {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { profilePicture: req.file.path }
-      });
+      await prisma.user.update({ where: { id: userId }, data: { profilePicture: result.secure_url } });
     }
-
     res.status(201).json({ message: 'Document uploaded successfully', document });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
+};
+
+const deleteDocument = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { id } = req.params;
+    const doc = await prisma.studentDocument.findFirst({ where: { id, studentId: student.id } });
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    await prisma.studentDocument.delete({ where: { id } });
+    res.json({ message: 'Document deleted' });
+  } catch (error) { next(error); }
+};
+
+// ─── SOCIAL LINKS ─────────────────────────────────────────────────────────────
+
+const updateSocialLinks = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { github, linkedin, portfolio, leetcode, codechef, hackerrank, codeforces } = req.body;
+    const social = await prisma.studentSocial.upsert({
+      where: { studentId: student.id },
+      create: { studentId: student.id, github, linkedin, portfolio, leetcode, codechef, hackerrank, codeforces },
+      update: { github, linkedin, portfolio, leetcode, codechef, hackerrank, codeforces },
+    });
+    res.json(social);
+  } catch (error) { next(error); }
+};
+
+// ─── PREFERENCES ──────────────────────────────────────────────────────────────
+
+const updatePreferences = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { preferredRoles, preferredLocations, expectedSalary, employmentType, remotePreference } = req.body;
+    const pref = await prisma.studentPreference.upsert({
+      where: { studentId: student.id },
+      create: { studentId: student.id, preferredRoles: preferredRoles || [], preferredLocations: preferredLocations || [], expectedSalary, employmentType, remotePreference },
+      update: { preferredRoles: preferredRoles || [], preferredLocations: preferredLocations || [], expectedSalary, employmentType, remotePreference },
+    });
+    res.json(pref);
+  } catch (error) { next(error); }
 };
 
 module.exports = {
-  getProfile,
-  updateProfile,
-  addEducation,
-  addProject,
-  uploadDocument,
+  getProfile, updateProfile,
+  addEducation, updateEducation, deleteEducation,
+  addSkill, updateSkill, deleteSkill,
+  addProject, updateProject, deleteProject,
+  addCertification, updateCertification, deleteCertification,
+  addExperience, updateExperience, deleteExperience,
+  addLanguage, updateLanguage, deleteLanguage,
+  uploadDocument, deleteDocument,
+  updateSocialLinks, updatePreferences,
 };

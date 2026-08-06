@@ -40,7 +40,10 @@ const StudentOnboarding = () => {
         profileData: data
       });
       
+      localStorage.setItem('accessToken', res.data.accessToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
       updateUser(res.data.user);
+      
       navigate('/student');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to complete profile');

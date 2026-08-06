@@ -9,8 +9,13 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import StudentDashboard from './pages/StudentDashboard'
 import Resume from './pages/student/Resume'
-import Placeholder from './pages/student/Placeholder'
+import Education from './pages/student/Education'
+import Projects from './pages/student/Projects'
+import Experience from './pages/student/Experience'
+import Certifications from './pages/student/Certifications'
+import Documents from './pages/student/Documents'
 import RecruiterDashboard from './pages/RecruiterDashboard'
+import RecruiterProfile from './pages/RecruiterProfile'
 import AdminDashboard from './pages/AdminDashboard'
 import Jobs from './pages/Jobs'
 import JobDetails from './pages/JobDetails'
@@ -56,11 +61,11 @@ function App() {
             <Route index element={<StudentDashboard />} />
             <Route path="profile" element={<Profile />} />
             <Route path="resume" element={<Resume />} />
-            <Route path="education" element={<Placeholder title="Education Management" />} />
-            <Route path="projects" element={<Placeholder title="Projects Showcase" />} />
-            <Route path="experience" element={<Placeholder title="Work Experience" />} />
-            <Route path="certifications" element={<Placeholder title="Certifications" />} />
-            <Route path="documents" element={<Placeholder title="Additional Documents" />} />
+            <Route path="education" element={<Education />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="experience" element={<Experience />} />
+            <Route path="certifications" element={<Certifications />} />
+            <Route path="documents" element={<Documents />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>
@@ -69,7 +74,7 @@ function App() {
         <Route path="/recruiter" element={<ProtectedRoute allowedRoles={['RECRUITER']} />}>
           <Route element={<RecruiterLayout />}>
             <Route index element={<RecruiterDashboard />} />
-            <Route path="profile" element={<Profile />} />
+            <Route path="profile" element={<RecruiterProfile />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>

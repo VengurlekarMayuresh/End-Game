@@ -1,5 +1,8 @@
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
+  console.error('===== ERROR =====');
+  console.error(err);
+  if (err.stack) console.error(err.stack);
+  console.error('=================');
   
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   

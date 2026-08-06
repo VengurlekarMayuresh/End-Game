@@ -24,5 +24,5 @@ This repository forms the foundation of HireSense AI. Module 1 handles the core 
 ## Getting Started
 
 1. Set your `GOOGLE_CLIENT_ID` in both `.env` files.
-2. Set your Supabase `DATABASE_URL` and `DIRECT_URL` in `backend/.env`.
+2. Set your Supabase `DATABASE_URL` in `backend/.env`.
 3. Run `npm run dev` in both the `frontend` and `backend` directories.

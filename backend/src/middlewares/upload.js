@@ -1,5 +1,4 @@
 const multer = require('multer');
-const { storage } = require('../utils/cloudinary');
 
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
@@ -12,7 +11,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5 MB
   },

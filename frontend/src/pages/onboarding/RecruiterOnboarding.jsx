@@ -36,8 +36,10 @@ const RecruiterOnboarding = () => {
         role: 'RECRUITER',
         profileData: data
       });
-      
+      localStorage.setItem('accessToken', res.data.accessToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
       updateUser(res.data.user);
+      
       navigate('/recruiter');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to complete profile');
