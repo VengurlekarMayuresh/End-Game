@@ -1,13 +1,19 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { Briefcase } from 'lucide-react';
 import api from '../lib/axios';
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+
+  // If already logged in, redirect to dashboard
+  if (user) {
+    const path = user.role === 'RECRUITER' ? '/recruiter' : user.role === 'ADMIN' ? '/admin' : '/student';
+    return <Navigate to={path} replace />;
+  }
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
