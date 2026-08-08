@@ -4,7 +4,7 @@ import api from '../../lib/axios';
 import { 
   ArrowLeft, Save, Search, CheckCircle2, AlertCircle, 
   HelpCircle, Eye, ChevronLeft, ChevronRight, Settings, 
-  Plus, Calendar, ShieldAlert
+  Plus, Calendar, ShieldAlert, Upload, FileJson, X
 } from 'lucide-react';
 
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
@@ -71,11 +71,18 @@ const TestForm = () => {
     status: 'DRAFT'
   });
 
-  // Question selection states
+// Question selection states
   const [questions, setQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
   
+  // JSON upload states
+  const [jsonUploadOpen, setJsonUploadOpen] = useState(false);
+  const [jsonFile, setJsonFile] = useState(null);
+  const [jsonUploading, setJsonUploading] = useState(false);
+  const [jsonUploadResult, setJsonUploadResult] = useState(null);
+  const [jsonPreview, setJsonPreview] = useState(null);
+
   // Question search filters
   const [qSearch, setQSearch] = useState('');
   const [qCategory, setQCategory] = useState('');
@@ -132,6 +139,76 @@ const TestForm = () => {
   useEffect(() => {
     fetchQuestionSelector();
   }, [qSearch, qCategory, qDifficulty, qPage]);
+
+  // JSON Upload Handlers
+  const handleJsonFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      setError('Please select a valid JSON file');
+      return;
+    }
+    
+    setJsonFile(file);
+    setJsonUploadResult(null);
+    setJsonPreview(null);
+    setError('');
+    
+    // Parse and preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (!data.questions || !Array.isArray(data.questions)) {
+          setError('Invalid JSON format: expected { "questions": [...] }');
+          return;
+        }
+        setJsonPreview(data.questions.slice(0, 5)); // Preview first 5
+      } catch (err) {
+        setError('Invalid JSON file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleJsonUpload = async () => {
+    if (!jsonFile) return;
+    
+    setJsonUploading(true);
+    setError('');
+    
+    const formData = new FormData();
+    formData.append('file', jsonFile);
+    
+    try {
+      const res = await api.post('/recruiter/questions/bulk', jsonFile, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = res.data;
+      setJsonUploadResult(result);
+      
+      if (result.created && result.created.length > 0) {
+        // Refresh question list
+        fetchQuestionSelector();
+        // Auto-select newly created questions
+        const newIds = result.created.map(q => q.id);
+        setSelectedQuestionIds(prev => [...new Set([...prev, ...newIds])]);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload questions');
+    } finally {
+      setJsonUploading(false);
+    }
+  };
+
+  const handleJsonClose = () => {
+    setJsonUploadOpen(false);
+    setJsonFile(null);
+    setJsonUploadResult(null);
+    setJsonPreview(null);
+  };
 
   const handleQuestionToggle = (qId) => {
     setSelectedQuestionIds(prev => 
@@ -265,9 +342,18 @@ const TestForm = () => {
               <h2 className="font-semibold flex items-center gap-2 text-base">
                 <HelpCircle size={16} className="text-secondary" /> Add Questions
               </h2>
-              <span className="text-xs px-2.5 py-1 bg-secondary/15 text-secondary font-bold rounded-full">
-                {selectedQuestionIds.length} Selected
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2.5 py-1 bg-secondary/15 text-secondary font-bold rounded-full">
+                  {selectedQuestionIds.length} Selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setJsonUploadOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-xl hover:bg-primary/20 transition-colors border border-primary/20"
+                >
+                  <Upload size={13} /> Upload JSON
+                </button>
+              </div>
             </div>
 
             {/* Questions Filter */}
@@ -490,6 +576,188 @@ const TestForm = () => {
           </div>
         </div>
       </form>
+
+      {/* JSON Upload Modal */}
+      {jsonUploadOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-3xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <FileJson size={20} className="text-primary" /> Upload Questions from JSON
+              </h2>
+              <button onClick={handleJsonClose} className="p-1 hover:bg-muted rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {!jsonFile ? (
+                // File selection step
+                <div className="space-y-4">
+                  <div className="text-center py-8 border-2 border-dashed border-border rounded-2xl hover:border-primary/50 transition-colors">
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleJsonFileChange}
+                      className="hidden"
+                      id="json-file-input"
+                    />
+                    <label htmlFor="json-file-input" className="cursor-pointer flex flex-col items-center gap-3 text-muted-foreground">
+                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                        <FileJson size={32} className="text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">Drag & drop or click to select JSON file</p>
+                        <p className="text-sm">Max 100 questions per upload</p>
+                      </div>
+                    </label>
+                  </div>
+                  
+                  <div className="bg-muted/40 rounded-xl p-4 text-sm">
+                    <p className="font-semibold mb-2">Expected JSON Format:</p>
+                    <pre className="bg-background p-3 rounded-lg text-xs overflow-x-auto text-muted-foreground">
+{`{
+  "questions": [
+    {
+      "statement": "What is 2 + 2?",
+      "options": ["2", "3", "4", "5"],
+      "correctAnswer": "4",
+      "explanation": "Basic arithmetic",
+      "category": "Quantitative Aptitude",
+      "topic": "Basic Math",
+      "difficulty": "EASY",
+      "tags": ["math", "basic"],
+      "marks": 1.0,
+      "negativeMarks": 0.25,
+      "estimatedTime": 30,
+      "status": "ACTIVE"
+    }
+  ]
+}`}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                // Preview step
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Preview ({jsonPreview?.length || 0} of {jsonUploadResult?.created?.length || '?'} questions)</h3>
+                    <button
+                      onClick={() => {
+                        setJsonFile(null);
+                        setJsonPreview(null);
+                        setJsonUploadResult(null);
+                      }}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Change file
+                    </button>
+                  </div>
+                  
+                  {jsonPreview && jsonPreview.length > 0 && (
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {jsonPreview.map((q, idx) => (
+                        <div key={idx} className="p-3 bg-muted/40 rounded-xl text-sm">
+                          <p className="font-medium mb-1 line-clamp-2">{q.statement}</p>
+                          <div className="flex flex-wrap gap-1.5 text-xs">
+                            <span className={`px-2 py-0.5 rounded-full font-bold ${DIFFICULTY_BADGES[q.difficulty]}`}>
+                              {q.difficulty}
+                            </span>
+                            <span className="px-2 py-0.5 bg-secondary/15 text-secondary rounded-full font-medium">
+                              {q.category}
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full">
+                              Marks: {q.marks || 1.0}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex gap-2 text-[11px] text-muted-foreground">
+                            <span>Correct: {q.correctAnswer}</span>
+                            <span>Options: {q.options?.length || 0}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {jsonUploadResult && jsonUploadResult.created && jsonUploadResult.created.length > jsonPreview.length && (
+                        <p className="text-xs text-muted-foreground text-center">... and {jsonUploadResult.created.length - jsonPreview.length} more questions</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {jsonUploadResult && (
+                    <div className="space-y-3 pt-2 border-t border-border">
+                      <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                        <CheckCircle2 size={18} className="text-green-500 shrink-0" />
+                        <div>
+                          <p className="font-medium text-green-700">Upload Successful!</p>
+                          <p className="text-sm text-green-600">
+                            {jsonUploadResult.created?.length || 0} questions created
+                            {jsonUploadResult.failed?.length > 0 && (
+                              <span className="ml-2 text-orange-600">, {jsonUploadResult.failed.length} failed</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {jsonUploadResult.failed && jsonUploadResult.failed.length > 0 && (
+                        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
+                          <p className="font-medium text-destructive mb-2">Failed Questions:</p>
+                          <ul className="space-y-1 text-sm">
+                            {jsonUploadResult.failed.map((f, idx) => (
+                              <li key={idx} className="text-destructive/80">
+                                {f.question}: {f.error}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={handleJsonUpload}
+                          disabled={jsonUploading}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-all"
+                        >
+                          {jsonUploading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={14} /> {jsonUploadResult.created?.length ? 'Re-upload' : 'Upload Questions'}
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={handleJsonClose}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-muted text-foreground font-medium rounded-xl hover:bg-muted/80 transition-all"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )} else if (!jsonUploadResult) {
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={handleJsonUpload}
+                        disabled={jsonUploading}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-all"
+                      >
+                        <Upload size={14} /> Upload Questions
+                      </button>
+                      <button
+                        onClick={handleJsonClose}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-muted text-foreground font-medium rounded-xl hover:bg-muted/80 transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  }
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Question Preview Modal */}
       {previewQuestion && (

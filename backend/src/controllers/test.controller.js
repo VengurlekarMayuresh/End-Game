@@ -143,6 +143,72 @@ const createQuestion = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+const bulkCreateQuestions = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const recruiter = await prisma.recruiter.findUnique({ where: { userId } });
+
+    const { questions } = req.body;
+
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ message: 'questions array is required' });
+    }
+
+    const results = {
+      created: [],
+      failed: []
+    };
+
+    for (const q of questions) {
+      try {
+        const {
+          statement, options, correctAnswer, explanation,
+          category, topic, difficulty, tags, marks, negativeMarks,
+          estimatedTime, status
+        } = q;
+
+        if (!statement || !options || options.length !== 4 || !correctAnswer || !category || !difficulty) {
+          results.failed.push({ question: q.statement || 'unknown', error: 'Missing required fields (statement, 4 options, correctAnswer, category, difficulty)' });
+          continue;
+        }
+
+        if (!options.includes(correctAnswer)) {
+          results.failed.push({ question: q.statement || 'unknown', error: 'correctAnswer must be one of the provided options' });
+          continue;
+        }
+
+        if (!recruiter) {
+          results.failed.push({ question: q.statement || 'unknown', error: 'Recruiter profile not found' });
+          continue;
+        }
+
+        const question = await prisma.question.create({
+          data: {
+            recruiterId: recruiter.id,
+            statement,
+            options,
+            correctAnswer,
+            explanation: explanation || null,
+            category,
+            topic: topic || null,
+            difficulty,
+            tags: tags || [],
+            marks: parseFloat(marks) || 1.0,
+            negativeMarks: parseFloat(negativeMarks) || 0.0,
+            estimatedTime: estimatedTime ? parseInt(estimatedTime) : null,
+            status: status || 'ACTIVE'
+          }
+        });
+        results.created.push(question);
+      } catch (err) {
+        results.failed.push({ question: q.statement || 'unknown', error: err.message });
+      }
+    }
+
+    return res.status(201).json(results);
+  } catch (error) { next(error); }
+};
+
 const getQuestions = async (req, res, next) => {
   try {
     const { userId } = req.user;
@@ -1759,6 +1825,7 @@ const getStudentJobById = async (req, res, next) => {
 
 module.exports = {
   createQuestion, getQuestions, getQuestionById, updateQuestion, deleteQuestion,
+  bulkCreateQuestions,
   createTest, getTests, getTestById, updateTest, deleteTest,
   duplicateTest, publishTest, archiveTest, assignTestToJobs,
   getTestResults, getTestAnalytics,

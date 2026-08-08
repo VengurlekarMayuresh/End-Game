@@ -6,6 +6,7 @@ const {
 } = require('../controllers/job.controller');
 const {
   createQuestion, getQuestions, getQuestionById, updateQuestion, deleteQuestion,
+  bulkCreateQuestions,
   createTest, getTests, getTestById, updateTest, deleteTest,
   duplicateTest, publishTest, archiveTest, assignTestToJobs,
   getTestResults, getTestAnalytics
@@ -35,6 +36,7 @@ router.put('/applications/:appId/status', updateApplicationStatus);
 
 // Questions (Question Bank)
 router.post('/questions', createQuestion);
+router.post('/questions/bulk', bulkCreateQuestions);
 router.get('/questions', getQuestions);
 router.get('/questions/:id', getQuestionById);
 router.put('/questions/:id', updateQuestion);
