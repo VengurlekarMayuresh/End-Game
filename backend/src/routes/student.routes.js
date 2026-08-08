@@ -63,4 +63,22 @@ router.put('/social-links', updateSocialLinks);
 // Preferences
 router.put('/preferences', updatePreferences);
 
+// Jobs Helper (Student Job Portal Integration)
+const {
+  getStudentJobs, getStudentJobById, applyToJob, getStudentApplications,
+  getStudentTests, getStudentTestById, startTestAttempt, saveTestAttempt, submitTestAttempt
+} = require('../controllers/test.controller');
+
+router.get('/jobs', getStudentJobs);
+router.get('/jobs/:id', getStudentJobById);
+router.post('/jobs/:jobId/apply', applyToJob);
+router.get('/applications', getStudentApplications);
+
+// Aptitude Tests
+router.get('/tests', getStudentTests);
+router.get('/tests/:id', getStudentTestById);
+router.post('/tests/:id/start', startTestAttempt);
+router.post('/tests/:id/attempts/:attemptId/save', saveTestAttempt);
+router.post('/tests/:id/attempts/:attemptId/submit', submitTestAttempt);
+
 module.exports = router;

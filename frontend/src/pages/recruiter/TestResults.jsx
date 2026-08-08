@@ -1,0 +1,335 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '../../lib/axios';
+import { 
+  ArrowLeft, BarChart3, Users, CheckCircle2, XCircle, 
+  Clock, Award, ChevronDown, ChevronUp, AlertCircle, FileText,
+  TrendingUp, Activity, HelpCircle
+} from 'lucide-react';
+
+const TestResults = () => {
+  const { id } = useParams(); // testId
+  const navigate = useNavigate();
+
+  const [test, setTest] = useState(null);
+  const [results, setResults] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Expand detail view for a specific candidate's attempt
+  const [expandedAttemptId, setExpandedAttemptId] = useState(null);
+
+  const fetchResultsAndAnalytics = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [testRes, resultsRes, analyticsRes] = await Promise.all([
+        api.get(`/recruiter/tests/${id}`),
+        api.get(`/recruiter/tests/${id}/results`),
+        api.get(`/recruiter/tests/${id}/analytics`)
+      ]);
+      setTest(testRes.data);
+      setResults(resultsRes.data);
+      setAnalytics(analyticsRes.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch test results or analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResultsAndAnalytics();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-secondary"></div>
+      </div>
+    );
+  }
+
+  if (error || !test) {
+    return (
+      <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
+        <div className="w-16 h-16 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+          <AlertCircle size={32} />
+        </div>
+        <h2 className="text-2xl font-bold">Error</h2>
+        <p className="text-muted-foreground">{error || 'Test not found'}</p>
+        <button onClick={() => navigate('/recruiter/tests')} className="inline-flex items-center text-primary font-medium hover:underline">
+          <ArrowLeft size={16} className="mr-2" /> Back to Tests
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigate('/recruiter/tests')} className="p-2 hover:bg-muted rounded-xl transition-colors text-muted-foreground">
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h1 className="text-3xl font-bold">{test.name}</h1>
+          <p className="text-muted-foreground">Detailed candidate performance and aggregate test analytics</p>
+        </div>
+      </div>
+
+      {/* Analytics Summary */}
+      {analytics && analytics.totalAttempts > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
+            <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center mb-4">
+              <Users size={22} />
+            </div>
+            <p className="text-3xl font-bold mb-1">{analytics.totalAttempts}</p>
+            <p className="text-sm font-semibold text-foreground">Total Candidates</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Attempted this test</p>
+          </div>
+          
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
+            <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center mb-4">
+              <TrendingUp size={22} />
+            </div>
+            <p className="text-3xl font-bold mb-1">{analytics.passPercentageRate.toFixed(1)}%</p>
+            <p className="text-sm font-semibold text-foreground">Passing Rate</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{analytics.passCount} passed / {analytics.failCount} failed</p>
+          </div>
+
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
+            <div className="w-12 h-12 bg-yellow-500/10 text-yellow-500 rounded-xl flex items-center justify-center mb-4">
+              <Award size={22} />
+            </div>
+            <p className="text-3xl font-bold mb-1">{analytics.averagePercentage.toFixed(1)}%</p>
+            <p className="text-sm font-semibold text-foreground">Average Score</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Avg: {analytics.averageScore.toFixed(1)} marks</p>
+          </div>
+
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
+            <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center mb-4">
+              <Clock size={22} />
+            </div>
+            <p className="text-3xl font-bold mb-1">{Math.round(analytics.averageTimeTaken / 60)} min</p>
+            <p className="text-sm font-semibold text-foreground">Average Duration</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Time taken per attempt</p>
+          </div>
+        </div>
+      )}
+
+      {/* Breakdowns */}
+      {analytics && analytics.totalAttempts > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Category-wise Performance */}
+          <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
+            <h3 className="font-bold text-base flex items-center gap-2">
+              <Activity size={18} className="text-secondary" /> Category-wise Avg Performance
+            </h3>
+            {Object.keys(analytics.categoryPerformance).length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No category data available</p>
+            ) : (
+              <div className="space-y-3.5">
+                {Object.keys(analytics.categoryPerformance).map(cat => {
+                  const val = analytics.categoryPerformance[cat].averagePercentage;
+                  return (
+                    <div key={cat} className="space-y-1">
+                      <div className="flex justify-between text-sm font-medium">
+                        <span className="text-foreground capitalize">{cat}</span>
+                        <span className="text-secondary">{val.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                        <div className="bg-secondary h-full rounded-full" style={{ width: `${val}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Difficulty-wise Performance */}
+          <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
+            <h3 className="font-bold text-base flex items-center gap-2">
+              <BarChart3 size={18} className="text-secondary" /> Difficulty-wise Avg Performance
+            </h3>
+            {Object.keys(analytics.difficultyPerformance).length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No difficulty data available</p>
+            ) : (
+              <div className="space-y-3.5">
+                {Object.keys(analytics.difficultyPerformance).map(diff => {
+                  const val = analytics.difficultyPerformance[diff].averagePercentage;
+                  return (
+                    <div key={diff} className="space-y-1">
+                      <div className="flex justify-between text-sm font-medium">
+                        <span className="text-foreground">{diff}</span>
+                        <span className="text-secondary">{val.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                        <div className="bg-secondary h-full rounded-full" style={{ width: `${val}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Candidate attempts list */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <Users size={20} /> Candidate Attempts List
+        </h2>
+
+        {results.length === 0 ? (
+          <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
+            No attempts recorded yet for this test.
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-2xl overflow-hidden divide-y divide-border shadow-sm">
+            {results.map((att) => {
+              const studentName = att.student?.user?.fullName || 'Anonymous';
+              const studentEmail = att.student?.user?.email || 'N/A';
+              const studentPic = att.student?.user?.profilePicture;
+              const isExpanded = expandedAttemptId === att.id;
+
+              return (
+                <div key={att.id} className="p-5 flex flex-col gap-4">
+                  
+                  {/* Summary bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-secondary/15 flex items-center justify-center shrink-0 overflow-hidden">
+                        {studentPic ? (
+                          <img src={studentPic} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Users size={18} className="text-secondary" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm text-foreground truncate">{studentName}</h4>
+                        <p className="text-xs text-muted-foreground truncate">{studentEmail}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-wrap text-sm">
+                      <div className="text-right">
+                        <p className="font-bold text-base">{att.score} marks</p>
+                        <p className="text-xs text-muted-foreground">{att.percentage.toFixed(1)}%</p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 font-bold text-xs shrink-0">
+                        {att.passed ? (
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-green-500/10 text-green-600 rounded-full">
+                            <CheckCircle2 size={13} /> Pass
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 text-red-600 rounded-full">
+                            <XCircle size={13} /> Fail
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        <p className="font-medium">{new Date(att.completedAt || att.startedAt).toLocaleDateString()}</p>
+                        <p className="mt-0.5">{Math.round(att.timeTaken / 60) || 0}m {att.timeTaken % 60 || 0}s</p>
+                      </div>
+
+                      <button
+                        onClick={() => setExpandedAttemptId(isExpanded ? null : att.id)}
+                        className="p-1.5 hover:bg-muted rounded-xl transition-all text-muted-foreground"
+                      >
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Detailed breakdown when expanded */}
+                  {isExpanded && (
+                    <div className="mt-2 border-t border-border pt-4 space-y-4 bg-muted/10 p-4 rounded-xl">
+                      
+                      {/* Metric breakdown summary */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold">
+                        <div className="p-3 bg-card border rounded-lg">
+                          <p className="text-muted-foreground">Correct Answers</p>
+                          <p className="text-base font-bold text-green-600 mt-1">{att.correctAnswersCount}</p>
+                        </div>
+                        <div className="p-3 bg-card border rounded-lg">
+                          <p className="text-muted-foreground">Wrong Answers</p>
+                          <p className="text-base font-bold text-red-500 mt-1">{att.wrongAnswersCount}</p>
+                        </div>
+                        <div className="p-3 bg-card border rounded-lg">
+                          <p className="text-muted-foreground">Skipped Questions</p>
+                          <p className="text-base font-bold text-yellow-600 mt-1">{att.skippedCount}</p>
+                        </div>
+                        <div className="p-3 bg-card border rounded-lg">
+                          <p className="text-muted-foreground">Submission Status</p>
+                          <p className="text-base font-bold text-foreground mt-1 capitalize">{att.status.replace('_', ' ')}</p>
+                        </div>
+                      </div>
+
+                      {/* Evaluated Answers */}
+                      {att.answers && att.answers.length > 0 && (
+                        <div className="space-y-3 mt-4">
+                          <p className="text-sm font-bold text-foreground">Question-by-Question Evaluation:</p>
+                          <div className="space-y-2">
+                            {att.answers.map((ans, idx) => {
+                              // Find corresponding question in test definition
+                              const qDef = test.testQuestions?.find(tq => tq.questionId === ans.questionId)?.question;
+                              if (!qDef) return null;
+
+                              return (
+                                <div key={idx} className="p-4 bg-card border rounded-xl space-y-2 text-xs">
+                                  <div className="flex justify-between items-start gap-4">
+                                    <p className="font-semibold leading-relaxed flex-1">
+                                      <span className="text-muted-foreground mr-1.5">Q{idx+1}.</span>
+                                      {qDef.statement}
+                                    </p>
+                                    <span className={`px-2 py-0.5 rounded font-bold ${
+                                      ans.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {ans.isCorrect ? `+${ans.marksObtained}` : `${ans.marksObtained}`} marks
+                                    </span>
+                                  </div>
+
+                                  <div className="grid sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                                    <div className="flex items-center gap-1 bg-muted/40 p-2 rounded-lg">
+                                      <span className="font-semibold text-muted-foreground">Selected answer:</span>
+                                      <span className={ans.isCorrect ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
+                                        {ans.selectedOption || '(Skipped)'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 bg-green-500/5 p-2 rounded-lg border border-green-500/10">
+                                      <span className="font-semibold text-green-700">Correct answer:</span>
+                                      <span className="text-green-700 font-semibold">{qDef.correctAnswer}</span>
+                                    </div>
+                                  </div>
+
+                                  {qDef.explanation && !ans.isCorrect && (
+                                    <p className="text-muted-foreground text-[10px] bg-muted/20 p-2 rounded-md italic mt-1 leading-relaxed">
+                                      Explanation: {qDef.explanation}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TestResults;

@@ -199,20 +199,39 @@ const RecruiterDashboard = () => {
             />
           </div>
 
-          {/* Recent Activity (empty state) */}
+          {/* Recent Activity */}
           <div className="mt-6">
             <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
-            <div className="bg-card border border-border rounded-2xl p-10 text-center">
-              <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Zap size={24} className="text-muted-foreground opacity-40" />
+            {dashData?.recentActivity && dashData.recentActivity.length > 0 ? (
+              <div className="bg-card border border-border rounded-2xl divide-y divide-border overflow-hidden shadow-sm">
+                {dashData.recentActivity.map((activity) => (
+                  <div key={activity.id} className="p-4 flex items-start gap-4 hover:bg-muted/10 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center shrink-0 border border-secondary/20">
+                      <Zap size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{activity.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{activity.desc}</p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-semibold bg-muted px-2.5 py-1 rounded-md shrink-0 self-center">
+                      {new Date(activity.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <p className="font-medium text-muted-foreground">No activity yet</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">Post your first job to start seeing applications</p>
-              <Link to="/recruiter/jobs/new"
-                className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">
-                <Plus size={14} /> Post First Job
-              </Link>
-            </div>
+            ) : (
+              <div className="bg-card border border-border rounded-2xl p-10 text-center">
+                <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Zap size={24} className="text-muted-foreground opacity-40" />
+                </div>
+                <p className="font-medium text-muted-foreground">No activity yet</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">Post your first job to start seeing applications</p>
+                <Link to="/recruiter/jobs/new"
+                  className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all">
+                  <Plus size={14} /> Post First Job
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 

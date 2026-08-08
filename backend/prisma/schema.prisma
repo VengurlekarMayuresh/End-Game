@@ -69,6 +69,7 @@ model Student {
   socialLinks    StudentSocial?
   preferences    StudentPreference?
   applications   JobApplication[]
+  testAttempts   TestAttempt[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -223,6 +224,8 @@ model Recruiter {
   companyLogo        String?
   officeAddress      String?
   jobs               Job[]
+  questions          Question[]
+  tests              Test[]
 }
 
 model Admin {
@@ -277,6 +280,8 @@ model Job {
   deadline         DateTime?
 
   applications     JobApplication[]
+  testId           String?
+  test             Test?       @relation(fields: [testId], references: [id], onDelete: SetNull)
 
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
@@ -298,4 +303,88 @@ model JobApplication {
   updatedAt   DateTime          @updatedAt
 
   @@unique([jobId, studentId])
+}
+
+// -----------------------------------------
+// APTITUDE TEST MODULE MODELS
+// -----------------------------------------
+
+model Question {
+  id            String         @id @default(uuid())
+  recruiterId   String
+  recruiter     Recruiter      @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  statement     String         @db.Text
+  options       String[]
+  correctAnswer String
+  explanation   String?        @db.Text
+  category      String
+  topic         String?
+  difficulty    String         // EASY, MEDIUM, HARD
+  tags          String[]
+  marks         Float          @default(1.0)
+  negativeMarks Float          @default(0.0)
+  estimatedTime Int?           // in seconds
+  status        String         @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  testQuestions TestQuestion[]
+}
+
+model Test {
+  id                  String         @id @default(uuid())
+  recruiterId         String
+  recruiter           Recruiter      @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?        @db.Text
+  instructions        String?        @db.Text
+  duration            Int            // in minutes
+  passingPercentage   Float          @default(40.0)
+  maxAttempts         Int            @default(1)
+  negativeMarking     Boolean        @default(false)
+  marksPerQuestion    Float          @default(1.0)
+  randomQuestionOrder Boolean        @default(false)
+  randomOptionOrder   Boolean        @default(false)
+  numQuestions        Int?
+  startDate           DateTime?
+  endDate             DateTime?
+  status              String         @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  jobs                Job[]
+  testQuestions       TestQuestion[]
+  attempts            TestAttempt[]
+}
+
+model TestQuestion {
+  id         String   @id @default(uuid())
+  testId     String
+  test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([testId, questionId])
+}
+
+model TestAttempt {
+  id                  String    @id @default(uuid())
+  testId              String
+  test                Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId           String
+  student             Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score               Float     @default(0.0)
+  percentage          Float     @default(0.0)
+  passed              Boolean   @default(false)
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  timeTaken           Int?      // in seconds
+  status              String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
+  correctAnswersCount Int       @default(0)
+  wrongAnswersCount   Int       @default(0)
+  skippedCount        Int       @default(0)
+  answers             Json      // array of answer objects: e.g. [{questionId, selectedOption, isCorrect, score}]
+  categoryBreakdown   Json?     // category-wise performance
+  difficultyBreakdown Json?     // difficulty-wise performance
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
