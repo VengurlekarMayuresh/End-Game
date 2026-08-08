@@ -30,7 +30,7 @@ const updateRecruiterProfile = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// GET dashboard stats (placeholder counts until Job module is built)
+// GET dashboard stats
 const getDashboardStats = async (req, res, next) => {
   try {
     const { userId } = req.user;
@@ -38,16 +38,58 @@ const getDashboardStats = async (req, res, next) => {
       where: { userId },
       include: { user: { select: { fullName: true, email: true, profilePicture: true, createdAt: true } } },
     });
-    // Static placeholders - will be replaced with real counts when Job module is built
+
+    if (!recruiter) return res.status(404).json({ message: 'Recruiter profile not found' });
+
+    let activeJobs = 0;
+    let totalApplications = 0;
+    let shortlisted = 0;
+    let interviews = 0;
+    let recentActivity = [];
+
+    try {
+      const [activeJobsCount, totalApps, shortlistCount, interviewCount] = await prisma.$transaction([
+        prisma.job.count({ where: { recruiterId: recruiter.id, status: 'ACTIVE' } }),
+        prisma.jobApplication.count({ where: { job: { recruiterId: recruiter.id } } }),
+        prisma.jobApplication.count({ where: { job: { recruiterId: recruiter.id }, status: { in: ['SHORTLISTED', 'INTERVIEW', 'OFFERED'] } } }),
+        prisma.jobApplication.count({ where: { job: { recruiterId: recruiter.id }, status: 'INTERVIEW' } })
+      ]);
+
+      activeJobs = activeJobsCount;
+      totalApplications = totalApps;
+      shortlisted = shortlistCount;
+      interviews = interviewCount;
+
+      const recentApps = await prisma.jobApplication.findMany({
+        where: { job: { recruiterId: recruiter.id } },
+        include: {
+          job: { select: { title: true } },
+          student: { include: { user: { select: { fullName: true } } } }
+        },
+        orderBy: { appliedAt: 'desc' },
+        take: 5
+      });
+
+      recentActivity = recentApps.map(app => ({
+        id: app.id,
+        type: 'APPLICATION',
+        title: 'New Application Received',
+        desc: `${app.student.user.fullName} applied for "${app.job.title}"`,
+        time: app.appliedAt
+      }));
+    } catch (dbErr) {
+      console.warn('Recruiter dashboard stats query failed, falling back to static placeholders:', dbErr.message);
+    }
+
     res.json({
       recruiter,
       stats: {
-        activeJobs: 0,
-        totalApplications: 0,
-        shortlisted: 0,
-        interviews: 0,
+        activeJobs,
+        totalApplications,
+        shortlisted,
+        interviews,
       },
-      recentActivity: [],
+      recentActivity,
     });
   } catch (error) { next(error); }
 };

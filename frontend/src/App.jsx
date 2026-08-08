@@ -29,6 +29,14 @@ import Settings from './pages/Settings'
 import NotFound from './pages/NotFound'
 import Unauthorized from './pages/Unauthorized'
 
+// Aptitude Test Pages
+import QuestionBank from './pages/recruiter/QuestionBank'
+import TestsList from './pages/recruiter/TestsList'
+import TestForm from './pages/recruiter/TestForm'
+import TestResults from './pages/recruiter/TestResults'
+import StudentTests from './pages/student/StudentTests'
+import TestInterface from './pages/student/TestInterface'
+
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleSelection from './pages/onboarding/RoleSelection'
 import StudentOnboarding from './pages/onboarding/StudentOnboarding'
@@ -70,8 +78,10 @@ function App() {
             <Route path="experience" element={<Experience />} />
             <Route path="certifications" element={<Certifications />} />
             <Route path="documents" element={<Documents />} />
+            <Route path="tests" element={<StudentTests />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+          <Route path="tests/:id/attempt" element={<TestInterface />} />
         </Route>
 
         {/* Recruiter Routes */}
@@ -82,6 +92,11 @@ function App() {
             <Route path="jobs" element={<MyJobs />} />
             <Route path="jobs/new" element={<PostJob />} />
             <Route path="candidates" element={<Candidates />} />
+            <Route path="questions" element={<QuestionBank />} />
+            <Route path="tests" element={<TestsList />} />
+            <Route path="tests/new" element={<TestForm />} />
+            <Route path="tests/:id/edit" element={<TestForm />} />
+            <Route path="tests/:id/results" element={<TestResults />} />
             <Route path="settings" element={<RecruiterSettings />} />
           </Route>
         </Route>

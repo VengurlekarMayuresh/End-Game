@@ -6,7 +6,7 @@ import {
   LayoutDashboard, UserCircle, FileText, GraduationCap,
   Code2, Briefcase, Award, Files, Settings, LogOut,
   Briefcase as BriefcaseLogo, ChevronLeft, ChevronRight,
-  Moon, Sun, Bell
+  Moon, Sun, Bell, ClipboardList
 } from 'lucide-react';
 
 const StudentLayout = () => {
@@ -23,6 +23,7 @@ const StudentLayout = () => {
     { name: 'Experience',     path: '/student/experience',    icon: <Briefcase size={20} /> },
     { name: 'Certifications', path: '/student/certifications',icon: <Award size={20} /> },
     { name: 'Documents',      path: '/student/documents',     icon: <Files size={20} /> },
+    { name: 'Aptitude Tests', path: '/student/tests',         icon: <ClipboardList size={20} /> },
     { name: 'Settings',       path: '/student/settings',      icon: <Settings size={20} /> },
   ];
 
