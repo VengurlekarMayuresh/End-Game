@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../lib/axios';
+import { getImageUrl } from '../../lib/utils';
 import {
   Bell, Shield, Target, Save, CheckCircle2, X, Plus,
   Building2, UserCircle, Briefcase
@@ -97,7 +98,7 @@ const RecruiterSettings = () => {
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl overflow-hidden bg-secondary/10 flex items-center justify-center shrink-0">
             {user?.profilePicture
-              ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" />
+              ? <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
               : <UserCircle size={28} className="text-secondary" />}
           </div>
           <div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStudentProfile, useUpdateProfile, useUpdateSocialLinks } from '../hooks/useStudent';
 import { useAuth } from '../contexts/AuthContext';
+import { getImageUrl } from '../lib/utils';
 import {
   User, Phone, MapPin, Calendar, Globe, GitBranch,
   Save, Edit2, X, CheckCircle2, ExternalLink, Code2
@@ -100,7 +101,7 @@ const Profile = () => {
         <div className="flex items-center gap-5">
           <div className="w-20 h-20 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
             {user?.profilePicture
-              ? <img src={user.profilePicture} alt={user.fullName} className="w-full h-full object-cover" />
+              ? <img src={getImageUrl(user.profilePicture)} alt={user.fullName} className="w-full h-full object-cover" />
               : <User size={32} className="text-primary" />
             }
           </div>

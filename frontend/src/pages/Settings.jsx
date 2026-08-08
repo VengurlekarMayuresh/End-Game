@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudentProfile, useUpdatePreferences } from '../hooks/useStudent';
+import { getImageUrl } from '../lib/utils';
 import { Settings as SettingsIcon, Bell, Shield, Target, Save, CheckCircle2, X, Plus } from 'lucide-react';
 
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance'];
@@ -93,7 +94,7 @@ const Settings = () => {
         </div>
         <div className="flex items-center gap-4">
           {user?.profilePicture && (
-            <img src={user.profilePicture} alt="" className="w-14 h-14 rounded-2xl object-cover" />
+            <img src={getImageUrl(user.profilePicture)} alt="" className="w-14 h-14 rounded-2xl object-cover" />
           )}
           <div>
             <p className="font-semibold">{user?.fullName}</p>

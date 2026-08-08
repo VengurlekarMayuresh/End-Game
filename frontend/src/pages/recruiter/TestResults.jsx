@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../lib/axios';
+import { getImageUrl } from '../../lib/utils';
 import { 
   ArrowLeft, BarChart3, Users, CheckCircle2, XCircle, 
   Clock, Award, ChevronDown, ChevronUp, AlertCircle, FileText,
@@ -205,7 +206,7 @@ const TestResults = () => {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-secondary/15 flex items-center justify-center shrink-0 overflow-hidden">
                         {studentPic ? (
-                          <img src={studentPic} alt="" className="w-full h-full object-cover" />
+                          <img src={getImageUrl(studentPic)} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <Users size={18} className="text-secondary" />
                         )}

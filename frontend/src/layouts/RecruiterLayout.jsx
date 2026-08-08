@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getImageUrl } from '../lib/utils';
 import {
   LayoutDashboard, UserCircle, Briefcase, Users,
   Settings, LogOut, Building2, ChevronLeft, ChevronRight, Bell,
@@ -51,7 +52,7 @@ const RecruiterLayout = () => {
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl overflow-hidden bg-secondary/20 flex items-center justify-center shrink-0">
                 {user?.profilePicture
-                  ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" />
+                  ? <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
                   : <UserCircle size={20} className="text-secondary" />}
               </div>
               <div className="overflow-hidden">
@@ -108,7 +109,7 @@ const RecruiterLayout = () => {
             </button>
             <div className="w-8 h-8 rounded-xl overflow-hidden bg-secondary/20">
               {user?.profilePicture
-                ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" />
+                ? <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : <UserCircle size={20} className="text-secondary m-1" />}
             </div>
           </div>

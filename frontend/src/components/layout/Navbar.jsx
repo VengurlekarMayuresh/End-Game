@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getImageUrl } from '../../lib/utils';
 import {
   Moon, Sun, Menu, X, Briefcase,
-  LayoutDashboard, UserCircle, LogOut, ChevronDown, Bell
+  LayoutDashboard, UserCircle, LogOut, ChevronDown
 } from 'lucide-react';
 
 const Navbar = () => {
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -92,7 +92,7 @@ const Navbar = () => {
               >
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
                   {user.profilePicture
-                    ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" />
+                    ? <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
                     : <UserCircle size={20} className="text-primary" />}
                 </div>
                 <span className="text-sm font-medium max-w-[120px] truncate hidden lg:block">{user.fullName}</span>
@@ -178,7 +178,7 @@ const Navbar = () => {
                 <div className="flex items-center gap-3 px-2.5 py-2">
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
                     {user.profilePicture
-                      ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" />
+                      ? <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
                       : <UserCircle size={20} className="text-primary" />}
                   </div>
                   <div>

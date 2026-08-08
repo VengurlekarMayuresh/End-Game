@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../lib/axios';
+import { getImageUrl } from '../../lib/utils';
 import {
   Users, Search, Filter, Eye, CheckCircle2,
   XCircle, Clock, Star, MessageSquare, Download,
@@ -41,7 +42,7 @@ const CandidateCard = ({ app, onStatusChange }) => {
         {/* Avatar */}
         <div className="w-12 h-12 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
           {user?.profilePicture
-            ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" />
+            ? <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
             : <UserCircle size={24} className="text-primary" />}
         </div>
 
