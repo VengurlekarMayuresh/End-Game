@@ -70,6 +70,7 @@ model Student {
   preferences    StudentPreference?
   applications   JobApplication[]
   testAttempts   TestAttempt[]
+  codingAttempts CodingAttempt[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -226,6 +227,7 @@ model Recruiter {
   jobs               Job[]
   questions          Question[]
   tests              Test[]
+  codingAssessments  CodingAssessment[]
 }
 
 model Admin {
@@ -282,6 +284,8 @@ model Job {
   applications     JobApplication[]
   testId           String?
   test             Test?       @relation(fields: [testId], references: [id], onDelete: SetNull)
+  codingAssessmentId String?
+  codingAssessment   CodingAssessment? @relation(fields: [codingAssessmentId], references: [id], onDelete: SetNull)
 
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
@@ -388,3 +392,108 @@ model TestAttempt {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 }
+
+// -----------------------------------------
+// CODING ASSESSMENT MODULE MODELS
+// -----------------------------------------
+
+model CodingAssessment {
+  id                String          @id @default(uuid())
+  recruiterId       String
+  recruiter         Recruiter       @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?         @db.Text
+  instructions      String?         @db.Text
+  duration          Int             // in minutes
+  status            String          @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  problems          CodingProblem[]
+  jobs              Job[]
+  attempts          CodingAttempt[]
+}
+
+model CodingProblem {
+  id                 String             @id @default(uuid())
+  codingAssessmentId String
+  codingAssessment   CodingAssessment   @relation(fields: [codingAssessmentId], references: [id], onDelete: Cascade)
+  title              String
+  statement          String             @db.Text
+  description        String             @db.Text
+  difficulty         String             // EASY, MEDIUM, HARD
+  inputFormat        String             @db.Text
+  outputFormat       String             @db.Text
+  constraints        String             @db.Text
+  examples           Json               // [{input, output, explanation}]
+  sampleInput        String             @db.Text
+  sampleOutput       String             @db.Text
+  marks              Float              @default(10.0)
+  supportedLanguages String[]           // e.g. ["PYTHON", "JAVA"]
+  pythonStarterCode  String?            @db.Text
+  javaStarterCode    String?            @db.Text
+  order              Int                @default(0)
+  status             String             @default("ACTIVE") // ACTIVE, INACTIVE
+  testCases          CodingTestCase[]
+  submissions        CodingSubmission[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model CodingTestCase {
+  id              String        @id @default(uuid())
+  codingProblemId String
+  codingProblem   CodingProblem @relation(fields: [codingProblemId], references: [id], onDelete: Cascade)
+  input           String        @db.Text
+  expectedOutput  String        @db.Text
+  isPublic        Boolean       @default(false)
+  marks           Float         @default(1.0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model CodingAttempt {
+  id                 String             @id @default(uuid())
+  codingAssessmentId String
+  codingAssessment   CodingAssessment   @relation(fields: [codingAssessmentId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score              Float              @default(0.0)
+  passed             Boolean            @default(false)
+  startedAt          DateTime           @default(now())
+  completedAt        DateTime?
+  timeTaken          Int?               // in seconds
+  status             String             @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  submissions        CodingSubmission[]
+}
+
+model CodingSubmission {
+  id              String        @id @default(uuid())
+  codingAttemptId String
+  codingAttempt   CodingAttempt @relation(fields: [codingAttemptId], references: [id], onDelete: Cascade)
+  codingProblemId String
+  codingProblem   CodingProblem @relation(fields: [codingProblemId], references: [id], onDelete: Cascade)
+  language        String        // PYTHON, JAVA
+  code            String        @db.Text
+  marksObtained   Float         @default(0.0)
+  testsPassed     Int           @default(0)
+  totalTests      Int           @default(0)
+  status          String        @default("PENDING") // PENDING, COMPILED, COMPILATION_FAILED, RUNTIME_ERROR, TIME_LIMIT_EXCEEDED, SUCCESS
+  executionTime   Float?        // in seconds
+  errorMessage    String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model CodingAutosave {
+  id              String   @id @default(uuid())
+  studentId       String
+  codingProblemId String
+  language        String
+  code            String   @db.Text
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentId, codingProblemId])
+}
+

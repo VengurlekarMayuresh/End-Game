@@ -37,6 +37,12 @@ import TestResults from './pages/recruiter/TestResults'
 import StudentTests from './pages/student/StudentTests'
 import TestInterface from './pages/student/TestInterface'
 
+// Coding Assessment Pages
+import CodingAssessmentsList from './pages/recruiter/CodingAssessmentsList'
+import CodingAssessmentForm from './pages/recruiter/CodingAssessmentForm'
+import CodingAssessmentResults from './pages/recruiter/CodingAssessmentResults'
+import CodingTestInterface from './pages/student/CodingTestInterface'
+
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleSelection from './pages/onboarding/RoleSelection'
 import StudentOnboarding from './pages/onboarding/StudentOnboarding'
@@ -82,6 +88,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="tests/:id/attempt" element={<TestInterface />} />
+          <Route path="coding-assessments/:id/attempt" element={<CodingTestInterface />} />
         </Route>
 
         {/* Recruiter Routes */}
@@ -97,6 +104,10 @@ function App() {
             <Route path="tests/new" element={<TestForm />} />
             <Route path="tests/:id/edit" element={<TestForm />} />
             <Route path="tests/:id/results" element={<TestResults />} />
+            <Route path="coding-assessments" element={<CodingAssessmentsList />} />
+            <Route path="coding-assessments/new" element={<CodingAssessmentForm />} />
+            <Route path="coding-assessments/:id/edit" element={<CodingAssessmentForm />} />
+            <Route path="coding-assessments/:id/results" element={<CodingAssessmentResults />} />
             <Route path="settings" element={<RecruiterSettings />} />
           </Route>
         </Route>
