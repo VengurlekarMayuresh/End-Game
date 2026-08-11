@@ -18,6 +18,7 @@ import RecruiterDashboard from './pages/RecruiterDashboard'
 import RecruiterProfile from './pages/RecruiterProfile'
 import PostJob from './pages/recruiter/PostJob'
 import MyJobs from './pages/recruiter/MyJobs'
+import JobApplicants from './pages/recruiter/JobApplicants'
 import Candidates from './pages/recruiter/Candidates'
 import RecruiterSettings from './pages/recruiter/RecruiterSettings'
 import AdminDashboard from './pages/AdminDashboard'
@@ -98,6 +99,7 @@ function App() {
             <Route path="profile" element={<RecruiterProfile />} />
             <Route path="jobs" element={<MyJobs />} />
             <Route path="jobs/new" element={<PostJob />} />
+            <Route path="jobs/:jobId/applications" element={<JobApplicants />} />
             <Route path="candidates" element={<Candidates />} />
             <Route path="questions" element={<QuestionBank />} />
             <Route path="tests" element={<TestsList />} />

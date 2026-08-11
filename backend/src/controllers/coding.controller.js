@@ -268,7 +268,7 @@ const assignCodingAssessmentToJobs = async (req, res, next) => {
 
     // Remove assignment from jobs that are no longer selected
     await prisma.job.updateMany({
-      where: { recruiterId: recruiter.id, codingAssessmentId: id, id: { notIn: jobIds } },
+      where: { recruiterId: recruiter.id, codingAssessment: { isNot: null }, id: { notIn: jobIds } },
       data: { codingAssessmentId: null }
     });
 
@@ -416,7 +416,7 @@ const getStudentCodingAssessments = async (req, res, next) => {
 
     // Find jobs with Coding Assessments
     const jobsWithCoding = await prisma.job.findMany({
-      where: { id: { in: jobIds }, codingAssessmentId: { not: null } },
+      where: { id: { in: jobIds }, codingAssessment: { isNot: null } },
       select: { codingAssessmentId: true }
     });
     const assessmentIds = jobsWithCoding.map(j => j.codingAssessmentId).filter(Boolean);
@@ -489,7 +489,7 @@ const getStudentCodingAssessmentById = async (req, res, next) => {
     const applied = await prisma.jobApplication.findFirst({
       where: {
         studentId: student.id,
-        job: { codingAssessmentId: id }
+        job: { codingAssessment: { isNot: null }, codingAssessmentId: id }
       },
       include: { job: { select: { title: true } } }
     });
@@ -533,7 +533,7 @@ const startCodingAttempt = async (req, res, next) => {
     const applied = await prisma.jobApplication.findFirst({
       where: {
         studentId: student.id,
-        job: { codingAssessmentId: id }
+        job: { codingAssessment: { isNot: null }, codingAssessmentId: id }
       }
     });
     if (!applied) return res.status(403).json({ message: 'Access denied: Job application not found' });

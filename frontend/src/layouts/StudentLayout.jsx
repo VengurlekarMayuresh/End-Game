@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getImageUrl } from '../lib/utils';
@@ -35,12 +35,12 @@ const StudentLayout = () => {
         {/* Logo + collapse */}
         <div className={`p-4 border-b border-border flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <Link to="/" className="flex items-center gap-2 group" aria-label="Go to homepage">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
                 <BriefcaseLogo size={16} className="text-primary-foreground" />
               </div>
               <span className="font-bold text-sm">HireSense AI</span>
-            </div>
+            </Link>
           )}
           <button
             onClick={() => setCollapsed(c => !c)}
@@ -108,12 +108,12 @@ const StudentLayout = () => {
           <div className="flex items-center gap-2">
             {/* Breadcrumb hint — collapsed sidebar shows brand here */}
             {collapsed && (
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
+              <Link to="/" className="flex items-center gap-2 group" aria-label="Go to homepage">
+                <div className="w-6 h-6 bg-primary rounded flex items-center justify-center group-hover:scale-105 transition-transform">
                   <BriefcaseLogo size={13} className="text-primary-foreground" />
                 </div>
                 <span className="text-sm font-bold">HireSense AI</span>
-              </div>
+              </Link>
             )}
           </div>
 

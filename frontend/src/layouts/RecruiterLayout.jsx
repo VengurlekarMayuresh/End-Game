@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getImageUrl } from '../lib/utils';
 import {
@@ -31,13 +31,13 @@ const RecruiterLayout = () => {
         {/* Logo + toggle */}
         <div className={`p-4 border-b border-border flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center">
+            <Link to="/" className="flex items-center gap-2 group" aria-label="Go to homepage">
+              <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Building2 size={16} className="text-secondary-foreground" />
               </div>
               <span className="font-bold text-sm">HireSense</span>
               <span className="text-xs px-1.5 py-0.5 bg-secondary/20 text-secondary rounded font-medium">Recruiter</span>
-            </div>
+            </Link>
           )}
           <button
             onClick={() => setCollapsed(c => !c)}

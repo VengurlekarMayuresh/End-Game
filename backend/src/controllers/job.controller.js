@@ -131,12 +131,28 @@ const getApplicationsForJob = async (req, res, next) => {
     const { userId } = req.user;
     const recruiter = await prisma.recruiter.findUnique({ where: { userId } });
     const { jobId } = req.params;
-    const job = await prisma.job.findFirst({ where: { id: jobId, recruiterId: recruiter.id } });
+    const job = await prisma.job.findFirst({
+      where: { id: jobId, recruiterId: recruiter.id },
+      include: {
+        test: { select: { id: true, name: true, duration: true, passingPercentage: true } },
+        codingAssessment: { select: { id: true, name: true, duration: true } },
+      },
+    });
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
     const applications = await prisma.jobApplication.findMany({
       where: { jobId },
       include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            testId: true,
+            codingAssessmentId: true,
+            test: { select: { id: true, name: true, duration: true, passingPercentage: true } },
+            codingAssessment: { select: { id: true, name: true, duration: true } },
+          },
+        },
         student: {
           include: {
             user: { select: { fullName: true, email: true, profilePicture: true } },
@@ -150,7 +166,101 @@ const getApplicationsForJob = async (req, res, next) => {
       },
       orderBy: { appliedAt: 'desc' },
     });
-    res.json(applications);
+
+    const completedStatuses = ['COMPLETED', 'AUTO_SUBMITTED'];
+    const latestByStudent = (attempts) => {
+      const sorted = [...attempts].sort((a, b) => {
+        const left = new Date(b.completedAt || b.updatedAt || b.createdAt).getTime();
+        const right = new Date(a.completedAt || a.updatedAt || a.createdAt).getTime();
+        return left - right;
+      });
+
+      const map = new Map();
+      sorted.forEach(attempt => {
+        if (!map.has(attempt.studentId)) map.set(attempt.studentId, attempt);
+      });
+      return map;
+    };
+
+    let aptitudeAttempts = new Map();
+    let codingAttempts = new Map();
+
+    try {
+      if (job.testId) {
+        const attempts = await prisma.testAttempt.findMany({
+          where: { testId: job.testId, status: { in: completedStatuses } },
+          select: {
+            studentId: true,
+            score: true,
+            percentage: true,
+            passed: true,
+            completedAt: true,
+            timeTaken: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        aptitudeAttempts = latestByStudent(attempts);
+      }
+
+      if (job.codingAssessmentId) {
+        const attempts = await prisma.codingAttempt.findMany({
+          where: { codingAssessmentId: job.codingAssessmentId, status: { in: completedStatuses } },
+          select: {
+            studentId: true,
+            score: true,
+            passed: true,
+            completedAt: true,
+            timeTaken: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        codingAttempts = latestByStudent(attempts);
+      }
+    } catch (assessmentError) {
+      console.warn('Assessment lookup failed for job applications:', assessmentError.message);
+    }
+
+    const enriched = applications.map(app => {
+      const aptitude = aptitudeAttempts.get(app.studentId) || null;
+      const coding = codingAttempts.get(app.studentId) || null;
+
+      const bestScore = Math.max(
+        aptitude?.percentage ?? -1,
+        coding?.score ?? -1,
+      );
+
+      return {
+        ...app,
+        examSummary: {
+          aptitude: aptitude ? {
+            completed: true,
+            score: aptitude.score,
+            percentage: aptitude.percentage,
+            passed: aptitude.passed,
+            completedAt: aptitude.completedAt,
+            timeTaken: aptitude.timeTaken,
+            status: aptitude.status,
+          } : null,
+          coding: coding ? {
+            completed: true,
+            score: coding.score,
+            passed: coding.passed,
+            completedAt: coding.completedAt,
+            timeTaken: coding.timeTaken,
+            status: coding.status,
+          } : null,
+          completed: Boolean(aptitude || coding),
+          completedCount: [aptitude, coding].filter(Boolean).length,
+          bestScore: bestScore >= 0 ? bestScore : null,
+        },
+      };
+    });
+
+    res.json(enriched);
   } catch (error) { next(error); }
 };
 
