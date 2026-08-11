@@ -78,6 +78,14 @@ const isDbTableMissingError = (err) => {
   return err.code === 'P2021' || err.code === 'P2022' || err.message?.includes('relation') || err.message?.includes('does not exist');
 };
 
+// Proctoring: exam starts with this many total "strikes". Every tab-switch /
+// window-switch / fullscreen-exit event consumes one. When the count hits 0,
+// the exam is auto-submitted, disqualified, and scored as zero.
+const MAX_VIOLATIONS = 5;
+
+const buildViolationRemark = (tabViolations, fullscreenViolations) =>
+  `Violation of exam rules: auto-submitted after ${tabViolations + fullscreenViolations} tab/window-switch violation(s) (limit ${MAX_VIOLATIONS}). Score recorded as zero.`;
+
 // ─── QUESTIONS CRUD ───────────────────────────────────────────────────────────
 
 const createQuestion = async (req, res, next) => {
@@ -876,7 +884,9 @@ const getTestResults = async (req, res, next) => {
         ...att,
         violationInfo: {
           tabViolations: att.tabViolations,
-          fullscreenViolations: att.fullscreenViolations
+          fullscreenViolations: att.fullscreenViolations,
+          disqualified: att.disqualified || false,
+          remark: att.remark || null
         }
       }));
       return res.json(filledAttempts);
@@ -887,7 +897,9 @@ const getTestResults = async (req, res, next) => {
           ...att,
           violationInfo: {
             tabViolations: att.tabViolations,
-            fullscreenViolations: att.fullscreenViolations
+            fullscreenViolations: att.fullscreenViolations,
+            disqualified: att.disqualified || false,
+            remark: att.remark || null
           }
         }));
         return res.json(filled);
@@ -1682,6 +1694,15 @@ const submitTestAttempt = async (req, res, next) => {
       const finalAnswers = answers || attempt.answers;
       const questions = attempt.test.testQuestions.map(tq => tq.question).filter(Boolean);
 
+      // Extract violation counts, defaulting to 0 if not provided
+      const tabViolations = (violationCounts && violationCounts.tab) || 0;
+      const fullscreenViolations = (violationCounts && violationCounts.fullscreen) || 0;
+      const totalViolations = tabViolations + fullscreenViolations;
+      // A client can explicitly flag disqualification, but the server is the
+      // source of truth: hitting the shared strike limit always disqualifies,
+      // regardless of what the client claims.
+      const disqualified = req.body.disqualified === true || totalViolations >= MAX_VIOLATIONS;
+
       let correctAnswersCount = 0;
       let wrongAnswersCount = 0;
       let skippedCount = 0;
@@ -1690,54 +1711,14 @@ const submitTestAttempt = async (req, res, next) => {
 
       const categoryBreakdown = {};
       const difficultyBreakdown = {};
+      let evaluatedAnswers;
 
-      const evaluatedAnswers = finalAnswers.map(ans => {
-        const q = questions.find(question => question.id === ans.questionId);
-        if (!q) return ans;
-
-        const isCorrect = q.correctAnswer.trim().toLowerCase() === (ans.selectedOption || '').trim().toLowerCase();
-        const isSkipped = !ans.selectedOption;
-
-        const qMarks = q.marks || attempt.test.marksPerQuestion || 1.0;
-        const qNegMarks = q.negativeMarks || 0.0;
-
-        let marksObtained = 0;
-        if (isSkipped) {
-          skippedCount++;
-        } else if (isCorrect) {
-          correctAnswersCount++;
-          marksObtained = qMarks;
-        } else {
-          wrongAnswersCount++;
-          marksObtained = attempt.test.negativeMarking ? -qNegMarks : 0;
-        }
-
-        score += marksObtained;
-        totalMaxScore += qMarks;
-
-        const cat = q.category;
-        if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { total: 0, correct: 0, score: 0, maxScore: 0 };
-        categoryBreakdown[cat].total++;
-        categoryBreakdown[cat].maxScore += qMarks;
-        if (isCorrect) categoryBreakdown[cat].correct++;
-        categoryBreakdown[cat].score += marksObtained;
-
-        const diff = q.difficulty;
-        if (!difficultyBreakdown[diff]) difficultyBreakdown[diff] = { total: 0, correct: 0, score: 0, maxScore: 0 };
-        difficultyBreakdown[diff].total++;
-        difficultyBreakdown[diff].maxScore += qMarks;
-        if (isCorrect) difficultyBreakdown[diff].correct++;
-        difficultyBreakdown[diff].score += marksObtained;
-
-        return { ...ans, isCorrect, marksObtained };
-      });
-
-      questions.forEach(q => {
-        const answered = finalAnswers.find(ans => ans.questionId === q.id);
-        if (!answered) {
-          skippedCount++;
+      if (disqualified) {
+        // Rule violation: zero out everything and mark every question as skipped.
+        evaluatedAnswers = questions.map(q => {
           const qMarks = q.marks || attempt.test.marksPerQuestion || 1.0;
           totalMaxScore += qMarks;
+          skippedCount++;
 
           const cat = q.category;
           if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { total: 0, correct: 0, score: 0, maxScore: 0 };
@@ -1749,70 +1730,17 @@ const submitTestAttempt = async (req, res, next) => {
           difficultyBreakdown[diff].total++;
           difficultyBreakdown[diff].maxScore += qMarks;
 
-          evaluatedAnswers.push({
-            questionId: q.id,
-            selectedOption: null,
-            isCorrect: false,
-            marksObtained: 0
-          });
-        }
-      });
-
-      const percentage = totalMaxScore > 0 ? Math.max(0, (score / totalMaxScore) * 100) : 0;
-      const passed = percentage >= attempt.test.passingPercentage;
-
-      const completedAt = new Date();
-      const timeTaken = Math.round((completedAt - new Date(attempt.startedAt)) / 1000);
-
-const updated = await prisma.testAttempt.update({
-        where: { id: attemptId },
-        data: {
-          score: parseFloat(score.toFixed(2)),
-          percentage: parseFloat(percentage.toFixed(2)),
-          passed,
-          completedAt,
-          timeTaken,
-          status: autoSubmitted ? 'AUTO_SUBMITTED' : 'COMPLETED',
-          correctAnswersCount,
-          wrongAnswersCount,
-          skippedCount,
-          answers: evaluatedAnswers,
-          categoryBreakdown,
-          difficultyBreakdown,
-          tabViolations,
-          fullscreenViolations
-        }
-      });
-      return res.json(updated);
-    } catch (dbErr) {
-      if (isDbTableMissingError(dbErr)) {
-        const idx = mockTestAttempts.findIndex(x => x.id === attemptId);
-        if (idx === -1) return res.status(404).json({ message: 'Attempt not found (Mock)' });
-        
-        const attempt = mockTestAttempts[idx];
-        const testDef = mockTests.find(t => t.id === attempt.testId);
-        if (!testDef) return res.status(404).json({ message: 'Associated test not found (Mock)' });
-
-        const finalAnswers = answers || attempt.answers;
-        const questions = testDef.questionIds.map(qId => mockQuestions.find(x => x.id === qId)).filter(Boolean);
-
-        let correctAnswersCount = 0;
-        let wrongAnswersCount = 0;
-        let skippedCount = 0;
-        let score = 0;
-        let totalMaxScore = 0;
-
-        const categoryBreakdown = {};
-        const difficultyBreakdown = {};
-
-        const evaluatedAnswers = finalAnswers.map(ans => {
+          return { questionId: q.id, selectedOption: null, isCorrect: false, marksObtained: 0 };
+        });
+      } else {
+        evaluatedAnswers = finalAnswers.map(ans => {
           const q = questions.find(question => question.id === ans.questionId);
           if (!q) return ans;
 
           const isCorrect = q.correctAnswer.trim().toLowerCase() === (ans.selectedOption || '').trim().toLowerCase();
           const isSkipped = !ans.selectedOption;
 
-          const qMarks = q.marks || testDef.marksPerQuestion || 1.0;
+          const qMarks = q.marks || attempt.test.marksPerQuestion || 1.0;
           const qNegMarks = q.negativeMarks || 0.0;
 
           let marksObtained = 0;
@@ -1823,7 +1751,7 @@ const updated = await prisma.testAttempt.update({
             marksObtained = qMarks;
           } else {
             wrongAnswersCount++;
-            marksObtained = testDef.negativeMarking ? -qNegMarks : 0;
+            marksObtained = attempt.test.negativeMarking ? -qNegMarks : 0;
           }
 
           score += marksObtained;
@@ -1850,16 +1778,18 @@ const updated = await prisma.testAttempt.update({
           const answered = finalAnswers.find(ans => ans.questionId === q.id);
           if (!answered) {
             skippedCount++;
-            const qMarks = q.marks || testDef.marksPerQuestion || 1.0;
+            const qMarks = q.marks || attempt.test.marksPerQuestion || 1.0;
             totalMaxScore += qMarks;
 
             const cat = q.category;
             if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { total: 0, correct: 0, score: 0, maxScore: 0 };
             categoryBreakdown[cat].total++;
+            categoryBreakdown[cat].maxScore += qMarks;
 
             const diff = q.difficulty;
             if (!difficultyBreakdown[diff]) difficultyBreakdown[diff] = { total: 0, correct: 0, score: 0, maxScore: 0 };
             difficultyBreakdown[diff].total++;
+            difficultyBreakdown[diff].maxScore += qMarks;
 
             evaluatedAnswers.push({
               questionId: q.id,
@@ -1869,21 +1799,176 @@ const updated = await prisma.testAttempt.update({
             });
           }
         });
+      }
 
-        const percentage = totalMaxScore > 0 ? Math.max(0, (score / totalMaxScore) * 100) : 0;
-        const passed = percentage >= testDef.passingPercentage || 40.0;
+      const percentage = disqualified
+        ? 0
+        : (totalMaxScore > 0 ? Math.max(0, (score / totalMaxScore) * 100) : 0);
+      const passed = disqualified ? false : percentage >= attempt.test.passingPercentage;
+      const remark = disqualified ? buildViolationRemark(tabViolations, fullscreenViolations) : null;
+
+      const completedAt = new Date();
+      const timeTaken = Math.round((completedAt - new Date(attempt.startedAt)) / 1000);
+
+      const updated = await prisma.testAttempt.update({
+        where: { id: attemptId },
+        data: {
+          score: disqualified ? 0 : parseFloat(score.toFixed(2)),
+          percentage: parseFloat(percentage.toFixed(2)),
+          passed,
+          completedAt,
+          timeTaken,
+          status: (disqualified || autoSubmitted) ? 'AUTO_SUBMITTED' : 'COMPLETED',
+          correctAnswersCount: disqualified ? 0 : correctAnswersCount,
+          wrongAnswersCount: disqualified ? 0 : wrongAnswersCount,
+          skippedCount,
+          answers: evaluatedAnswers,
+          categoryBreakdown,
+          difficultyBreakdown,
+          tabViolations,
+          fullscreenViolations,
+          disqualified,
+          remark
+        }
+      });
+      return res.json(updated);
+    } catch (dbErr) {
+      if (isDbTableMissingError(dbErr)) {
+        const idx = mockTestAttempts.findIndex(x => x.id === attemptId);
+        if (idx === -1) return res.status(404).json({ message: 'Attempt not found (Mock)' });
+        
+        const attempt = mockTestAttempts[idx];
+        const testDef = mockTests.find(t => t.id === attempt.testId);
+        if (!testDef) return res.status(404).json({ message: 'Associated test not found (Mock)' });
+
+        const finalAnswers = answers || attempt.answers;
+        const questions = testDef.questionIds.map(qId => mockQuestions.find(x => x.id === qId)).filter(Boolean);
 
         // Extract violation counts, defaulting to 0 if not provided
         const tabViolations = (violationCounts && violationCounts.tab) || 0;
         const fullscreenViolations = (violationCounts && violationCounts.fullscreen) || 0;
+        const totalViolations = tabViolations + fullscreenViolations;
+        const disqualified = req.body.disqualified === true || totalViolations >= MAX_VIOLATIONS;
+
+        let correctAnswersCount = 0;
+        let wrongAnswersCount = 0;
+        let skippedCount = 0;
+        let score = 0;
+        let totalMaxScore = 0;
+
+        const categoryBreakdown = {};
+        const difficultyBreakdown = {};
+        let evaluatedAnswers;
+
+        if (disqualified) {
+          evaluatedAnswers = questions.map(q => {
+            const qMarks = q.marks || testDef.marksPerQuestion || 1.0;
+            totalMaxScore += qMarks;
+            skippedCount++;
+
+            const cat = q.category;
+            if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { total: 0, correct: 0, score: 0, maxScore: 0 };
+            categoryBreakdown[cat].total++;
+            categoryBreakdown[cat].maxScore += qMarks;
+
+            const diff = q.difficulty;
+            if (!difficultyBreakdown[diff]) difficultyBreakdown[diff] = { total: 0, correct: 0, score: 0, maxScore: 0 };
+            difficultyBreakdown[diff].total++;
+            difficultyBreakdown[diff].maxScore += qMarks;
+
+            return { questionId: q.id, selectedOption: null, isCorrect: false, marksObtained: 0 };
+          });
+        } else {
+          evaluatedAnswers = finalAnswers.map(ans => {
+            const q = questions.find(question => question.id === ans.questionId);
+            if (!q) return ans;
+
+            const isCorrect = q.correctAnswer.trim().toLowerCase() === (ans.selectedOption || '').trim().toLowerCase();
+            const isSkipped = !ans.selectedOption;
+
+            const qMarks = q.marks || testDef.marksPerQuestion || 1.0;
+            const qNegMarks = q.negativeMarks || 0.0;
+
+            let marksObtained = 0;
+            if (isSkipped) {
+              skippedCount++;
+            } else if (isCorrect) {
+              correctAnswersCount++;
+              marksObtained = qMarks;
+            } else {
+              wrongAnswersCount++;
+              marksObtained = testDef.negativeMarking ? -qNegMarks : 0;
+            }
+
+            score += marksObtained;
+            totalMaxScore += qMarks;
+
+            const cat = q.category;
+            if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { total: 0, correct: 0, score: 0, maxScore: 0 };
+            categoryBreakdown[cat].total++;
+            categoryBreakdown[cat].maxScore += qMarks;
+            if (isCorrect) categoryBreakdown[cat].correct++;
+            categoryBreakdown[cat].score += marksObtained;
+
+            const diff = q.difficulty;
+            if (!difficultyBreakdown[diff]) difficultyBreakdown[diff] = { total: 0, correct: 0, score: 0, maxScore: 0 };
+            difficultyBreakdown[diff].total++;
+            difficultyBreakdown[diff].maxScore += qMarks;
+            if (isCorrect) difficultyBreakdown[diff].correct++;
+            difficultyBreakdown[diff].score += marksObtained;
+
+            return { ...ans, isCorrect, marksObtained };
+          });
+
+          questions.forEach(q => {
+            const answered = finalAnswers.find(ans => ans.questionId === q.id);
+            if (!answered) {
+              skippedCount++;
+              const qMarks = q.marks || testDef.marksPerQuestion || 1.0;
+              totalMaxScore += qMarks;
+
+              const cat = q.category;
+              if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { total: 0, correct: 0, score: 0, maxScore: 0 };
+              categoryBreakdown[cat].total++;
+
+              const diff = q.difficulty;
+              if (!difficultyBreakdown[diff]) difficultyBreakdown[diff] = { total: 0, correct: 0, score: 0, maxScore: 0 };
+              difficultyBreakdown[diff].total++;
+
+              evaluatedAnswers.push({
+                questionId: q.id,
+                selectedOption: null,
+                isCorrect: false,
+                marksObtained: 0
+              });
+            }
+          });
+        }
+
+        const percentage = disqualified
+          ? 0
+          : (totalMaxScore > 0 ? Math.max(0, (score / totalMaxScore) * 100) : 0);
+        const passingPercentage = testDef.passingPercentage || 40.0;
+        const passed = disqualified ? false : percentage >= passingPercentage;
+        const remark = disqualified ? buildViolationRemark(tabViolations, fullscreenViolations) : null;
 
         mockTestAttempts[idx] = {
           ...mockTestAttempts[idx],
-          score: parseFloat(score.toFixed(2)),
+          score: disqualified ? 0 : parseFloat(score.toFixed(2)),
           percentage: parseFloat(percentage.toFixed(2)),
           passed,
+          status: (disqualified || autoSubmitted) ? 'AUTO_SUBMITTED' : 'COMPLETED',
+          correctAnswersCount: disqualified ? 0 : correctAnswersCount,
+          wrongAnswersCount: disqualified ? 0 : wrongAnswersCount,
+          skippedCount,
+          answers: evaluatedAnswers,
+          categoryBreakdown,
+          difficultyBreakdown,
           tabViolations,
           fullscreenViolations,
+          disqualified,
+          remark,
+          completedAt: new Date(),
           updatedAt: new Date()
         };
         return res.json(mockTestAttempts[idx]);
