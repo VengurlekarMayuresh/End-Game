@@ -55,3 +55,6 @@ Thumbs.db
 # Tooling caches
 .oxlint/
 .eslintcache
+
+
+opencode.json

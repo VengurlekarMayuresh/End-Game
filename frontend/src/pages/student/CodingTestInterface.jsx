@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
+import ViolationModal from '../../components/ViolationModal';
 import { 
   Clock, ShieldAlert, Award, FileText, CheckCircle2, 
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
@@ -57,6 +58,7 @@ const CodingTestInterface = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [proctorNotice, setProctorNotice] = useState('');
   const [windowViolationTimerLeft, setWindowViolationTimerLeft] = useState(0);
+  const [violationModal, setViolationModal] = useState(null);
 
   const timerRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
@@ -159,20 +161,33 @@ const CodingTestInterface = () => {
     }
 
     setProctorNotice(notice);
-    alert(notice);
     persistProctorState(currentAttemptIdRef.current, nextTabSwitches, nextFullscreenExits);
 
     if (kind === 'TAB' && nextTabSwitches <= 0) {
-      startWindowViolationTimer();
-      window.focus();
-      await requestFullscreen();
+      setViolationModal({
+        type: 'critical',
+        title: 'Test Terminated - Tab Switch Violation',
+        message: 'You have exceeded the maximum allowed tab/window switches. Your assessment will be automatically submitted.',
+        isBlocking: true,
+        strictMode: true,
+        onAcknowledge: () => {
+          autoSubmit(currentAttemptIdRef.current);
+        }
+      });
       return;
     }
 
     if (nextFullscreenExits <= 0) {
-      setProctorNotice('Violation limit reached. Your assessment is being submitted automatically.');
-      alert('Fullscreen violation limit reached. Submitting assessment.');
-      await autoSubmit(currentAttemptIdRef.current);
+      setViolationModal({
+        type: 'critical',
+        title: 'Test Terminated - Fullscreen Violation Limit Reached',
+        message: 'You have exceeded the maximum allowed fullscreen exits. Your assessment will be automatically submitted.',
+        isBlocking: true,
+        strictMode: true,
+        onAcknowledge: () => {
+          autoSubmit(currentAttemptIdRef.current);
+        }
+      });
       return;
     }
 
@@ -668,6 +683,20 @@ const CodingTestInterface = () => {
             <AlertTriangle size={16} />
             <span>{proctorNotice}</span>
           </div>
+        )}
+
+        {violationModal && (
+          <ViolationModal
+            isOpen={true}
+            title={violationModal.title}
+            message={violationModal.message}
+            type={violationModal.type}
+            count={violationModal.count}
+            maxCount={violationModal.maxCount}
+            onAcknowledge={violationModal.onAcknowledge}
+            isBlocking={violationModal.isBlocking}
+            strictMode={violationModal.strictMode || false}
+          />
         )}
 
         {/* Workbench Body */}

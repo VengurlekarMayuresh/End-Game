@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
   ClipboardList
 } from 'lucide-react';
+import ViolationModal from '../../components/ViolationModal';
 
 const PROCTOR_LIMITS = {
   tabSwitches: 5,
@@ -39,6 +40,8 @@ const TestInterface = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [proctorNotice, setProctorNotice] = useState('');
   const [windowViolationTimerLeft, setWindowViolationTimerLeft] = useState(0);
+  const [violationModal, setViolationModal] = useState(null);
+  const [violationCounts, setViolationCounts] = useState({ tab: 0, fullscreen: 0 });
 
   const timerRef = useRef(null);
   const proctorCooldownRef = useRef(0);
@@ -89,6 +92,15 @@ const TestInterface = () => {
     setWindowViolationTimerLeft(0);
   };
 
+  const closeViolationModal = () => {
+    setViolationModal(null);
+  };
+
+  const getViolationInfo = () => ({
+    tabViolations: violationCounts.tab,
+    fullscreenViolations: violationCounts.fullscreen
+  });
+
   const terminateForViolation = async (reason) => {
     if (autoSubmitLockRef.current) return;
     setProctorNotice(reason);
@@ -97,8 +109,20 @@ const TestInterface = () => {
     if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
     }
-    alert(reason);
-    await autoSubmit(currentAttemptIdRef.current, selectedAnswers);
+    const violationInfo = getViolationInfo();
+    setViolationModal({
+      type: 'critical',
+      title: 'Test Terminated - Violation Limit Exceeded',
+      message: `${reason}\n\nYour assessment will be automatically submitted and closed.`,
+      isBlocking: false,
+      strictMode: false,
+      autoCloseSeconds: 5,
+      onClose: closeViolationModal,
+      onAcknowledge: async () => {
+        closeViolationModal();
+        await autoSubmit(currentAttemptIdRef.current, selectedAnswers, violationInfo);
+      }
+    });
   };
 
   const startWindowViolationTimer = () => {
@@ -117,6 +141,15 @@ const TestInterface = () => {
     }, 1000);
   };
 
+  const handleAcknowledgeViolation = () => {
+    clearWindowViolationTimer();
+    if (typeof window !== 'undefined') {
+      window.focus();
+    }
+    requestFullscreen();
+    closeViolationModal();
+  };
+
   const handleProctorViolation = async (kind) => {
     if (phase !== 'TESTING' || submitting || autoSubmitLockRef.current) return;
 
@@ -127,39 +160,79 @@ const TestInterface = () => {
     let nextTabSwitches = tabSwitchesLeft;
     let nextFullscreenExits = fullscreenExitsLeft;
     let notice = '';
+    let violationType = 'TAB';
 
     if (kind === 'FULLSCREEN') {
       nextFullscreenExits = Math.max(0, nextFullscreenExits - 1);
       setFullscreenExitsLeft(nextFullscreenExits);
       notice = `Fullscreen exit detected. ${nextFullscreenExits} fullscreen warning${nextFullscreenExits === 1 ? '' : 's'} left.`;
       setIsFullscreen(false);
+      violationType = 'FULLSCREEN';
+      setViolationCounts(prev => ({ ...prev, fullscreen: prev.fullscreen + 1 }));
     } else {
       nextTabSwitches = Math.max(0, nextTabSwitches - 1);
       setTabSwitchesLeft(nextTabSwitches);
       notice = `Tab or window switch detected. ${nextTabSwitches} warning${nextTabSwitches === 1 ? '' : 's'} left.`;
+      violationType = 'TAB';
+      setViolationCounts(prev => ({ ...prev, tab: prev.tab + 1 }));
     }
 
     setProctorNotice(notice);
-    alert(notice);
     persistProctorState(currentAttemptIdRef.current, nextTabSwitches, nextFullscreenExits);
 
-    if (kind === 'TAB' && nextTabSwitches <= 0) {
-      startWindowViolationTimer();
-      window.focus();
-      await requestFullscreen();
+    const currentViolationCount = violationType === 'FULLSCREEN' 
+      ? violationCounts.fullscreen + 1 
+      : violationCounts.tab + 1;
+    const maxViolations = violationType === 'FULLSCREEN' 
+      ? PROCTOR_LIMITS.fullscreenExits 
+      : PROCTOR_LIMITS.tabSwitches;
+
+    if (nextTabSwitches <= 0) {
+      setViolationModal({
+        type: 'critical',
+        title: 'Test Terminated - Tab Switch Violation',
+        message: 'You have exceeded the maximum allowed tab/window switches. Your assessment will be automatically submitted and closed.',
+        isBlocking: false,
+        strictMode: false,
+        autoCloseSeconds: 5,
+        onClose: closeViolationModal,
+        onAcknowledge: async () => {
+          closeViolationModal();
+          await autoSubmit(currentAttemptIdRef.current, selectedAnswers);
+        }
+      });
       return;
     }
 
     if (nextFullscreenExits <= 0) {
-      setProctorNotice('Violation limit reached. Your assessment is being submitted automatically.');
-      alert('Fullscreen violation limit reached. Submitting assessment.');
-      await autoSubmit(currentAttemptIdRef.current, selectedAnswers);
+      setViolationModal({
+        type: 'critical',
+        title: 'Test Terminated - Fullscreen Violation Limit Reached',
+        message: 'You have exceeded the maximum allowed fullscreen exits. Your assessment will be automatically submitted and closed.',
+        isBlocking: false,
+        strictMode: false,
+        autoCloseSeconds: 5,
+        onClose: closeViolationModal,
+        onAcknowledge: async () => {
+          closeViolationModal();
+          await autoSubmit(currentAttemptIdRef.current, selectedAnswers);
+        }
+      });
       return;
     }
 
-    clearWindowViolationTimer();
-    window.focus();
-    await requestFullscreen();
+    // Show warning modal for non-terminal violations
+    setViolationModal({
+      type: 'warning',
+      title: violationType === 'FULLSCREEN' ? 'Fullscreen Exit Detected' : 'Tab/Window Switch Detected',
+      message: notice,
+      count: currentViolationCount,
+      maxCount: maxViolations,
+      isBlocking: false,
+      strictMode: false,
+      onClose: closeViolationModal,
+      onAcknowledge: handleAcknowledgeViolation
+    });
   };
 
   useEffect(() => {
@@ -217,12 +290,14 @@ const TestInterface = () => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         handleProctorViolation('TAB');
+        startWindowViolationTimer();
       }
     };
 
     const handleBlur = () => {
       if (!document.hidden) {
         handleProctorViolation('TAB');
+        startWindowViolationTimer();
       }
     };
 
@@ -391,12 +466,12 @@ const TestInterface = () => {
     if (!window.confirm('Are you sure you want to submit your assessment? You cannot make changes after submitting.')) return;
     
     setSubmitting(true);
-    if (timerRef.current) clearInterval(timerRef.current);
     clearWindowViolationTimer();
 
     try {
       const { data } = await api.post(`/student/tests/${id}/attempts/${attempt.id}/submit`, {
-        answers: selectedAnswers
+        answers: selectedAnswers,
+        violationCounts: violationCounts
       });
       setResult(data);
       clearProctorState(attempt.id);
@@ -416,7 +491,8 @@ const TestInterface = () => {
     try {
       const { data } = await api.post(`/student/tests/${id}/attempts/${attemptId}/submit`, {
         answers: answersToSubmit,
-        autoSubmitted: true
+        autoSubmitted: true,
+        violationCounts: getViolationInfo()
       });
       setResult(data);
       clearProctorState(attemptId);
@@ -602,6 +678,22 @@ const TestInterface = () => {
             <AlertTriangle size={16} />
             <span>{proctorNotice}</span>
           </div>
+        )}
+
+        {violationModal && (
+          <ViolationModal
+            isOpen={true}
+            title={violationModal.title}
+            message={violationModal.message}
+            type={violationModal.type}
+            count={violationModal.count}
+            maxCount={violationModal.maxCount}
+            onClose={violationModal.onClose || closeViolationModal}
+            onAcknowledge={violationModal.onAcknowledge}
+            isBlocking={violationModal.isBlocking}
+            strictMode={violationModal.strictMode || false}
+            autoCloseSeconds={violationModal.autoCloseSeconds}
+          />
         )}
 
         {/* Workspace */}
