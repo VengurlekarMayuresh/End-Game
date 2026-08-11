@@ -5,7 +5,7 @@ import { getImageUrl } from '../../lib/utils';
 import { 
   ArrowLeft, BarChart3, Users, CheckCircle2, XCircle, 
   Clock, Award, ChevronDown, ChevronUp, AlertCircle, FileText,
-  TrendingUp, Activity, HelpCircle
+  TrendingUp, Activity, HelpCircle, Send, Mail
 } from 'lucide-react';
 
 const TestResults = () => {
@@ -17,6 +17,11 @@ const TestResults = () => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [decisionMetric, setDecisionMetric] = useState('percentage');
+  const [decisionThreshold, setDecisionThreshold] = useState('');
+  const [sendingEmails, setSendingEmails] = useState(false);
+  const [sendSummary, setSendSummary] = useState(null);
+  const [sendError, setSendError] = useState('');
 
   // Expand detail view for a specific candidate's attempt
   const [expandedAttemptId, setExpandedAttemptId] = useState(null);
@@ -43,6 +48,40 @@ const TestResults = () => {
   useEffect(() => {
     fetchResultsAndAnalytics();
   }, [id]);
+
+  useEffect(() => {
+    if (test?.passingPercentage != null && decisionMetric === 'percentage' && decisionThreshold === '') {
+      setDecisionThreshold(String(test.passingPercentage));
+    }
+  }, [test, decisionMetric, decisionThreshold]);
+
+  const completedResults = results.filter(att => att.status === 'COMPLETED' || att.status === 'AUTO_SUBMITTED');
+
+  const scoreForDecision = (att) => {
+    if (decisionMetric === 'score') return Number(att.score || 0);
+    return Number(att.percentage || 0);
+  };
+
+  const eligibleAttempts = completedResults.filter(att => scoreForDecision(att) >= Number(decisionThreshold || 0));
+  const rejectedAttempts = completedResults.filter(att => scoreForDecision(att) < Number(decisionThreshold || 0));
+
+  const handleSendDecisionEmails = async () => {
+    setSendingEmails(true);
+    setSendError('');
+    setSendSummary(null);
+
+    try {
+      const { data } = await api.post(`/recruiter/tests/${id}/send-result-emails`, {
+        threshold: Number(decisionThreshold),
+        metric: decisionMetric,
+      });
+      setSendSummary(data);
+    } catch (err) {
+      setSendError(err.response?.data?.message || 'Failed to send decision emails');
+    } finally {
+      setSendingEmails(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -120,6 +159,90 @@ const TestResults = () => {
           </div>
         </div>
       )}
+
+      {/* Decision Email Actions */}
+      <div className="bg-card border border-border p-6 rounded-2xl shadow-sm space-y-5">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-base flex items-center gap-2">
+              <Mail size={18} className="text-secondary" /> Send decision emails
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manually choose a threshold and send congratulations to candidates above it, and rejection emails to those below it.
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-2 rounded-xl">
+            {eligibleAttempts.length} eligible · {rejectedAttempts.length} not selected
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Metric</label>
+            <select
+              value={decisionMetric}
+              onChange={e => setDecisionMetric(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+            >
+              <option value="percentage">Percentage</option>
+              <option value="score">Marks</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+              Minimum {decisionMetric === 'score' ? 'marks' : 'percentage'}
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={decisionThreshold}
+              onChange={e => setDecisionThreshold(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+              placeholder={decisionMetric === 'score' ? 'e.g. 15' : 'e.g. 40'}
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleSendDecisionEmails}
+              disabled={sendingEmails || !Number.isFinite(Number(decisionThreshold))}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-secondary text-secondary-foreground rounded-xl font-semibold hover:bg-secondary/90 transition-all disabled:opacity-50"
+            >
+              <Send size={16} /> {sendingEmails ? 'Sending...' : 'Send Emails'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Eligible</p>
+            <p className="text-2xl font-bold mt-1">{eligibleAttempts.length}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Not Selected</p>
+            <p className="text-2xl font-bold mt-1">{rejectedAttempts.length}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Threshold</p>
+            <p className="text-2xl font-bold mt-1">{decisionThreshold} {decisionMetric === 'score' ? 'marks' : '%'}</p>
+          </div>
+        </div>
+
+        {sendError && (
+          <div className="flex items-center gap-2 px-4 py-3 bg-destructive/10 text-destructive text-sm rounded-xl border border-destructive/20">
+            <AlertCircle size={16} /> {sendError}
+          </div>
+        )}
+
+        {sendSummary && (
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-green-500/10 text-green-700 text-sm rounded-xl border border-green-500/20">
+            <CheckCircle2 size={16} />
+            <span>
+              Emails processed: {sendSummary.sent}/{sendSummary.total} sent, {sendSummary.failed} failed, {sendSummary.selected} selected, {sendSummary.rejected} not selected.
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Breakdowns */}
       {analytics && analytics.totalAttempts > 0 && (

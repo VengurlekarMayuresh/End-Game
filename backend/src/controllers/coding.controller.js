@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { runCode } = require('../utils/codeExecutor');
+const { hasMailerConfig, sendMail, buildDecisionEmail } = require('../utils/mailer');
 
 // Helper to check if error is due to database missing tables/columns
 const isDbTableMissingError = (err) => {
@@ -859,6 +860,90 @@ const getCodingResults = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+const sendCodingResultEmails = async (req, res, next) => {
+  try {
+    if (!hasMailerConfig()) {
+      return res.status(400).json({
+        message: 'Email service is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM before sending emails.'
+      });
+    }
+
+    const { userId } = req.user;
+    const recruiter = await prisma.recruiter.findUnique({ where: { userId } });
+    if (!recruiter) return res.status(403).json({ message: 'Recruiter profile not found' });
+
+    const { id } = req.params;
+    const { threshold } = req.body || {};
+    const parsedThreshold = Number(threshold);
+
+    if (!Number.isFinite(parsedThreshold)) {
+      return res.status(400).json({ message: 'threshold must be a valid number' });
+    }
+
+    const assessment = await prisma.codingAssessment.findFirst({
+      where: { id, recruiterId: recruiter.id },
+      select: { id: true, name: true, recruiter: { select: { companyName: true } } }
+    });
+
+    if (!assessment) return res.status(404).json({ message: 'Coding assessment not found' });
+
+    const attempts = await prisma.codingAttempt.findMany({
+      where: { codingAssessmentId: id, status: { in: ['COMPLETED', 'AUTO_SUBMITTED'] } },
+      include: {
+        student: {
+          include: {
+            user: { select: { fullName: true, email: true, profilePicture: true } }
+          }
+        }
+      },
+      orderBy: { completedAt: 'desc' }
+    });
+
+    const latestByStudent = new Map();
+    attempts.forEach(attempt => {
+      if (!latestByStudent.has(attempt.studentId)) {
+        latestByStudent.set(attempt.studentId, attempt);
+      }
+    });
+
+    const recipients = [...latestByStudent.values()].map(attempt => ({
+      studentName: attempt.student?.user?.fullName || 'Candidate',
+      studentEmail: attempt.student?.user?.email,
+      selected: attempt.score >= parsedThreshold,
+      thresholdLabel: `${parsedThreshold} marks`,
+      scoreLabel: `${attempt.score} marks`,
+    })).filter(item => item.studentEmail);
+
+    const sendResults = await Promise.allSettled(recipients.map(recipient => {
+      const mail = buildDecisionEmail({
+        candidateName: recipient.studentName,
+        recruiterName: assessment.recruiter?.companyName || recruiter.companyName || 'Hiring Team',
+        assessmentName: assessment.name,
+        thresholdLabel: recipient.thresholdLabel,
+        scoreLabel: recipient.scoreLabel,
+        selected: recipient.selected,
+      });
+
+      return sendMail({
+        to: recipient.studentEmail,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+      });
+    }));
+
+    return res.json({
+      message: 'Decision emails processed',
+      total: recipients.length,
+      sent: sendResults.filter(r => r.status === 'fulfilled').length,
+      failed: sendResults.filter(r => r.status === 'rejected').length,
+      selected: recipients.filter(r => r.selected).length,
+      rejected: recipients.filter(r => !r.selected).length,
+      threshold: parsedThreshold,
+    });
+  } catch (error) { next(error); }
+};
+
 module.exports = {
   createCodingAssessment,
   getCodingAssessments,
@@ -883,5 +968,6 @@ module.exports = {
   submitCodingCode,
   submitCodingAssessment,
 
-  getCodingResults
+  getCodingResults,
+  sendCodingResultEmails
 };

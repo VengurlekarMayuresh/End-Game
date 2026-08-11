@@ -9,14 +9,14 @@ const {
   bulkCreateQuestions,
   createTest, getTests, getTestById, updateTest, deleteTest,
   duplicateTest, publishTest, archiveTest, assignTestToJobs,
-  getTestResults, getTestAnalytics
+  getTestResults, getTestAnalytics, sendTestResultEmails
 } = require('../controllers/test.controller');
 const {
   createCodingAssessment, getCodingAssessments, getCodingAssessmentById,
   updateCodingAssessment, deleteCodingAssessment, duplicateCodingAssessment,
   publishCodingAssessment, archiveCodingAssessment, assignCodingAssessmentToJobs,
   createCodingProblem, updateCodingProblem, deleteCodingProblem,
-  getCodingResults
+  getCodingResults, sendCodingResultEmails
 } = require('../controllers/coding.controller');
 const { authenticateUser, authorizeRole } = require('../middlewares/auth');
 
@@ -63,6 +63,7 @@ router.post('/tests/:id/assign', assignTestToJobs);
 // Results & Analytics
 router.get('/tests/:id/results', getTestResults);
 router.get('/tests/:id/analytics', getTestAnalytics);
+router.post('/tests/:id/send-result-emails', sendTestResultEmails);
 
 // Coding Assessments
 router.post('/coding-assessments', createCodingAssessment);
@@ -75,6 +76,7 @@ router.post('/coding-assessments/:id/publish', publishCodingAssessment);
 router.post('/coding-assessments/:id/archive', archiveCodingAssessment);
 router.post('/coding-assessments/:id/assign', assignCodingAssessmentToJobs);
 router.get('/coding-assessments/:id/results', getCodingResults);
+router.post('/coding-assessments/:id/send-result-emails', sendCodingResultEmails);
 
 // Coding Problems
 router.post('/coding-assessments/:assessmentId/problems', createCodingProblem);

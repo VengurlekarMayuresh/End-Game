@@ -13,6 +13,13 @@ const DIFFICULTY_BADGES = {
   HARD: 'bg-red-500/10 text-red-600 border border-red-500/20',
 };
 
+const PROCTOR_LIMITS = {
+  tabSwitches: 5,
+  fullscreenExits: 10,
+};
+
+const PROCTOR_STORAGE_PREFIX = 'coding-assessment-proctor';
+
 const CodingTestInterface = () => {
   const { id } = useParams(); // codingAssessmentId
   const navigate = useNavigate();
@@ -45,9 +52,87 @@ const CodingTestInterface = () => {
   // Completed status for each problem in this attempt
   const [solvedProblemIds, setSolvedProblemIds] = useState(new Set());
   const [problemScores, setProblemScores] = useState({}); // { problemId: score }
+  const [tabSwitchesLeft, setTabSwitchesLeft] = useState(PROCTOR_LIMITS.tabSwitches);
+  const [fullscreenExitsLeft, setFullscreenExitsLeft] = useState(PROCTOR_LIMITS.fullscreenExits);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [proctorNotice, setProctorNotice] = useState('');
 
   const timerRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
+  const proctorCooldownRef = useRef(0);
+  const autoSubmitLockRef = useRef(false);
+  const currentAttemptIdRef = useRef(null);
+
+  const getProctorStorageKey = (attemptId) => `${PROCTOR_STORAGE_PREFIX}:${attemptId}`;
+
+  const persistProctorState = (attemptId, nextTabSwitches = tabSwitchesLeft, nextFullscreenExits = fullscreenExitsLeft) => {
+    if (!attemptId || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(getProctorStorageKey(attemptId), JSON.stringify({
+        tabSwitchesLeft: nextTabSwitches,
+        fullscreenExitsLeft: nextFullscreenExits,
+      }));
+    } catch (error) {
+      console.warn('Failed to persist proctor state', error);
+    }
+  };
+
+  const clearProctorState = (attemptId) => {
+    if (!attemptId || typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem(getProctorStorageKey(attemptId));
+    } catch (error) {
+      console.warn('Failed to clear proctor state', error);
+    }
+  };
+
+  const requestFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (error) {
+      console.warn('Unable to enter fullscreen mode', error);
+    } finally {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+  };
+
+  const handleProctorViolation = async (kind) => {
+    if (phase !== 'TESTING' || finalizing || autoSubmitLockRef.current) return;
+
+    const now = Date.now();
+    if (now - proctorCooldownRef.current < 650) return;
+    proctorCooldownRef.current = now;
+
+    let nextTabSwitches = tabSwitchesLeft;
+    let nextFullscreenExits = fullscreenExitsLeft;
+    let notice = '';
+
+    if (kind === 'FULLSCREEN') {
+      nextFullscreenExits = Math.max(0, nextFullscreenExits - 1);
+      setFullscreenExitsLeft(nextFullscreenExits);
+      notice = `Fullscreen exit detected. ${nextFullscreenExits} fullscreen warning${nextFullscreenExits === 1 ? '' : 's'} left.`;
+      setIsFullscreen(false);
+    } else {
+      nextTabSwitches = Math.max(0, nextTabSwitches - 1);
+      setTabSwitchesLeft(nextTabSwitches);
+      notice = `Tab or window switch detected. ${nextTabSwitches} warning${nextTabSwitches === 1 ? '' : 's'} left.`;
+    }
+
+    setProctorNotice(notice);
+    persistProctorState(currentAttemptIdRef.current, nextTabSwitches, nextFullscreenExits);
+
+    if (nextTabSwitches <= 0 || nextFullscreenExits <= 0) {
+      autoSubmitLockRef.current = true;
+      setProctorNotice('Violation limit reached. Your assessment is being submitted automatically.');
+      await autoSubmit(currentAttemptIdRef.current);
+      return;
+    }
+
+    window.focus();
+    await requestFullscreen();
+  };
 
   // Fetch assessment details
   useEffect(() => {
@@ -72,6 +157,77 @@ const CodingTestInterface = () => {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!attempt?.id) return;
+
+    currentAttemptIdRef.current = attempt.id;
+
+    if (typeof window === 'undefined') return;
+
+    try {
+      const saved = window.localStorage.getItem(getProctorStorageKey(attempt.id));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const nextTabSwitches = Number.isFinite(parsed.tabSwitchesLeft) ? parsed.tabSwitchesLeft : PROCTOR_LIMITS.tabSwitches;
+        const nextFullscreenExits = Number.isFinite(parsed.fullscreenExitsLeft) ? parsed.fullscreenExitsLeft : PROCTOR_LIMITS.fullscreenExits;
+        setTabSwitchesLeft(nextTabSwitches);
+        setFullscreenExitsLeft(nextFullscreenExits);
+      } else {
+        setTabSwitchesLeft(PROCTOR_LIMITS.tabSwitches);
+        setFullscreenExitsLeft(PROCTOR_LIMITS.fullscreenExits);
+        persistProctorState(attempt.id, PROCTOR_LIMITS.tabSwitches, PROCTOR_LIMITS.fullscreenExits);
+      }
+    } catch (error) {
+      console.warn('Failed to load proctor state', error);
+      setTabSwitchesLeft(PROCTOR_LIMITS.tabSwitches);
+      setFullscreenExitsLeft(PROCTOR_LIMITS.fullscreenExits);
+    }
+  }, [attempt?.id]);
+
+  useEffect(() => {
+    if (phase !== 'TESTING') return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleProctorViolation('TAB');
+      }
+    };
+
+    const handleBlur = () => {
+      if (!document.hidden) {
+        handleProctorViolation('TAB');
+      }
+    };
+
+    const handleFocus = () => {
+      if (phase === 'TESTING') {
+        setProctorNotice('Back in the assessment. Stay in fullscreen and keep this tab active.');
+        requestFullscreen();
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      if (!document.fullscreenElement) {
+        handleProctorViolation('FULLSCREEN');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    requestFullscreen();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [phase, finalizing, tabSwitchesLeft, fullscreenExitsLeft]);
 
   // Load code draft when current problem or language changes
   useEffect(() => {
@@ -107,6 +263,8 @@ const CodingTestInterface = () => {
   const startAssessment = async () => {
     setLoading(true);
     setError('');
+    autoSubmitLockRef.current = false;
+    await requestFullscreen();
     try {
       const { data } = await api.post(`/student/coding-assessments/${id}/start`);
       setAttempt(data);
@@ -127,6 +285,9 @@ const CodingTestInterface = () => {
       startTimer(remaining, data.id);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to initialize coding attempt');
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     } finally {
       setLoading(false);
     }
@@ -254,6 +415,7 @@ const CodingTestInterface = () => {
     try {
       const { data } = await api.post(`/student/coding-assessments/${id}/attempts/${attempt.id}/submit`);
       setAttempt(data);
+      clearProctorState(attempt.id);
       setPhase('RESULTS');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to finalize assessment');
@@ -263,12 +425,15 @@ const CodingTestInterface = () => {
   };
 
   const autoSubmit = async (attemptId) => {
+    if (!attemptId || autoSubmitLockRef.current) return;
+    autoSubmitLockRef.current = true;
     setFinalizing(true);
     try {
       const { data } = await api.post(`/student/coding-assessments/${id}/attempts/${attemptId}/submit`, {
         autoSubmitted: true
       });
       setAttempt(data);
+      clearProctorState(attemptId);
       setPhase('RESULTS');
       alert('Time expired! Your coding assessment has been automatically submitted.');
     } catch (err) {
@@ -338,6 +503,32 @@ const CodingTestInterface = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-semibold">
+            <div className="p-4 bg-muted/30 border rounded-2xl flex items-center gap-3">
+              <Lock className={isFullscreen ? 'text-green-600' : 'text-amber-600'} size={18} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Fullscreen</p>
+                <p className={`text-base mt-0.5 ${isFullscreen ? 'text-green-600' : 'text-amber-600'}`}>
+                  {isFullscreen ? 'Enabled' : 'Not active yet'}
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-muted/30 border rounded-2xl flex items-center gap-3">
+              <ShieldAlert className="text-secondary" size={18} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Tab / Window Switches Left</p>
+                <p className="text-base text-foreground mt-0.5">{tabSwitchesLeft}</p>
+              </div>
+            </div>
+            <div className="p-4 bg-muted/30 border rounded-2xl flex items-center gap-3">
+              <AlertTriangle className="text-primary" size={18} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Fullscreen Exits Left</p>
+                <p className="text-base text-foreground mt-0.5">{fullscreenExitsLeft}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-3">
             <h3 className="font-bold text-base flex items-center gap-2"><FileText size={18} className="text-primary" /> Instructions</h3>
             <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/15 p-5 rounded-2xl border border-border">
@@ -345,7 +536,8 @@ const CodingTestInterface = () => {
 2. Closing the browser or refreshing will not pause the timer. You can resume code anytime while duration remains.
 3. You can run code against public test cases to debug.
 4. Your final marks for each problem are determined by private test cases upon clicking "Submit Solution".
-5. Click the final "Submit Assessment" at the bottom right when you finish all tasks.`}
+5. The assessment runs in fullscreen. Tab switches and window changes are limited.
+6. Clicking the final "Submit Assessment" at the bottom right will finish the test when you are done.`}
             </div>
           </div>
 
@@ -412,6 +604,13 @@ const CodingTestInterface = () => {
             </button>
           </div>
         </header>
+
+        {proctorNotice && (
+          <div className="px-6 py-3 border-b border-border bg-destructive/10 text-destructive text-sm font-medium flex items-center gap-2">
+            <AlertTriangle size={16} />
+            <span>{proctorNotice}</span>
+          </div>
+        )}
 
         {/* Workbench Body */}
         <div className="flex-grow flex flex-col md:flex-row overflow-hidden h-[calc(100vh-64px)]">

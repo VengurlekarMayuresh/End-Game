@@ -7,6 +7,13 @@ import {
   ClipboardList
 } from 'lucide-react';
 
+const PROCTOR_LIMITS = {
+  tabSwitches: 5,
+  fullscreenExits: 10,
+};
+
+const PROCTOR_STORAGE_PREFIX = 'aptitude-test-proctor';
+
 const TestInterface = () => {
   const { id } = useParams(); // testId
   const navigate = useNavigate();
@@ -27,8 +34,86 @@ const TestInterface = () => {
   const [timeLeft, setTimeLeft] = useState(0); // in seconds
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [tabSwitchesLeft, setTabSwitchesLeft] = useState(PROCTOR_LIMITS.tabSwitches);
+  const [fullscreenExitsLeft, setFullscreenExitsLeft] = useState(PROCTOR_LIMITS.fullscreenExits);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [proctorNotice, setProctorNotice] = useState('');
 
   const timerRef = useRef(null);
+  const proctorCooldownRef = useRef(0);
+  const autoSubmitLockRef = useRef(false);
+  const currentAttemptIdRef = useRef(null);
+
+  const getProctorStorageKey = (attemptId) => `${PROCTOR_STORAGE_PREFIX}:${attemptId}`;
+
+  const persistProctorState = (attemptId, nextTabSwitches = tabSwitchesLeft, nextFullscreenExits = fullscreenExitsLeft) => {
+    if (!attemptId || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(getProctorStorageKey(attemptId), JSON.stringify({
+        tabSwitchesLeft: nextTabSwitches,
+        fullscreenExitsLeft: nextFullscreenExits,
+      }));
+    } catch (error) {
+      console.warn('Failed to persist aptitude proctor state', error);
+    }
+  };
+
+  const clearProctorState = (attemptId) => {
+    if (!attemptId || typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem(getProctorStorageKey(attemptId));
+    } catch (error) {
+      console.warn('Failed to clear aptitude proctor state', error);
+    }
+  };
+
+  const requestFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (error) {
+      console.warn('Unable to enter fullscreen mode', error);
+    } finally {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+  };
+
+  const handleProctorViolation = async (kind) => {
+    if (phase !== 'TESTING' || submitting || autoSubmitLockRef.current) return;
+
+    const now = Date.now();
+    if (now - proctorCooldownRef.current < 650) return;
+    proctorCooldownRef.current = now;
+
+    let nextTabSwitches = tabSwitchesLeft;
+    let nextFullscreenExits = fullscreenExitsLeft;
+    let notice = '';
+
+    if (kind === 'FULLSCREEN') {
+      nextFullscreenExits = Math.max(0, nextFullscreenExits - 1);
+      setFullscreenExitsLeft(nextFullscreenExits);
+      notice = `Fullscreen exit detected. ${nextFullscreenExits} fullscreen warning${nextFullscreenExits === 1 ? '' : 's'} left.`;
+      setIsFullscreen(false);
+    } else {
+      nextTabSwitches = Math.max(0, nextTabSwitches - 1);
+      setTabSwitchesLeft(nextTabSwitches);
+      notice = `Tab or window switch detected. ${nextTabSwitches} warning${nextTabSwitches === 1 ? '' : 's'} left.`;
+    }
+
+    setProctorNotice(notice);
+    persistProctorState(currentAttemptIdRef.current, nextTabSwitches, nextFullscreenExits);
+
+    if (nextTabSwitches <= 0 || nextFullscreenExits <= 0) {
+      autoSubmitLockRef.current = true;
+      setProctorNotice('Violation limit reached. Your assessment is being submitted automatically.');
+      await autoSubmit(currentAttemptIdRef.current, selectedAnswers);
+      return;
+    }
+
+    window.focus();
+    await requestFullscreen();
+  };
 
   useEffect(() => {
     // Fetch test details for instructions phase
@@ -52,9 +137,82 @@ const TestInterface = () => {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!attempt?.id) return;
+
+    currentAttemptIdRef.current = attempt.id;
+
+    if (typeof window === 'undefined') return;
+
+    try {
+      const saved = window.localStorage.getItem(getProctorStorageKey(attempt.id));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const nextTabSwitches = Number.isFinite(parsed.tabSwitchesLeft) ? parsed.tabSwitchesLeft : PROCTOR_LIMITS.tabSwitches;
+        const nextFullscreenExits = Number.isFinite(parsed.fullscreenExitsLeft) ? parsed.fullscreenExitsLeft : PROCTOR_LIMITS.fullscreenExits;
+        setTabSwitchesLeft(nextTabSwitches);
+        setFullscreenExitsLeft(nextFullscreenExits);
+      } else {
+        setTabSwitchesLeft(PROCTOR_LIMITS.tabSwitches);
+        setFullscreenExitsLeft(PROCTOR_LIMITS.fullscreenExits);
+        persistProctorState(attempt.id, PROCTOR_LIMITS.tabSwitches, PROCTOR_LIMITS.fullscreenExits);
+      }
+    } catch (error) {
+      console.warn('Failed to load aptitude proctor state', error);
+      setTabSwitchesLeft(PROCTOR_LIMITS.tabSwitches);
+      setFullscreenExitsLeft(PROCTOR_LIMITS.fullscreenExits);
+    }
+  }, [attempt?.id]);
+
+  useEffect(() => {
+    if (phase !== 'TESTING') return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleProctorViolation('TAB');
+      }
+    };
+
+    const handleBlur = () => {
+      if (!document.hidden) {
+        handleProctorViolation('TAB');
+      }
+    };
+
+    const handleFocus = () => {
+      if (phase === 'TESTING') {
+        setProctorNotice('Back in the assessment. Stay on this page and keep fullscreen active.');
+        requestFullscreen();
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      if (!document.fullscreenElement) {
+        handleProctorViolation('FULLSCREEN');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    requestFullscreen();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [phase, submitting, tabSwitchesLeft, fullscreenExitsLeft]);
+
   const startTest = async () => {
     setLoading(true);
     setError('');
+    autoSubmitLockRef.current = false;
+    await requestFullscreen();
     try {
       const { data } = await api.post(`/student/tests/${id}/start`);
       setAttempt(data.attempt);
@@ -91,6 +249,9 @@ const TestInterface = () => {
       startTimer(remaining, data.attempt.id, preppedAnswers);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to start test attempt');
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     } finally {
       setLoading(false);
     }
@@ -187,6 +348,7 @@ const TestInterface = () => {
         answers: selectedAnswers
       });
       setResult(data);
+      clearProctorState(attempt.id);
       setPhase('RESULTS');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to submit test');
@@ -196,6 +358,8 @@ const TestInterface = () => {
   };
 
   const autoSubmit = async (attemptId, answersToSubmit) => {
+    if (!attemptId || autoSubmitLockRef.current) return;
+    autoSubmitLockRef.current = true;
     setSubmitting(true);
     try {
       const { data } = await api.post(`/student/tests/${id}/attempts/${attemptId}/submit`, {
@@ -203,6 +367,7 @@ const TestInterface = () => {
         autoSubmitted: true
       });
       setResult(data);
+      clearProctorState(attemptId);
       setPhase('RESULTS');
       alert('Time expired! Your assessment has been automatically submitted.');
     } catch (err) {
@@ -279,13 +444,40 @@ const TestInterface = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-semibold">
+            <div className="p-4 bg-muted/30 border rounded-2xl flex items-center gap-3">
+              <ClipboardList className={isFullscreen ? 'text-green-600' : 'text-amber-600'} size={18} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Fullscreen</p>
+                <p className={`text-base mt-0.5 ${isFullscreen ? 'text-green-600' : 'text-amber-600'}`}>
+                  {isFullscreen ? 'Enabled' : 'Not active yet'}
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-muted/30 border rounded-2xl flex items-center gap-3">
+              <ShieldAlert className="text-secondary" size={18} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Tab / Window Switches Left</p>
+                <p className="text-base text-foreground mt-0.5">{tabSwitchesLeft}</p>
+              </div>
+            </div>
+            <div className="p-4 bg-muted/30 border rounded-2xl flex items-center gap-3">
+              <AlertTriangle className="text-primary" size={18} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Fullscreen Exits Left</p>
+                <p className="text-base text-foreground mt-0.5">{fullscreenExitsLeft}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-3">
             <h3 className="font-bold text-base flex items-center gap-2"><FileText size={18} className="text-primary" /> Instructions</h3>
             <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/15 p-5 rounded-2xl border border-border">
               {test.instructions || `1. Once started, the timer cannot be paused.
 2. Navigating away or closing the page will not stop the timer; you can resume as long as time remains.
 3. The test will auto-submit when the timer expires.
-4. Each correct answer carries points, while incorrect answers may deduct points if negative marking is enabled.`}
+4. The test runs in fullscreen. Tab switches and window changes are limited.
+5. Each correct answer carries points, while incorrect answers may deduct points if negative marking is enabled.`}
             </div>
           </div>
 
@@ -346,6 +538,13 @@ const TestInterface = () => {
             <span className={timeLeft < 60 ? 'text-destructive' : ''}>{formatTime(timeLeft)}</span>
           </div>
         </header>
+
+        {proctorNotice && (
+          <div className="px-6 py-3 border-b border-border bg-destructive/10 text-destructive text-sm font-medium flex items-center gap-2">
+            <AlertTriangle size={16} />
+            <span>{proctorNotice}</span>
+          </div>
+        )}
 
         {/* Workspace */}
         <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
