@@ -1505,13 +1505,27 @@ const startTestAttempt = async (req, res, next) => {
         return res.status(403).json({ message: 'Access denied: You must apply to the associated job first' });
       }
 
+      const normalizeQuestions = (questionRows = []) => questionRows
+        .flatMap(tq => (tq && tq.question ? [tq.question] : []))
+        .filter(q => q && q.status === 'ACTIVE')
+        .map(q => ({
+          ...q,
+          options: Array.isArray(q.options) ? q.options : [],
+        }))
+        .filter(q => q.options.length > 0);
+
+      const shuffleOptionsIfNeeded = (questionList = []) => questionList
+        .filter(q => q && Array.isArray(q.options) && q.options.length > 0)
+        .map(q => ({
+          ...q,
+          options: test.randomOptionOrder ? shuffleArray(q.options) : q.options,
+        }));
+
       const activeAttempt = test.attempts.find(a => a.status === 'IN_PROGRESS');
       if (activeAttempt) {
-        let questions = test.testQuestions.map(tq => tq.question).filter(q => q && q.status === 'ACTIVE');
+        let questions = normalizeQuestions(test.testQuestions);
         if (test.randomQuestionOrder) questions = shuffleArray(questions);
-        if (test.randomOptionOrder) {
-          questions = questions.map(q => ({ ...q, options: shuffleArray(q.options) }));
-        }
+        questions = shuffleOptionsIfNeeded(questions);
         const safeQuestions = questions.map(({ correctAnswer, explanation, ...rest }) => rest);
         return res.json({ attempt: activeAttempt, questions: safeQuestions });
       }
@@ -1533,11 +1547,9 @@ const startTestAttempt = async (req, res, next) => {
         }
       });
 
-      let questions = test.testQuestions.map(tq => tq.question).filter(q => q && q.status === 'ACTIVE');
+      let questions = normalizeQuestions(test.testQuestions);
       if (test.randomQuestionOrder) questions = shuffleArray(questions);
-      if (test.randomOptionOrder) {
-        questions = questions.map(q => ({ ...q, options: shuffleArray(q.options) }));
-      }
+      questions = shuffleOptionsIfNeeded(questions);
 
       const safeQuestions = questions.map(({ correctAnswer, explanation, ...rest }) => rest);
       return res.status(201).json({ attempt, questions: safeQuestions });

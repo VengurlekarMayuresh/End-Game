@@ -98,7 +98,6 @@ const CodingAssessmentResults = () => {
   }
 
   // Calculate metrics
-  const completedAttempts = attempts.filter(a => a.status === 'COMPLETED' || a.status === 'AUTO_SUBMITTED');
   const avgScore = completedAttempts.length > 0 
     ? (completedAttempts.reduce((acc, curr) => acc + curr.score, 0) / completedAttempts.length).toFixed(1)
     : 0;

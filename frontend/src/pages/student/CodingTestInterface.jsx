@@ -56,12 +56,14 @@ const CodingTestInterface = () => {
   const [fullscreenExitsLeft, setFullscreenExitsLeft] = useState(PROCTOR_LIMITS.fullscreenExits);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [proctorNotice, setProctorNotice] = useState('');
+  const [windowViolationTimerLeft, setWindowViolationTimerLeft] = useState(0);
 
   const timerRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
   const proctorCooldownRef = useRef(0);
   const autoSubmitLockRef = useRef(false);
   const currentAttemptIdRef = useRef(null);
+  const windowViolationTimerRef = useRef(null);
 
   const getProctorStorageKey = (attemptId) => `${PROCTOR_STORAGE_PREFIX}:${attemptId}`;
 
@@ -98,6 +100,42 @@ const CodingTestInterface = () => {
     }
   };
 
+  const clearWindowViolationTimer = () => {
+    if (windowViolationTimerRef.current) {
+      clearInterval(windowViolationTimerRef.current);
+      windowViolationTimerRef.current = null;
+    }
+    setWindowViolationTimerLeft(0);
+  };
+
+  const terminateForViolation = async (reason) => {
+    if (autoSubmitLockRef.current) return;
+    setProctorNotice(reason);
+    clearWindowViolationTimer();
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    alert(reason);
+    await autoSubmit(currentAttemptIdRef.current);
+  };
+
+  const startWindowViolationTimer = () => {
+    if (windowViolationTimerRef.current) return;
+
+    setWindowViolationTimerLeft(20);
+    windowViolationTimerRef.current = setInterval(() => {
+      setWindowViolationTimerLeft(prev => {
+        if (prev <= 1) {
+          clearWindowViolationTimer();
+          terminateForViolation('Exam terminated due to repeated window switching.').catch(() => {});
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const handleProctorViolation = async (kind) => {
     if (phase !== 'TESTING' || finalizing || autoSubmitLockRef.current) return;
 
@@ -121,15 +159,24 @@ const CodingTestInterface = () => {
     }
 
     setProctorNotice(notice);
+    alert(notice);
     persistProctorState(currentAttemptIdRef.current, nextTabSwitches, nextFullscreenExits);
 
-    if (nextTabSwitches <= 0 || nextFullscreenExits <= 0) {
-      autoSubmitLockRef.current = true;
+    if (kind === 'TAB' && nextTabSwitches <= 0) {
+      startWindowViolationTimer();
+      window.focus();
+      await requestFullscreen();
+      return;
+    }
+
+    if (nextFullscreenExits <= 0) {
       setProctorNotice('Violation limit reached. Your assessment is being submitted automatically.');
+      alert('Fullscreen violation limit reached. Submitting assessment.');
       await autoSubmit(currentAttemptIdRef.current);
       return;
     }
 
+    clearWindowViolationTimer();
     window.focus();
     await requestFullscreen();
   };
@@ -203,6 +250,7 @@ const CodingTestInterface = () => {
     const handleFocus = () => {
       if (phase === 'TESTING') {
         setProctorNotice('Back in the assessment. Stay in fullscreen and keep this tab active.');
+        clearWindowViolationTimer();
         requestFullscreen();
       }
     };
@@ -226,6 +274,7 @@ const CodingTestInterface = () => {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      clearWindowViolationTimer();
     };
   }, [phase, finalizing, tabSwitchesLeft, fullscreenExitsLeft]);
 
@@ -264,6 +313,7 @@ const CodingTestInterface = () => {
     setLoading(true);
     setError('');
     autoSubmitLockRef.current = false;
+    clearWindowViolationTimer();
     await requestFullscreen();
     try {
       const { data } = await api.post(`/student/coding-assessments/${id}/start`);
@@ -411,6 +461,7 @@ const CodingTestInterface = () => {
   const finalizeAssessment = async () => {
     setFinalizing(true);
     if (timerRef.current) clearInterval(timerRef.current);
+    clearWindowViolationTimer();
 
     try {
       const { data } = await api.post(`/student/coding-assessments/${id}/attempts/${attempt.id}/submit`);
@@ -428,6 +479,7 @@ const CodingTestInterface = () => {
     if (!attemptId || autoSubmitLockRef.current) return;
     autoSubmitLockRef.current = true;
     setFinalizing(true);
+    clearWindowViolationTimer();
     try {
       const { data } = await api.post(`/student/coding-assessments/${id}/attempts/${attemptId}/submit`, {
         autoSubmitted: true
@@ -528,6 +580,12 @@ const CodingTestInterface = () => {
               </div>
             </div>
           </div>
+
+          {windowViolationTimerLeft > 0 && (
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive font-medium flex items-center justify-between gap-3">
+              <span>Window switch grace timer active. Return within {windowViolationTimerLeft}s or the exam will terminate.</span>
+            </div>
+          )}
 
           <div className="space-y-3">
             <h3 className="font-bold text-base flex items-center gap-2"><FileText size={18} className="text-primary" /> Instructions</h3>
