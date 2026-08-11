@@ -68,6 +68,10 @@ const {
   getStudentJobs, getStudentJobById, applyToJob, getStudentApplications,
   getStudentTests, getStudentTestById, startTestAttempt, saveTestAttempt, submitTestAttempt
 } = require('../controllers/test.controller');
+const {
+  getStudentCodingAssessments, getStudentCodingAssessmentById, startCodingAttempt,
+  saveCodingDraft, getCodingDraft, runCodingCode, submitCodingCode, submitCodingAssessment
+} = require('../controllers/coding.controller');
 
 router.get('/jobs', getStudentJobs);
 router.get('/jobs/:id', getStudentJobById);
@@ -80,5 +84,15 @@ router.get('/tests/:id', getStudentTestById);
 router.post('/tests/:id/start', startTestAttempt);
 router.post('/tests/:id/attempts/:attemptId/save', saveTestAttempt);
 router.post('/tests/:id/attempts/:attemptId/submit', submitTestAttempt);
+
+// Coding Assessments
+router.get('/coding-assessments', getStudentCodingAssessments);
+router.get('/coding-assessments/:id', getStudentCodingAssessmentById);
+router.post('/coding-assessments/:id/start', startCodingAttempt);
+router.post('/coding-assessments/:id/attempts/:attemptId/submit', submitCodingAssessment);
+router.post('/coding-assessments/:id/problems/:problemId/autosave', saveCodingDraft);
+router.get('/coding-assessments/:id/problems/:problemId/autosave', getCodingDraft);
+router.post('/coding-assessments/:id/problems/:problemId/run', runCodingCode);
+router.post('/coding-assessments/:id/problems/:problemId/submit', submitCodingCode);
 
 module.exports = router;

@@ -11,6 +11,13 @@ const {
   duplicateTest, publishTest, archiveTest, assignTestToJobs,
   getTestResults, getTestAnalytics
 } = require('../controllers/test.controller');
+const {
+  createCodingAssessment, getCodingAssessments, getCodingAssessmentById,
+  updateCodingAssessment, deleteCodingAssessment, duplicateCodingAssessment,
+  publishCodingAssessment, archiveCodingAssessment, assignCodingAssessmentToJobs,
+  createCodingProblem, updateCodingProblem, deleteCodingProblem,
+  getCodingResults
+} = require('../controllers/coding.controller');
 const { authenticateUser, authorizeRole } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -56,5 +63,22 @@ router.post('/tests/:id/assign', assignTestToJobs);
 // Results & Analytics
 router.get('/tests/:id/results', getTestResults);
 router.get('/tests/:id/analytics', getTestAnalytics);
+
+// Coding Assessments
+router.post('/coding-assessments', createCodingAssessment);
+router.get('/coding-assessments', getCodingAssessments);
+router.get('/coding-assessments/:id', getCodingAssessmentById);
+router.put('/coding-assessments/:id', updateCodingAssessment);
+router.delete('/coding-assessments/:id', deleteCodingAssessment);
+router.post('/coding-assessments/:id/duplicate', duplicateCodingAssessment);
+router.post('/coding-assessments/:id/publish', publishCodingAssessment);
+router.post('/coding-assessments/:id/archive', archiveCodingAssessment);
+router.post('/coding-assessments/:id/assign', assignCodingAssessmentToJobs);
+router.get('/coding-assessments/:id/results', getCodingResults);
+
+// Coding Problems
+router.post('/coding-assessments/:assessmentId/problems', createCodingProblem);
+router.put('/coding-problems/:id', updateCodingProblem);
+router.delete('/coding-problems/:id', deleteCodingProblem);
 
 module.exports = router;
