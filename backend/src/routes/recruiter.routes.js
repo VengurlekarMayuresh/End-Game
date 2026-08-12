@@ -3,6 +3,11 @@ const { getRecruiterProfile, updateRecruiterProfile, getDashboardStats } = requi
 const {
   createJob, getMyJobs, getJobById, updateJob, deleteJob,
   getApplicationsForJob, getAllCandidates, updateApplicationStatus,
+  analyzeJobDescriptionController,
+  getCandidateMatchScores,
+  getSingleCandidateMatchScore,
+  updateApplicationShortlistStatus,
+  bulkUpdateShortlistStatus,
 } = require('../controllers/job.controller');
 const {
   createQuestion, getQuestions, getQuestionById, updateQuestion, deleteQuestion,
@@ -40,6 +45,13 @@ router.delete('/jobs/:id', deleteJob);
 router.get('/jobs/:jobId/applications', getApplicationsForJob);
 router.get('/candidates', getAllCandidates);
 router.put('/applications/:appId/status', updateApplicationStatus);
+
+// Job Analysis & Resume Shortlisting
+router.post('/jobs/analyze', analyzeJobDescriptionController);
+router.get('/jobs/:jobId/match-scores', getCandidateMatchScores);
+router.get('/jobs/:jobId/students/:studentId/match-score', getSingleCandidateMatchScore);
+router.put('/applications/:appId/shortlist-status', updateApplicationShortlistStatus);
+router.put('/jobs/:jobId/bulk-shortlist', bulkUpdateShortlistStatus);
 
 // Questions (Question Bank)
 router.post('/questions', createQuestion);

@@ -4,7 +4,7 @@ import api from '../../lib/axios';
 import {
   Briefcase, Plus, Users, Eye, Pencil, Trash2,
   MapPin, Clock, CheckCircle2, Pause, XCircle,
-  FileText, ToggleLeft, AlertCircle, Search
+  FileText, ToggleLeft, AlertCircle, Search, Sparkles
 } from 'lucide-react';
 
 const STATUS_STYLES = {
@@ -53,6 +53,10 @@ const JobCard = ({ job, onDelete, onToggle }) => {
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
+          <Link to={`/recruiter/jobs/${job.id}/shortlist`}
+            className="p-2 text-muted-foreground hover:text-secondary hover:bg-secondary/10 rounded-lg transition-colors" title="Smart Shortlist">
+            <Sparkles size={16} />
+          </Link>
           <Link to={`/recruiter/jobs/${job.id}/applications`}
             className="p-2 text-muted-foreground hover:text-secondary hover:bg-secondary/10 rounded-lg transition-colors" title="View Applicants">
             <Eye size={16} />

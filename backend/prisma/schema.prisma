@@ -57,6 +57,7 @@ model Student {
   state          String?
   country        String?
   pincode        String?
+  summary        String?   @db.Text   // Professional summary / resume objective (structured resume)
 
   // Relations
   education      StudentEducation[]

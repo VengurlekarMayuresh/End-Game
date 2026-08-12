@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import {
-  Briefcase, MapPin, DollarSign, Users, Clock,
-  Plus, X, Save, ArrowLeft, CheckCircle2, AlertCircle
+  Briefcase, MapPin, DollarSign, Users,
+  Plus, X, Save, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Loader2
 } from 'lucide-react';
 
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance'];
@@ -60,6 +60,8 @@ const PostJob = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeMsg, setAnalyzeMsg] = useState('');
   const [skills, setSkills] = useState([]);
   const [form, setForm] = useState({
     title: '', description: '', requirements: '', responsibilities: '',
@@ -70,6 +72,28 @@ const PostJob = () => {
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const autoDetectSkills = async () => {
+    const text = `${form.description} ${form.requirements}`.trim();
+    if (!text) {
+      setAnalyzeMsg('Write the job description & requirements first, then auto-detect.');
+      return;
+    }
+    setAnalyzing(true); setAnalyzeMsg('');
+    try {
+      const { data } = await api.post('/recruiter/jobs/analyze', {
+        description: form.description, requirements: form.requirements,
+      });
+      const detected = data.analysis?.skills || [];
+      const detectedSet = new Set([...skills, ...detected]);
+      setSkills(Array.from(detectedSet));
+      setAnalyzeMsg(`${detected.length} skill(s) detected from the job description. Edit or remove any before posting.`);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Skill detection failed.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleSubmit = async (asDraft = false) => {
     if (!form.title || !form.description || !form.location || !form.employmentType) {
       setError('Please fill all required fields.');
@@ -77,7 +101,7 @@ const PostJob = () => {
     }
     setSaving(true); setError('');
     try {
-      const { data } = await api.post('/recruiter/jobs', {
+      await api.post('/recruiter/jobs', {
         ...form, skills, status: asDraft ? 'DRAFT' : 'ACTIVE',
       });
       setSuccess(true);
@@ -141,6 +165,16 @@ const PostJob = () => {
                 placeholder="Qualifications, must-haves, nice-to-haves..." />
             </div>
             <TagInput label="Required Skills" tags={skills} setTags={setSkills} placeholder="React, Node.js, Python..." />
+            <button
+              type="button"
+              onClick={autoDetectSkills}
+              disabled={analyzing}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-secondary/10 text-secondary hover:bg-secondary/20 disabled:opacity-50 transition-colors"
+            >
+              {analyzing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {analyzing ? 'Detecting skills...' : 'Auto-detect skills from description'}
+            </button>
+            {analyzeMsg && <p className="text-xs text-secondary mt-1 flex items-center gap-1"><CheckCircle2 size={12} /> {analyzeMsg}</p>}
           </div>
 
           {/* Location & Type */}
