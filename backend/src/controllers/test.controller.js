@@ -1207,7 +1207,15 @@ const applyToJob = async (req, res, next) => {
     if (!student) return res.status(403).json({ message: 'Student profile not found' });
 
     const { jobId } = req.params;
-    const { coverLetter, resumeUrl } = req.body;
+    const { coverLetter } = req.body;
+
+    // Check if student has a resume uploaded
+    const hasResume = student.documents?.some(doc => doc.type === 'RESUME');
+    if (!hasResume) {
+      return res.status(400).json({ 
+        message: 'Please upload a resume before applying to jobs. Use the Resume management page to upload your resume.' 
+      });
+    }
 
     const existing = await prisma.jobApplication.findFirst({
       where: { jobId, studentId: student.id }
@@ -1216,12 +1224,16 @@ const applyToJob = async (req, res, next) => {
       return res.status(400).json({ message: 'You have already applied to this job' });
     }
 
+    // Get the resume URL from the student's documents
+    const resumeDoc = student.documents.find(doc => doc.type === 'RESUME');
+    const resumeUrl = resumeDoc ? resumeDoc.url : null;
+
     const application = await prisma.jobApplication.create({
       data: {
         jobId,
         studentId: student.id,
         coverLetter: coverLetter || null,
-        resumeUrl: resumeUrl || null,
+        resumeUrl: resumeUrl,
         status: 'APPLIED'
       }
     });
