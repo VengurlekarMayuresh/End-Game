@@ -391,6 +391,8 @@ model TestAttempt {
   difficultyBreakdown Json?     // difficulty-wise performance
   tabViolations       Int       @default(0)    // tab/window switch violations
   fullscreenViolations Int     @default(0)   // fullscreen exit violations
+  disqualified        Boolean   @default(false)
+  remark              String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 }
