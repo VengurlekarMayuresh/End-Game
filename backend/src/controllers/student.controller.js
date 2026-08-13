@@ -407,8 +407,109 @@ const updatePreferences = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+// ─── BATCH PROFILE UPDATE ──────────────────────────────────────────────────────
+
+const batchUpdateProfile = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const student = await prisma.student.findUnique({ where: { userId } });
+    const { skills, experiences, education, certifications, languages, preferences } = req.body;
+
+    const updates = [];
+
+    // Update skills (batch create/update - delete existing and re-create)
+    if (skills && Array.isArray(skills)) {
+      // Delete existing skills
+      await prisma.studentSkill.deleteMany({ where: { studentId: student.id } });
+      // Create new skills
+      const skillCreatePromises = skills.map(skill => prisma.studentSkill.create({
+        data: { studentId: student.id, name: skill.name, category: skill.category, level: skill.level || 'INTERMEDIATE' }
+      }));
+      updates.push(Promise.all(skillCreatePromises));
+    }
+
+    // Update experiences
+    if (experiences && Array.isArray(experiences)) {
+      await prisma.studentExperience.deleteMany({ where: { studentId: student.id } });
+      const expCreatePromises = experiences.map(exp => prisma.studentExperience.create({
+        data: {
+          studentId: student.id, company: exp.company, role: exp.role, employmentType: exp.employmentType,
+          startDate: exp.startDate ? new Date(exp.startDate) : null, endDate: exp.endDate ? new Date(exp.endDate) : null,
+          isCurrent: exp.isCurrent === true || exp.isCurrent === 'true', description: exp.description,
+        }
+      }));
+      updates.push(Promise.all(expCreatePromises));
+    }
+
+    // Update education
+    if (education && Array.isArray(education)) {
+      await prisma.studentEducation.deleteMany({ where: { studentId: student.id } });
+      const eduCreatePromises = education.map(edu => prisma.studentEducation.create({
+        data: { studentId: student.id, institution: edu.institution, university: edu.university, degree: edu.degree, branch: edu.branch,
+          cgpa: edu.cgpa ? parseFloat(edu.cgpa) : null, percentage: edu.percentage ? parseFloat(edu.percentage) : null,
+          startYear: parseInt(edu.startYear), endYear: edu.endYear ? parseInt(edu.endYear) : null,
+          isCurrent: edu.isCurrent === true || edu.isCurrent === 'true' }
+      }));
+      updates.push(Promise.all(eduCreatePromises));
+    }
+
+    // Update certifications
+    if (certifications && Array.isArray(certifications)) {
+      await prisma.studentCertification.deleteMany({ where: { studentId: student.id } });
+      const certCreatePromises = certifications.map(cert => prisma.studentCertification.create({
+        data: { studentId: student.id, title: cert.title, organization: cert.organization,
+          issueDate: new Date(cert.issueDate), expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+          credentialId: cert.credentialId, credentialUrl: cert.credentialUrl }
+      }));
+      updates.push(Promise.all(certCreatePromises));
+    }
+
+    // Update languages
+    if (languages && Array.isArray(languages)) {
+      await prisma.studentLanguage.deleteMany({ where: { studentId: student.id } });
+      const langCreatePromises = languages.map(lang => prisma.studentLanguage.create({
+        data: { studentId: student.id, language: lang.language, read: lang.read !== false, write: lang.write !== false, speak: lang.speak !== false, proficiency: lang.proficiency || 'FLUENT' }
+      }));
+      updates.push(Promise.all(langCreatePromises));
+    }
+
+    // Update preferences
+    if (preferences) {
+      const pref = await prisma.studentPreference.upsert({
+        where: { studentId: student.id },
+        create: { studentId: student.id, preferredRoles: preferences.preferredRoles || [], preferredLocations: preferences.preferredLocations || [], expectedSalary: preferences.expectedSalary, employmentType: preferences.employmentType, remotePreference: preferences.remotePreference },
+        update: { preferredRoles: preferences.preferredRoles || [], preferredLocations: preferences.preferredLocations || [], expectedSalary, employmentType, remotePreference },
+      });
+      updates.push(Promise.resolve(pref));
+    }
+
+    // Wait for all updates to complete
+    await Promise.all(updates.filter(u => u.length > 1 || u instanceof Promise));
+
+    const updatedStudent = await prisma.student.findUnique({
+      where: { userId },
+      include: { skills: true, experiences: true, education: true, certifications: true, languages: true, preferences: true },
+    });
+
+    res.json({ message: 'Profile updated successfully', student: updatedStudent });
+  } catch (error) { next(error); }
+};
+
+const saveResumeData = async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const { resumeData } = req.body;
+
+    const student = await prisma.student.update({
+      where: { userId },
+      data: { resumeData }
+    });
+    res.json(student);
+  } catch (error) { next(error); }
+};
+
 module.exports = {
-  getProfile, updateProfile,
+  getProfile, updateProfile, batchUpdateProfile,
   addEducation, updateEducation, deleteEducation,
   addSkill, updateSkill, deleteSkill,
   addProject, updateProject, deleteProject,
@@ -416,5 +517,5 @@ module.exports = {
   addExperience, updateExperience, deleteExperience,
   addLanguage, updateLanguage, deleteLanguage,
   uploadDocument, deleteDocument,
-  updateSocialLinks, updatePreferences,
+  updateSocialLinks, updatePreferences, saveResumeData
 };

@@ -11,12 +11,13 @@ const toArray = (val) => {
 
 const buildStudentProfileForMatching = (student) => {
   if (!student) return null;
+  const resumeData = student.resumeData || {};
   return {
-    skills: student.skills || [],
-    experiences: student.experiences || [],
-    education: student.education || [],
-    projects: student.projects || [],
-    certifications: student.certifications || [],
+    skills: resumeData.skills || student.skills || [],
+    experiences: resumeData.experiences || student.experiences || [],
+    education: resumeData.education || student.education || [],
+    projects: resumeData.projects || student.projects || [],
+    certifications: resumeData.certifications || student.certifications || [],
     socialLinks: student.socialLinks || null,
     preferences: student.preferences || null,
     user: student.user || null,
@@ -342,22 +343,60 @@ const getAllCandidates = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const recruiter = await prisma.recruiter.findUnique({ where: { userId } });
+    
     // Get all applications across all recruiter's jobs
-    const applications = await prisma.jobApplication.findMany({
+    let applications = await prisma.jobApplication.findMany({
       where: { job: { recruiterId: recruiter.id } },
       include: {
-        job: { select: { id: true, title: true } },
+        job: { select: { id: true, title: true, skills: true, experienceMin: true } },
         student: {
           include: {
             user: { select: { fullName: true, email: true, profilePicture: true } },
-            education: { take: 1, orderBy: { startYear: 'desc' } },
-            skills: { take: 5 },
-            documents: { where: { type: 'RESUME' }, take: 1 },
+            resumeData: true
           },
         },
       },
       orderBy: { appliedAt: 'desc' },
     });
+
+    // Dynamically recalculate match score based on CURRENT job skills and CURRENT resume data
+    const normalize = (s) => (s || '').trim().toLowerCase();
+
+    applications = applications.map(app => {
+      let matchScore = 0;
+      const resumeData = app.student.resumeData || {};
+      
+      const resumeSkillsNorm = [
+        ...(resumeData.skills || []),
+        ...(resumeData.projects || []).flatMap(p => p.techStack || [])
+      ].map(normalize).filter(Boolean);
+
+      const jobSkillsNorm = (app.job.skills || []).map(normalize).filter(Boolean);
+
+      let skillScore = 0;
+      if (jobSkillsNorm.length > 0 && resumeSkillsNorm.length > 0) {
+        const matchCount = jobSkillsNorm.filter(js =>
+          resumeSkillsNorm.some(rs => rs.includes(js) || js.includes(rs))
+        ).length;
+        skillScore = (matchCount / jobSkillsNorm.length) * 80;
+      } else if (jobSkillsNorm.length === 0) {
+        skillScore = 80;
+      }
+
+      let expScore = 0;
+      const candidateYears = parseFloat(resumeData.yearsOfExperience) || 0;
+      const requiredMin = app.job.experienceMin || 0;
+      if (requiredMin === 0 || candidateYears >= requiredMin) {
+        expScore = 20;
+      } else {
+        expScore = Math.min((candidateYears / requiredMin) * 20, 20);
+      }
+
+      matchScore = Math.round((skillScore + expScore) * 10) / 10;
+      
+      return { ...app, matchScore };
+    });
+
     res.json(applications);
   } catch (error) { next(error); }
 };
@@ -367,7 +406,7 @@ const updateApplicationStatus = async (req, res, next) => {
     const { userId } = req.user;
     const recruiter = await prisma.recruiter.findUnique({ where: { userId } });
     const { appId } = req.params;
-    const { status, notes } = req.body;
+    const { status, notes, stage } = req.body;
 
     const app = await prisma.jobApplication.findFirst({
       where: { id: appId, job: { recruiterId: recruiter.id } },
@@ -377,7 +416,23 @@ const updateApplicationStatus = async (req, res, next) => {
     const updated = await prisma.jobApplication.update({
       where: { id: appId },
       data: { status, notes: notes ?? app.notes },
+      include: { student: { include: { user: true } }, job: true }
     });
+
+    if (status === 'SHORTLISTED' || status === 'INTERVIEW' || status === 'REJECTED') {
+      const { sendStatusEmail } = require('../utils/mailer');
+      if (updated.student && updated.student.user) {
+        sendStatusEmail(
+          updated.student.user.email,
+          updated.student.user.fullName,
+          updated.job.title,
+          recruiter.companyName || 'Our Company',
+          status,
+          stage
+        );
+      }
+    }
+
     res.json(updated);
   } catch (error) { next(error); }
 };
@@ -595,32 +650,47 @@ const bulkUpdateShortlistStatus = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const recruiter = await prisma.recruiter.findUnique({ where: { userId } });
-    const { jobId } = req.params;
-    const { applicationIds, status } = req.body;
+    const { applicationIds, status, stage } = req.body;
 
     if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
       return res.status(400).json({ message: 'applicationIds array is required' });
     }
 
-    const validStatuses = ['SHORTLISTED', 'REJECTED', 'REVIEW', 'APPLIED'];
+    const validStatuses = ['SHORTLISTED', 'REJECTED', 'REVIEW', 'APPLIED', 'INTERVIEW', 'OFFERED'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    // Verify job belongs to recruiter
-    const job = await prisma.job.findFirst({
-      where: { id: jobId, recruiterId: recruiter.id },
-    });
-    if (!job) return res.status(404).json({ message: 'Job not found' });
-
-    // Update all specified applications
+    // Update all specified applications that belong to this recruiter
     const result = await prisma.jobApplication.updateMany({
       where: {
         id: { in: applicationIds },
-        jobId,
+        job: { recruiterId: recruiter.id }
       },
       data: { status },
     });
+
+    // Send emails asynchronously
+    if (status === 'SHORTLISTED' || status === 'INTERVIEW' || status === 'REJECTED') {
+      const applications = await prisma.jobApplication.findMany({
+        where: { id: { in: applicationIds } },
+        include: { student: { include: { user: true } }, job: true }
+      });
+      
+      const { sendStatusEmail } = require('../utils/mailer');
+      for (const app of applications) {
+        if (app.student && app.student.user) {
+          sendStatusEmail(
+            app.student.user.email,
+            app.student.user.fullName,
+            app.job.title,
+            recruiter.companyName || 'Our Company',
+            status,
+            stage
+          );
+        }
+      }
+    }
 
     res.json({
       message: `Updated ${result.count} application(s) to status: ${status}`,

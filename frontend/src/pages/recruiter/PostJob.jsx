@@ -1,13 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import {
   Briefcase, MapPin, DollarSign, Users,
-  Plus, X, Save, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Loader2
+  Plus, X, Save, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, Loader2, Search
 } from 'lucide-react';
 
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance'];
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP'];
+
+const SKILL_SUGGESTIONS = [
+  'JavaScript','TypeScript','Python','Java','C','C++','C#','Go','Rust','Kotlin','Swift','PHP','Ruby','Scala','R','MATLAB','Dart',
+  'React','Next.js','Vue.js','Angular','Svelte','HTML','CSS','Tailwind CSS','Bootstrap','Redux','Zustand','GraphQL',
+  'Node.js','Express.js','NestJS','Django','FastAPI','Flask','Spring Boot','Laravel','ASP.NET','Ruby on Rails',
+  'MySQL','PostgreSQL','MongoDB','Redis','SQLite','Supabase','Firebase','Cassandra','DynamoDB','Elasticsearch',
+  'AWS','Google Cloud','Azure','Docker','Kubernetes','Terraform','CI/CD','GitHub Actions','Jenkins','Linux','Nginx','Vercel',
+  'React Native','Flutter','Android','iOS','Expo',
+  'Machine Learning','Deep Learning','TensorFlow','PyTorch','Keras','Scikit-learn','NLP','Computer Vision','Pandas','NumPy','Data Analysis','Data Science','OpenCV',
+  'Git','GitHub','Figma','Postman','Jira','Confluence','REST APIs','WebSockets','Prisma','Mongoose',
+  'Problem Solving','Team Leadership','Communication','Project Management','Agile','Scrum',
+];
 
 const InputField = ({ label, required, ...props }) => (
   <div>
@@ -21,39 +33,112 @@ const InputField = ({ label, required, ...props }) => (
   </div>
 );
 
-const TagInput = ({ label, tags, setTags, placeholder }) => {
-  const [input, setInput] = useState('');
-  const add = () => {
-    const v = input.trim();
-    if (v && !tags.includes(v)) setTags([...tags, v]);
-    setInput('');
+// ── Internshala-style skill selector ────────────────────────────────────────
+const SkillSelector = ({ label, tags, setTags }) => {
+  const [query, setQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const normalize = (s) => s.trim().toLowerCase();
+
+  const filtered = SKILL_SUGGESTIONS.filter(
+    s => s.toLowerCase().includes(query.toLowerCase()) && !tags.map(normalize).includes(normalize(s))
+  ).slice(0, 10);
+
+  const addSkill = (skill) => {
+    const norm = normalize(skill);
+    if (skill.trim() && !tags.map(normalize).includes(norm)) {
+      setTags([...tags, skill.trim()]);
+    }
+    setQuery('');
+    setShowDropdown(false);
+    inputRef.current?.focus();
   };
+
+  const removeSkill = (skill) => setTags(tags.filter(t => normalize(t) !== normalize(skill)));
+
+  const handleKeyDown = (e) => {
+    if ((e.key === 'Enter' || e.key === ',') && query.trim()) {
+      e.preventDefault();
+      addSkill(query.trim());
+    }
+    if (e.key === 'Backspace' && !query && tags.length > 0) {
+      removeSkill(tags[tags.length - 1]);
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setShowDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   return (
-    <div>
-      <label className="block text-sm font-medium mb-1.5 text-muted-foreground">{label}</label>
-      <div className="flex flex-wrap gap-2 mb-2 min-h-8">
+    <div ref={containerRef} className="relative">
+      {label && <label className="block text-sm font-medium mb-1.5 text-muted-foreground">{label}</label>}
+      <div
+        className="min-h-[46px] w-full flex flex-wrap gap-2 p-2.5 rounded-xl border border-input bg-background focus-within:ring-2 focus-within:ring-secondary/40 cursor-text"
+        onClick={() => inputRef.current?.focus()}
+      >
         {tags.map(t => (
-          <span key={t} className="flex items-center gap-1 px-2.5 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded-full">
+          <span key={t} className="flex items-center gap-1.5 bg-secondary/10 text-secondary text-xs font-medium px-2.5 py-1 rounded-lg">
             {t}
-            <button onClick={() => setTags(tags.filter(x => x !== t))} className="hover:text-destructive ml-0.5"><X size={11} /></button>
+            <button type="button" onClick={() => removeSkill(t)} className="hover:text-destructive transition-colors">
+              <X size={11} />
+            </button>
           </span>
         ))}
-      </div>
-      <div className="flex gap-2">
         <input
-          className="flex-1 px-3 py-2.5 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
-          value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-          placeholder={placeholder}
+          ref={inputRef}
+          value={query}
+          onChange={e => { setQuery(e.target.value); setShowDropdown(true); }}
+          onFocus={() => setShowDropdown(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length === 0 ? 'Search skills and add...' : ''}
+          className="flex-1 min-w-[140px] bg-transparent border-none outline-none text-sm"
         />
-        <button onClick={add} type="button" className="px-3 py-2 bg-muted rounded-xl hover:bg-muted/80 transition-colors text-sm">
-          <Plus size={16} />
-        </button>
       </div>
-      <p className="text-xs text-muted-foreground mt-1">Press Enter or + to add</p>
+
+      {showDropdown && (
+        <div className="absolute top-full mt-1 left-0 right-0 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden max-h-52 overflow-y-auto">
+          {filtered.length > 0 ? (
+            <>
+              <div className="px-3 py-1.5 border-b border-border bg-muted/30">
+                <p className="text-xs text-muted-foreground font-medium">Click to add · Enter or comma to add custom</p>
+              </div>
+              {filtered.map(s => (
+                <button type="button" key={s} onClick={() => addSkill(s)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-secondary/10 hover:text-secondary transition-colors flex items-center gap-2">
+                  <Plus size={12} className="text-muted-foreground" /> {s}
+                </button>
+              ))}
+              {query && !SKILL_SUGGESTIONS.map(s => s.toLowerCase()).includes(query.toLowerCase()) && (
+                <button type="button" onClick={() => addSkill(query)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-green-500/10 hover:text-green-600 transition-colors flex items-center gap-2 border-t border-border">
+                  <Plus size={12} /> Add "{query}" as custom skill
+                </button>
+              )}
+            </>
+          ) : query ? (
+            <button type="button" onClick={() => addSkill(query)}
+              className="w-full text-left px-3 py-3 text-sm hover:bg-green-500/10 hover:text-green-600 flex items-center gap-2">
+              <Plus size={12} /> Add "{query}" as custom skill
+            </button>
+          ) : (
+            <div className="px-3 py-3 text-sm text-muted-foreground">Start typing to search skills...</div>
+          )}
+        </div>
+      )}
+      {tags.length > 0 && (
+        <p className="text-xs text-muted-foreground mt-1">{tags.length} skill{tags.length !== 1 ? 's' : ''} added</p>
+      )}
     </div>
   );
 };
+
 
 const PostJob = () => {
   const navigate = useNavigate();
@@ -164,7 +249,7 @@ const PostJob = () => {
                 rows={4} value={form.requirements} onChange={e => set('requirements', e.target.value)}
                 placeholder="Qualifications, must-haves, nice-to-haves..." />
             </div>
-            <TagInput label="Required Skills" tags={skills} setTags={setSkills} placeholder="React, Node.js, Python..." />
+            <SkillSelector label="Required Skills" tags={skills} setTags={setSkills} />
             <button
               type="button"
               onClick={autoDetectSkills}

@@ -451,3 +451,262 @@ def get_session_details(session_id: str):
     if not session:
         raise HTTPException(404, "Session not found")
     return session
+
+
+# -----------------------------------------------------------------------------
+# 6. Resume Builder & Ranking Endpoints
+# -----------------------------------------------------------------------------
+
+class BuilderCandidateRequest(BaseModel):
+    candidate_name: str
+    candidate_email: str
+    current_role: str
+    years_experience: float
+    skills: List[str]
+    projects: List[dict] = []
+    education: str = ""
+
+
+class RankingRequest(BaseModel):
+    candidate_id: str
+    job_id: str
+
+
+@app.post("/builder/candidate")
+async def create_builder_candidate(req: BuilderCandidateRequest):
+    """Create a candidate profile directly from the resume builder form.
+    Saves to database without requiring file upload."""
+    import uuid
+    from datetime import datetime
+    
+    candidate_id = f"cand_builder_{req.candidate_name.replace(' ', '_').lower()}_{uuid4().hex[:4]}"
+    candidate_email = req.candidate_email or f"{req.candidate_name.replace(' ', '.').lower()}@example.com"
+    
+    # Parse skills from comma-separated string
+    skills_list = [s.strip() for s in req.skills.split(",") if s.strip()]
+    
+    # Parse projects
+    projects_list = []
+    for proj in req.projects:
+        if isinstance(proj, str):
+            parts = proj.split(":")
+            if len(parts) >= 2:
+                projects_list.append({
+                    "name": parts[0].strip(),
+                    "tech_stack": [s.strip() for s in parts[1].split(",") if s.strip()],
+                    "description": ""
+                })
+        elif isinstance(proj, dict):
+            projects_list.append({
+                "name": proj.get("name", "Unknown Project"),
+                "tech_stack": proj.get("tech_stack", []),
+                "description": proj.get("description", "")
+            })
+    
+    # Parse education to extract degree info
+    education_degree = "Candidate"
+    edu_text = req.education.lower()
+    if any(k in edu_text for k in ["bachelor", "b.sc", "b.s", "be", "btech"]):
+        education_degree = "Bachelor"
+    elif any(k in edu_text for k in ["master", "m.sc", "m.s", "mtech"]):
+        education_degree = "Master"
+    elif any(k in edu_text for k in ["phd", "doctorate"]):
+        education_degree = "PhD"
+    
+    saved = db_create_candidate(
+        candidate_id=candidate_id,
+        name=req.candidate_name,
+        email=candidate_email,
+        resume_raw_text=f"Builder-Resume: {req.candidate_name}",
+        resume_data={
+            "name": req.candidate_name,
+            "skills": skills_list,
+            "projects": projects_list,
+            "education": [{"degree": education_degree}],
+            "years_experience": req.years_experience,
+            "source": "builder"
+        }
+    )
+    
+    return {
+        "message": "Candidate profile created from builder",
+        "candidate_id": candidate_id,
+        "name": saved.get("name")
+    }
+
+
+@app.post("/builder/rank")
+async def rank_candidate_against_job(req: RankingRequest):
+    """Rank a saved candidate against a job posting for screening."""
+    from resume_parser import parse_job_description, calculate_skill_match
+    from nlp_extract import extract_keywords
+    
+    # Get candidate from DB
+    candidate = db_get_candidate(req.candidate_id)
+    if not candidate:
+        raise HTTPException(404, f"Candidate '{req.candidate_id}' not found")
+    
+    # Get job from DB
+    job = db_get_job(req.job_id)
+    if not job:
+        raise HTTPException(404, f"Job '{req.job_id}' not found")
+    
+    # Parse job description
+    jd_data = parse_job_description(job["description"], role=job["title"])
+    
+    # Get candidate skills from stored resume data
+    candidate_skills = candidate.get("resume_data", {}).get("skills", [])
+    
+    # Calculate skill match
+    skill_match = calculate_skill_match(candidate_skills, jd_data.get("required_skills", []))
+    
+    # Calculate experience match
+    candidate_years = candidate.get("resume_data", {}).get("years_experience", 0)
+    required_years = _extract_required_experience(jd_data.get("raw_text", ""))
+    experience_match = min(candidate_years / max(required_years, 1), 1.0) * 100 if required_years else 100
+    
+    # Calculate project relevance
+    candidate_projects = candidate.get("resume_data", {}).get("projects", [])
+    project_score = _calculate_project_score(candidate_projects, jd_data)
+    
+    # Calculate education match
+    education_match = _calculate_education_match(
+        candidate.get("resume_data", {}).get("education", []),
+        jd_data
+    )
+    
+    # Overall weighted score
+    overall = round(
+        (skill_match["match_percentage"] * 0.5) +
+        (experience_match * 0.3) +
+        (project_score * 0.15) +
+        (education_match * 0.05), 
+        2
+    )
+    
+    # Hiring recommendation
+    if overall >= 8.0:
+        verdict = "Strong Hire"
+    elif overall >= 6.5:
+        verdict = "Interview"
+    else:
+        verdict = "Reject"
+    
+    # Generate strengths and growth areas
+    strengths = _generate_strengths(candidate_skills, jd_data)
+    growth = _generate_growth_areas(candidate_skills, jd_data, skill_match)
+    
+    return {
+        "candidate_id": req.candidate_id,
+        "candidate_name": candidate.get("name"),
+        "job_id": req.job_id,
+        "job_title": job.get("title"),
+        "overall_score": overall / 10,
+        "hiring_recommendation": verdict,
+        "skill_match": {
+            "percentage": round(skill_match["match_percentage"], 2),
+            "matched_skills": skill_match["matched_skills"],
+            "missing_skills": skill_match.get("missing_skills", [])
+        },
+        "experience_match": {
+            "candidate_years": candidate_years,
+            "required_years": required_years,
+            "percentage": round(experience_match, 2)
+        },
+        "project_relevance": {
+            "score": round(project_score, 2),
+            "details": "Tech stack alignment with job requirements"
+        },
+        "education_match": {
+            "score": round(education_match, 2),
+            "degree": _education_match_details(candidate.get("resume_data", {}).get("education", []), jd_data)
+        },
+        "breakdown": {
+            "strengths": strengths,
+            "growth_areas": growth
+        }
+    }
+
+
+def _extract_required_experience(jd_text: str) -> float:
+    """Extract required years of experience from job description."""
+    import re
+    matches = re.findall(r"(\d+)\+?\s*years?|(\d+)\s*to\s*(\d+)\s*years?", jd_text, re.IGNORECASE)
+    if matches:
+        for m in matches:
+            if m[0]:  # "5 years" or "5+ years"
+                return float(m[0].rstrip("+"))
+            elif m[1] and m[2]:  # "3 to 5 years"
+                return (float(m[1]) + float(m[2])) / 2
+    return 3.0  # default
+
+
+def _calculate_project_score(candidate_projects: list, jd_data: dict) -> float:
+    """Calculate project relevance score against job requirements."""
+    if not candidate_projects:
+        return 0.5  # neutral score if no projects
+    
+    required_skills = set(s.lower() for s in jd_data.get("required_skills", []))
+    total_score = 0
+    
+    for proj in candidate_projects[:3]:  # top 3 projects
+        proj_skills = set(s.lower() for s in proj.get("tech_stack", []))
+        if proj_skills:
+            overlap = required_skills & proj_skills
+            total_score += (len(overlap) / len(required_skills)) if required_skills else 0.5
+    
+    return min(total_score / len(candidate_projects), 1.0) if candidate_projects else 0.5
+
+
+def _calculate_education_match(education: list, jd_data: dict) -> float:
+    """Calculate education match score."""
+    if not education:
+        return 0.5
+    
+    degree_keywords = ["computer science", "engineering", "bs", "ba", "ms", "phd"]
+    
+    edu_text = " ".join(education).lower()
+    matched = sum(1 for k in degree_keywords if k in edu_text)
+    
+    return min(matched / len(degree_keywords), 1.0) if degree_keywords else 0.5
+
+
+def _generate_strengths(candidate_skills: list, jd_data: dict) -> list:
+    """Generate candidate strengths based on skill match."""
+    matched = set(s.lower() for s in candidate_skills) & set(s.lower() for s in jd_data.get("required_skills", []))
+    extra = set(s.lower() for s in candidate_skills) - set(s.lower() for s in jd_data.get("required_skills", []))
+    
+    strengths = []
+    for skill in matched:
+        strengths.append(f"Has required skill: {skill.title()}")
+    for skill in list(extra)[:3]:
+        strengths.append(f"Additional expertise: {skill.title()}")
+    
+    return strengths if strengths else ["Relevant technical background"]
+
+
+def _generate_growth_areas(candidate_skills: list, jd_data: dict, skill_match: dict) -> list:
+    """Generate growth areas based on skill gaps."""
+    required = set(s.lower() for s in jd_data.get("required_skills", []))
+    candidate_set = set(s.lower() for s in candidate_skills)
+    gaps = required - candidate_set
+    
+    areas = []
+    for gap in list(gaps)[:5]:
+        areas.append(f"Gain experience in {gap.title()}")
+    
+    if not areas:
+        areas.append("Deepen expertise in existing technologies")
+    
+    return areas
+
+
+def _education_match_details(education: list, jd_data: dict) -> str:
+    """Get education degree details string."""
+    if not education:
+        return "Not specified"
+    
+    degrees = [e.get("degree", "") for e in education if e.get("degree")]
+    if degrees:
+        return degrees[0]
+    return "Not specified"

@@ -51,7 +51,7 @@ router.post('/jobs/analyze', analyzeJobDescriptionController);
 router.get('/jobs/:jobId/match-scores', getCandidateMatchScores);
 router.get('/jobs/:jobId/students/:studentId/match-score', getSingleCandidateMatchScore);
 router.put('/applications/:appId/shortlist-status', updateApplicationShortlistStatus);
-router.put('/jobs/:jobId/bulk-shortlist', bulkUpdateShortlistStatus);
+router.put('/bulk-shortlist', bulkUpdateShortlistStatus);
 
 // Questions (Question Bank)
 router.post('/questions', createQuestion);

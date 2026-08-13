@@ -951,122 +951,61 @@ const TestInterface = () => {
     );
   }
 
-  // 3. Results Summary Phase UI
+  // 3. Results Summary Phase UI — no score revealed, recruiter decides threshold later
   if (phase === 'RESULTS' && result) {
-    const passed = result.passed;
+    const submittedTime = result.completedAt || result.submittedAt || new Date().toISOString();
+    const fmtTime = (iso) => {
+      try {
+        return new Date(iso).toLocaleString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+      } catch { return 'N/A'; }
+    };
+
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6 md:p-8 animate-in fade-in duration-300 select-text">
-        <div className="max-w-2xl w-full bg-card border border-border rounded-3xl p-8 shadow-sm space-y-6 text-center">
-          
-          <div className="space-y-3">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto bg-muted/20">
-              {passed ? (
-                <div className="w-16 h-16 bg-green-500/15 text-green-500 rounded-full flex items-center justify-center">
-                  <CheckCircle2 size={40} />
-                </div>
-              ) : (
-                <div className="w-16 h-16 bg-red-500/15 text-red-500 rounded-full flex items-center justify-center">
-                  <XCircle size={40} />
-                </div>
-              )}
-            </div>
-            
-            <h1 className="text-3xl font-extrabold text-foreground">Assessment Submitted</h1>
-            <p className="text-sm text-muted-foreground">
-              Your test has been successfully recorded and evaluated. Below is your performance summary.
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 md:p-8 animate-in fade-in duration-300">
+        <div className="max-w-lg w-full bg-card border border-border rounded-3xl p-10 shadow-sm space-y-7 text-center">
+
+          {/* Icon */}
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
+          {/* Heading */}
+          <div className="space-y-2">
+            <h1 className="text-2xl font-extrabold text-foreground">Assessment Submitted!</h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Thank you for completing the assessment. Your responses have been successfully recorded.
             </p>
           </div>
 
-          {/* Pass/Fail Status Banner */}
-          <div className={`p-4 rounded-2xl border text-center font-bold text-base ${
-            passed 
-              ? 'bg-green-500/10 border-green-500/20 text-green-600' 
-              : 'bg-red-500/10 border-red-500/20 text-red-500'
-          }`}>
-            {passed ? 'Congratulations, you passed! 🎉' : 'Passing score not achieved.'}
-          </div>
-
-          {/* Scores Overview */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold">
-            <div className="p-3 bg-muted/20 border rounded-xl">
-              <p className="text-muted-foreground">Total Score</p>
-              <p className="text-lg font-bold text-foreground mt-1">{result.score} marks</p>
+          {/* Info box */}
+          <div className="bg-muted/40 border border-border rounded-2xl p-5 text-left space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground font-medium">Submitted at</span>
+              <span className="font-semibold">{fmtTime(submittedTime)}</span>
             </div>
-            <div className="p-3 bg-muted/20 border rounded-xl">
-              <p className="text-muted-foreground">Percentage</p>
-              <p className="text-lg font-bold text-foreground mt-1">{result.percentage}%</p>
-            </div>
-            <div className="p-3 bg-muted/20 border rounded-xl">
-              <p className="text-muted-foreground">Correct Answers</p>
-              <p className="text-lg font-bold text-green-600 mt-1">{result.correctAnswersCount}</p>
-            </div>
-            <div className="p-3 bg-muted/20 border rounded-xl">
-              <p className="text-muted-foreground">Time Taken</p>
-              <p className="text-lg font-bold text-foreground mt-1">
-                {Math.round(result.timeTaken / 60) || 0}m {result.timeTaken % 60 || 0}s
-              </p>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground font-medium">Status</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">Results Pending</span>
             </div>
           </div>
 
-          {/* Breakdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left pt-4">
-            {/* Category breakdown */}
-            {result.categoryBreakdown && Object.keys(result.categoryBreakdown).length > 0 && (
-              <div className="bg-muted/10 p-5 rounded-2xl space-y-3 border">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Category Performance</h4>
-                <div className="space-y-2.5">
-                  {Object.keys(result.categoryBreakdown).map(cat => {
-                    const data = result.categoryBreakdown[cat];
-                    const percent = data.maxScore > 0 ? (data.score / data.maxScore) * 100 : 0;
-                    return (
-                      <div key={cat} className="text-xs">
-                        <div className="flex justify-between font-semibold mb-0.5 capitalize">
-                          <span>{cat}</span>
-                          <span>{percent.toFixed(0)}%</span>
-                        </div>
-                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full rounded-full" style={{ width: `${percent}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Difficulty breakdown */}
-            {result.difficultyBreakdown && Object.keys(result.difficultyBreakdown).length > 0 && (
-              <div className="bg-muted/10 p-5 rounded-2xl space-y-3 border">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Difficulty Performance</h4>
-                <div className="space-y-2.5">
-                  {Object.keys(result.difficultyBreakdown).map(diff => {
-                    const data = result.difficultyBreakdown[diff];
-                    const percent = data.maxScore > 0 ? (data.score / data.maxScore) * 100 : 0;
-                    return (
-                      <div key={diff} className="text-xs">
-                        <div className="flex justify-between font-semibold mb-0.5">
-                          <span>{diff}</span>
-                          <span>{percent.toFixed(0)}%</span>
-                        </div>
-                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full rounded-full" style={{ width: `${percent}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          {/* Notice */}
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl px-5 py-4 text-sm text-blue-700 leading-relaxed">
+            <p className="font-semibold mb-1">📬 What happens next?</p>
+            <p>The recruiting team will review all submissions and set the qualifying threshold. You will receive an <strong>email notification</strong> once the results are declared — with full details on whether you have been shortlisted for the next round.</p>
           </div>
 
-          <div className="pt-4 flex justify-center border-t border-border/50">
-            <button 
-              onClick={() => navigate('/student/tests')} 
-              className="px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/90 transition-all flex items-center gap-2 shadow-sm"
-            >
-              Back to Tests List
-            </button>
-          </div>
+          <button
+            onClick={() => navigate('/student/tests')}
+            className="w-full px-8 py-3 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-sm"
+          >
+            Back to Tests
+          </button>
         </div>
       </div>
     );

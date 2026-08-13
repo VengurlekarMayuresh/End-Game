@@ -8,7 +8,7 @@ const {
   addExperience, updateExperience, deleteExperience,
   addLanguage, updateLanguage, deleteLanguage,
   uploadDocument, deleteDocument,
-  updateSocialLinks, updatePreferences,
+  updateSocialLinks, updatePreferences, batchUpdateProfile, saveResumeData
 } = require('../controllers/student.controller');
 const {
   startProctoringSession,
@@ -67,6 +67,12 @@ router.put('/social-links', updateSocialLinks);
 
 // Preferences
 router.put('/preferences', updatePreferences);
+
+// Batch profile update - save all candidate details at once
+router.post('/profile/batch', batchUpdateProfile);
+
+// Resume Builder
+router.post('/resume', saveResumeData);
 
 // Jobs Helper (Student Job Portal Integration)
 const {

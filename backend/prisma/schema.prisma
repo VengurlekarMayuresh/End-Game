@@ -72,6 +72,7 @@ model Student {
   applications   JobApplication[]
   testAttempts   TestAttempt[]
   codingAttempts CodingAttempt[]
+  resumeData     Json?
   proctoringSessions ProctoringSession[]
 
   createdAt      DateTime @default(now())
@@ -304,6 +305,7 @@ model JobApplication {
   coverLetter String?           @db.Text
   resumeUrl   String?
   notes       String?           @db.Text   // Recruiter private notes
+  matchScore  Float?            @default(0)
 
   appliedAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
