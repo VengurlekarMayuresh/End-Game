@@ -1,0 +1,12 @@
+[
+  "Python", "Java", "JavaScript", "TypeScript", "C++", "C", "Go", "Rust",
+  "React", "React Native", "Next.js", "Node.js", "Express", "Django", "Flask", "FastAPI",
+  "Spring Boot", "Angular", "Vue.js", "Redux", "GraphQL", "REST API",
+  "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "Firebase",
+  "Docker", "Kubernetes", "AWS", "Azure", "GCP", "CI/CD", "Git", "GitHub Actions",
+  "TensorFlow", "PyTorch", "scikit-learn", "OpenCV", "NLP", "Machine Learning",
+  "Deep Learning", "Computer Vision", "Data Structures", "Algorithms", "DSA",
+  "Operating Systems", "Computer Networks", "DBMS", "System Design",
+  "Microservices", "WebRTC", "WebSockets", "JWT", "OAuth", "Tailwind CSS",
+  "HTML", "CSS", "Pandas", "NumPy", "Jupyter", "Linux", "Bash", "Agile", "Scrum"
+]
