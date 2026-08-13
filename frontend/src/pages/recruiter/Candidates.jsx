@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import api from '../../lib/axios';
 import { getImageUrl } from '../../lib/utils';
 import {
-  Users, Search, Filter, Eye, CheckCircle2,
-  XCircle, Clock, Star, MessageSquare, Download,
-  UserCircle, GraduationCap, Briefcase, ChevronDown
+  Users, Search, CheckCircle2,
+  XCircle, Clock, MessageSquare, Download,
+  UserCircle, ChevronDown, CheckSquare, Square, Mail
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -18,27 +18,31 @@ const STATUS_OPTIONS = [
 
 const getStatusStyle = (s) => STATUS_OPTIONS.find(o => o.value === s) || STATUS_OPTIONS[0];
 
-const CandidateCard = ({ app, onStatusChange }) => {
-  const { student, job, status, appliedAt } = app;
+const CandidateCard = ({ app, isSelected, toggleSelection, onStatusChange }) => {
+  const { student, job, status, matchScore } = app;
   const user = student?.user;
-  const latestEdu = student?.education?.[0];
-  const resumeDoc = student?.documents?.[0];
   const st = getStatusStyle(status);
   const [updating, setUpdating] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [notes, setNotes] = useState(app.notes || '');
   const [showNotes, setShowNotes] = useState(false);
 
-  const handleStatus = async (newStatus) => {
+  const handleStatus = async (newStatus, stage = undefined) => {
     setUpdating(true); setShowDropdown(false);
     try {
-      await onStatusChange(app.id, newStatus, notes);
+      await onStatusChange(app.id, newStatus, stage, notes);
     } finally { setUpdating(false); }
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 hover:shadow-md transition-all">
+    <div className={`bg-card border ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-border'} rounded-2xl p-5 hover:shadow-md transition-all`}>
       <div className="flex items-start gap-4">
+        
+        {/* Selection Checkbox */}
+        <button onClick={() => toggleSelection(app.id)} className="mt-2 text-muted-foreground hover:text-primary">
+          {isSelected ? <CheckSquare size={20} className="text-primary" /> : <Square size={20} />}
+        </button>
+
         {/* Avatar */}
         <div className="w-12 h-12 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
           {user?.profilePicture
@@ -52,81 +56,76 @@ const CandidateCard = ({ app, onStatusChange }) => {
             <div>
               <h3 className="font-semibold text-base">{user?.fullName}</h3>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
+              <p className="text-xs font-medium text-primary mt-1">Applied for: {job?.title}</p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${st.cls}`}>{st.label}</span>
-              {/* Status dropdown */}
-              <div className="relative">
-                <button onClick={() => setShowDropdown(!showDropdown)} disabled={updating}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-muted hover:bg-muted/80 text-xs font-medium rounded-lg transition-colors">
-                  Update <ChevronDown size={12} />
-                </button>
-                {showDropdown && (
-                  <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border rounded-xl shadow-lg z-10 overflow-hidden">
-                    {STATUS_OPTIONS.map(opt => (
-                      <button key={opt.value} onClick={() => handleStatus(opt.value)}
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors ${status === opt.value ? 'font-semibold' : ''}`}>
-                        {opt.label}
+            
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-muted-foreground mb-1">Match</span>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-4 ${
+                  (matchScore || 0) >= 80 ? 'border-green-500 text-green-600' :
+                  (matchScore || 0) >= 50 ? 'border-yellow-500 text-yellow-600' :
+                  'border-red-500 text-red-600'
+                }`}>
+                  {Math.round(matchScore || 0)}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${st.cls}`}>{st.label}</span>
+                <div className="relative">
+                  <button onClick={() => setShowDropdown(!showDropdown)} disabled={updating}
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                    Update Status <ChevronDown size={14} />
+                  </button>
+                  {showDropdown && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-10 py-1">
+                      <button onClick={() => handleStatus('SHORTLISTED', 'RESUME')}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${status === 'SHORTLISTED' ? 'bg-primary/5 text-primary font-medium' : ''}`}>
+                        Shortlist (Resume)
                       </button>
-                    ))}
-                  </div>
-                )}
+                      <button onClick={() => handleStatus('INTERVIEW', 'CODING')}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${status === 'INTERVIEW' ? 'bg-primary/5 text-primary font-medium' : ''}`}>
+                        Shortlist (Exam/Coding)
+                      </button>
+                      <button onClick={() => handleStatus('OFFERED')}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${status === 'OFFERED' ? 'bg-primary/5 text-primary font-medium' : ''}`}>
+                        Offered
+                      </button>
+                      <button onClick={() => handleStatus('REJECTED')}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted text-red-600 ${status === 'REJECTED' ? 'bg-red-500/10 font-medium' : ''}`}>
+                        Reject & Email
+                      </button>
+                      <hr className="my-1 border-border" />
+                      <button onClick={() => handleStatus('REVIEWING')}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${status === 'REVIEWING' ? 'bg-primary/5 text-primary font-medium' : ''}`}>
+                        Mark as Reviewing
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Tags row */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-            {latestEdu && (
-              <span className="flex items-center gap-1">
-                <GraduationCap size={11} /> {latestEdu.degree} · {latestEdu.institution}
-              </span>
-            )}
-            {job && (
-              <span className="flex items-center gap-1 text-secondary">
-                <Briefcase size={11} /> Applied for: {job.title}
-              </span>
-            )}
-            <span className="flex items-center gap-1">
-              <Clock size={11} /> {new Date(appliedAt).toLocaleDateString()}
-            </span>
-          </div>
-
-          {/* Skills */}
-          {student?.skills?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {student.skills.slice(0, 5).map(s => (
-                <span key={s.id} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-md">{s.name}</span>
-              ))}
-            </div>
-          )}
-
-          {/* Actions row */}
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/50">
-            {resumeDoc && (
-              <a href={`http://localhost:5000${resumeDoc.url}`} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1.5 text-xs text-secondary hover:underline font-medium">
-                <Download size={12} /> Download Resume
-              </a>
-            )}
-            <button onClick={() => setShowNotes(!showNotes)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <MessageSquare size={12} /> {showNotes ? 'Hide' : 'Notes'}
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={() => setShowNotes(!showNotes)} className="text-xs font-medium flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <MessageSquare size={14} /> Notes {notes ? '(1)' : ''}
             </button>
+            {student?.resumeData && (
+              <button className="text-xs font-medium flex items-center gap-1 text-primary hover:underline transition-colors">
+                <Download size={14} /> View Platform Resume
+              </button>
+            )}
           </div>
 
-          {/* Notes */}
           {showNotes && (
-            <div className="mt-3 space-y-2">
-              <textarea
-                className="w-full px-3 py-2 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40 resize-none"
-                rows={2} placeholder="Private notes about this candidate..."
-                value={notes} onChange={e => setNotes(e.target.value)}
-              />
-              <button onClick={() => handleStatus(status)}
-                className="px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:bg-secondary/90 transition-all">
-                Save Notes
-              </button>
+            <div className="mt-3 bg-muted/50 rounded-xl p-3">
+              <textarea placeholder="Add private notes about this candidate..." value={notes} onChange={(e) => setNotes(e.target.value)}
+                className="w-full bg-transparent border-none focus:ring-0 resize-none text-sm p-0 mb-2 h-16" />
+              <div className="flex justify-end">
+                <button onClick={() => handleStatus(status)} disabled={updating} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-medium">Save Note</button>
+              </div>
             </div>
           )}
         </div>
@@ -138,19 +137,69 @@ const CandidateCard = ({ app, onStatusChange }) => {
 const Candidates = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isBulkActioning, setIsBulkActioning] = useState(false);
 
-  useEffect(() => {
-    api.get('/recruiter/candidates').then(r => setApplications(r.data)).finally(() => setLoading(false));
-  }, []);
+  useEffect(() => { fetchCandidates(); }, []);
 
-  const handleStatusChange = async (appId, newStatus, notes) => {
-    await api.put(`/recruiter/applications/${appId}/status`, { status: newStatus, notes });
-    setApplications(apps => apps.map(a => a.id === appId ? { ...a, status: newStatus, notes } : a));
+  const fetchCandidates = async () => {
+    try {
+      const { data } = await api.get('/recruiter/candidates');
+      setApplications(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filtered = applications.filter(a => {
+  const handleStatusChange = async (appId, newStatus, stage = undefined, notes = undefined) => {
+    await api.put(`/recruiter/applications/${appId}/status`, { status: newStatus, stage, notes });
+    setApplications(apps => apps.map(a => a.id === appId ? { ...a, status: newStatus, notes: notes !== undefined ? notes : a.notes } : a));
+  };
+
+  const toggleSelection = (id) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set()); // Fixed bug where newSet() was called instead of new Set()
+    } else {
+      setSelectedIds(new Set(filtered.map(a => a.id)));
+    }
+  };
+
+  const handleBulkAction = async (actionStatus, stage = undefined) => {
+    if (selectedIds.size === 0) return;
+    setIsBulkActioning(true);
+    try {
+      await api.put(`/recruiter/bulk-shortlist`, {
+        applicationIds: Array.from(selectedIds),
+        status: actionStatus,
+        stage
+      });
+      // update local
+      setApplications(apps => apps.map(a => selectedIds.has(a.id) ? { ...a, status: actionStatus } : a));
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsBulkActioning(false);
+    }
+  };
+
+  // Sort by match score descending
+  const sortedApps = [...applications].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+
+  const filtered = sortedApps.filter(a => {
     if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
     const name = a.student?.user?.fullName?.toLowerCase() || '';
     const email = a.student?.user?.email?.toLowerCase() || '';
@@ -163,25 +212,10 @@ const Candidates = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-1">Candidates</h1>
-        <p className="text-muted-foreground">Review and manage all applications across your job postings</p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="w-full pl-9 pr-4 py-2 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
-            placeholder="Search by name or email..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div className="flex gap-1 bg-muted/50 rounded-xl p-1 overflow-x-auto">
-          {[{ value: 'ALL', label: 'All' }, ...STATUS_OPTIONS].map(opt => (
-            <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${statusFilter === opt.value ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-              {opt.label} ({counts[opt.value] ?? 0})
-            </button>
-          ))}
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Candidates</h1>
+          <p className="text-muted-foreground">Review and manage all applications across your job postings</p>
         </div>
       </div>
 
@@ -196,6 +230,50 @@ const Candidates = () => {
         ))}
       </div>
 
+      {/* Filters and Bulk Actions */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-2xl border border-border">
+        
+        <div className="flex items-center gap-4">
+          <button onClick={selectAll} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+            {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={18}/> : <Square size={18}/>}
+            Select All
+          </button>
+          
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 border-l pl-4 border-border flex-wrap">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <button 
+                onClick={() => handleBulkAction('SHORTLISTED', 'RESUME')}
+                disabled={isBulkActioning}
+                className="bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+              >
+                <Mail size={14}/> Shortlist (Resume)
+              </button>
+              <button 
+                onClick={() => handleBulkAction('INTERVIEW', 'CODING')}
+                disabled={isBulkActioning}
+                className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+              >
+                <Mail size={14}/> Shortlist (Exam/Coding)
+              </button>
+              <button 
+                onClick={() => handleBulkAction('REJECTED')}
+                disabled={isBulkActioning}
+                className="bg-red-500/10 text-red-600 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+              >
+                <XCircle size={14}/> Reject & Email
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input className="w-full pl-9 pr-4 py-2 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+            placeholder="Search candidates..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+      </div>
+
       {/* Candidate list */}
       {loading ? (
         <div className="space-y-3 animate-pulse">{[1,2,3].map(i=><div key={i} className="h-36 bg-muted rounded-2xl"/>)}</div>
@@ -204,14 +282,19 @@ const Candidates = () => {
           <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Users size={28} />
           </div>
-          <h3 className="font-semibold text-lg mb-2">No candidates yet</h3>
-          <p className="text-muted-foreground text-sm">Post a job to start receiving applications from students</p>
+          <h3 className="font-semibold text-lg mb-2">No candidates found</h3>
+          <p className="text-muted-foreground text-sm">Try adjusting your filters or search term</p>
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{filtered.length} candidate{filtered.length !== 1 ? 's' : ''} found</p>
           {filtered.map(app => (
-            <CandidateCard key={app.id} app={app} onStatusChange={handleStatusChange} />
+            <CandidateCard 
+              key={app.id} 
+              app={app} 
+              isSelected={selectedIds.has(app.id)}
+              toggleSelection={toggleSelection}
+              onStatusChange={handleStatusChange} 
+            />
           ))}
         </div>
       )}

@@ -5,7 +5,7 @@ import { getImageUrl } from '../../lib/utils';
 import {
   ArrowLeft, Search, Sparkles, ThumbsUp, ThumbsDown, Eye,
   CheckCircle2, CircleDashed, GraduationCap, Briefcase,
-  Award, Target, Coffee, AlertTriangle
+  Award, Target, Coffee, AlertTriangle, Square, CheckSquare
 } from 'lucide-react';
 
 const getScoreColor = (score) => {
@@ -67,7 +67,7 @@ const ScoreBreakdown = ({ breakdown }) => {
   );
 };
 
-const CandidateCard = ({ application, onStatusChange, updatingId, expanded, onToggleExpand }) => {
+const CandidateCard = ({ application, isSelected, toggleSelection, onStatusChange, updatingId, expanded, onToggleExpand }) => {
   const student = application.student;
   const user = student?.user;
   const ms = application.matchScore;
@@ -78,19 +78,23 @@ const CandidateCard = ({ application, onStatusChange, updatingId, expanded, onTo
 
   const matchedSkills = (ms?.matched || []).filter(x => x.category === 'skills').map(x => x.requirement);
   const partialSkills = (ms?.partiallyMatched || []).filter(x => x.category === 'skills').map(x => x.requirement);
-  const allSkillReqs = [...ms?.matched.filter(x => x.category === 'skills')?.map(x => x.requirement) ?? [],
-    ...ms?.partiallyMatched.filter(x => x.category === 'skills')?.map(x => x.requirement) ?? [],
-    ...ms?.missing.filter(x => x.category === 'skills')?.map(x => x.requirement) ?? []];
+  const allSkillReqs = [...ms?.matched?.filter(x => x.category === 'skills')?.map(x => x.requirement) ?? [],
+    ...ms?.partiallyMatched?.filter(x => x.category === 'skills')?.map(x => x.requirement) ?? [],
+    ...ms?.missing?.filter(x => x.category === 'skills')?.map(x => x.requirement) ?? []];
 
-  const handleAction = (status) => {
-    onStatusChange(application.id, status);
+  const handleAction = (status, stage = undefined) => {
+    onStatusChange(application.id, status, stage);
   };
 
   const isBusy = updatingId === application.id;
 
   return (
-    <div className={`bg-card border border-border rounded-2xl p-5 hover:shadow-md transition-all ${application.status === 'SHORTLISTED' ? 'ring-2 ring-emerald-500/30' : application.status === 'REJECTED' ? 'ring-2 ring-destructive/20' : ''}`}>
+    <div className={`bg-card border rounded-2xl p-5 hover:shadow-md transition-all ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-border'} ${application.status === 'SHORTLISTED' ? 'ring-2 ring-emerald-500/30' : application.status === 'REJECTED' ? 'ring-2 ring-destructive/20' : ''}`}>
       <div className="flex items-start gap-4">
+        {/* Checkbox */}
+        <button onClick={() => toggleSelection?.(application.id)} className="mt-1 text-muted-foreground hover:text-primary shrink-0">
+          {isSelected ? <CheckSquare size={20} className="text-primary" /> : <Square size={20} />}
+        </button>
         {/* Score badge */}
         <div className={`w-16 h-16 rounded-2xl ${colors.bg} ${colors.text} flex flex-col items-center justify-center shrink-0`}>
           <span className="text-xl font-bold leading-none">{score}</span>
@@ -147,11 +151,11 @@ const CandidateCard = ({ application, onStatusChange, updatingId, expanded, onTo
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/50">
             <button
-              onClick={() => handleAction('SHORTLISTED')}
+              onClick={() => handleAction('SHORTLISTED', 'RESUME')}
               disabled={isBusy || application.status === 'SHORTLISTED'}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-emerald-500/10 text-emerald-600 font-semibold hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
             >
-              <ThumbsUp size={13} /> {isBusy && updatingId === application.id ? 'Updating...' : 'Shortlist'}
+              <ThumbsUp size={13} /> {isBusy && updatingId === application.id ? 'Updating...' : 'Shortlist (Resume)'}
             </button>
             <button
               onClick={() => handleAction('REJECTED')}
@@ -228,9 +232,16 @@ const SmartShortlist = () => {
   const [updatingId, setUpdatingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isBulkActioning, setIsBulkActioning] = useState(false);
+  // Score threshold filter
+  const [minScore, setMinScore] = useState(0);
+  // Status filter
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
   useEffect(() => {
     let mounted = true;
-
     const fetchScores = async () => {
       try {
         setLoading(true);
@@ -245,15 +256,14 @@ const SmartShortlist = () => {
         if (mounted) setLoading(false);
       }
     };
-
     fetchScores();
     return () => { mounted = false; };
   }, [jobId]);
 
-  const handleStatusChange = async (appId, status) => {
+  const handleStatusChange = async (appId, status, stage = undefined) => {
     setUpdatingId(appId);
     try {
-      await api.put(`/recruiter/applications/${appId}/shortlist-status`, { shortlistStatus: status });
+      await api.put(`/recruiter/applications/${appId}/status`, { status, stage });
       setApplications(prev => prev.map(app => app.id === appId ? { ...app, status } : app));
     } catch (err) {
       console.error('Failed to update status', err);
@@ -262,18 +272,54 @@ const SmartShortlist = () => {
     }
   };
 
+  const toggleSelection = (id) => {
+    const n = new Set(selectedIds);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    setSelectedIds(n);
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === sortedApplications.length && sortedApplications.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedApplications.map(a => a.id)));
+    }
+  };
+
+  const handleBulkAction = async (status, stage = undefined) => {
+    if (selectedIds.size === 0) return;
+    setIsBulkActioning(true);
+    try {
+      await api.put('/recruiter/bulk-shortlist', {
+        applicationIds: Array.from(selectedIds),
+        status,
+        stage
+      });
+      setApplications(prev => prev.map(a => selectedIds.has(a.id) ? { ...a, status } : a));
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsBulkActioning(false);
+    }
+  };
+
   const sortedApplications = useMemo(() => {
     const filtered = applications.filter(app => {
       const name = app.student?.user?.fullName?.toLowerCase() || '';
       const email = app.student?.user?.email?.toLowerCase() || '';
-      return !search || name.includes(search.toLowerCase()) || email.includes(search.toLowerCase());
+      const score = app.matchScore?.score || 0;
+      const matchesSearch = !search || name.includes(search.toLowerCase()) || email.includes(search.toLowerCase());
+      const matchesScore = score >= minScore;
+      const matchesStatus = statusFilter === 'ALL' || app.status === statusFilter;
+      return matchesSearch && matchesScore && matchesStatus;
     });
     return [...filtered].sort((a, b) => (b.matchScore?.score || 0) - (a.matchScore?.score || 0));
-  }, [applications, search]);
+  }, [applications, search, minScore, statusFilter]);
 
   const stats = useMemo(() => {
     const total = applications.length;
-    if (total === 0) return { total: 0, avg: '0', best: 0, shortlisted: 0, rejected: 0 };
+    if (total === 0) return { total: 0, avg: '0', best: 0, shortlisted: 0, rejected: 0, interview: 0 };
     const avgScore = applications.reduce((sum, app) => sum + (app.matchScore?.score || 0), 0) / total;
     const best = Math.max(...applications.map(app => app.matchScore?.score || 0));
     return {
@@ -282,6 +328,7 @@ const SmartShortlist = () => {
       best,
       shortlisted: applications.filter(a => a.status === 'SHORTLISTED').length,
       rejected: applications.filter(a => a.status === 'REJECTED').length,
+      interview: applications.filter(a => a.status === 'INTERVIEW').length,
     };
   }, [applications]);
 
@@ -330,9 +377,9 @@ const SmartShortlist = () => {
             <ArrowLeft size={16} /> Back to My Jobs
           </Link>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Sparkles size={24} className="text-secondary" /> Smart Shortlist
+            <Sparkles size={24} className="text-secondary" /> Smart Shortlist — Resume Round
           </h1>
-          <p className="text-muted-foreground mt-1">Candidates ranked by match against <span className="font-medium text-foreground">{jobTitle}</span></p>
+          <p className="text-muted-foreground mt-1">Candidates ranked by resume match against <span className="font-medium text-foreground">{jobTitle}</span></p>
         </div>
         {jobTitle && (
           <Link
@@ -358,35 +405,98 @@ const SmartShortlist = () => {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Candidates</p>
-          <p className="text-2xl font-bold mt-1">{stats.total}</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Avg Match</p>
-          <p className="text-2xl font-bold mt-1 text-secondary">{stats.avg}%</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Best Match</p>
-          <p className="text-2xl font-bold mt-1 text-emerald-600">{stats.best}%</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Shortlisted</p>
-          <p className="text-2xl font-bold mt-1">{stats.shortlisted}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{stats.rejected} rejected</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          { label: 'Total', value: stats.total, color: '' },
+          { label: 'Avg Match', value: `${stats.avg}%`, color: 'text-secondary' },
+          { label: 'Best Match', value: `${stats.best}%`, color: 'text-emerald-600' },
+          { label: 'Shortlisted', value: stats.shortlisted, color: 'text-violet-600' },
+          { label: 'Rejected', value: stats.rejected, color: 'text-destructive' },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">{s.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
-            placeholder="Search candidates by name or email..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+      {/* Filters & Bulk Actions bar */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        {/* Top row: search + score threshold + status filter */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+              placeholder="Search candidates..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Score threshold */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground whitespace-nowrap">Min score:</span>
+            <input
+              type="range" min="0" max="100" step="5" value={minScore}
+              onChange={e => setMinScore(Number(e.target.value))}
+              className="w-28 accent-violet-500"
+            />
+            <span className="font-bold w-10 text-center bg-muted rounded-lg px-2 py-0.5">{minScore}%</span>
+          </div>
+
+          {/* Status filter */}
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="text-sm rounded-xl border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-secondary/40"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="APPLIED">Applied</option>
+            <option value="REVIEWING">Reviewing</option>
+            <option value="SHORTLISTED">Shortlisted</option>
+            <option value="INTERVIEW">Interview</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+
+        {/* Bottom row: select all + bulk actions */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border">
+          <button onClick={selectAll} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+            {selectedIds.size === sortedApplications.length && sortedApplications.length > 0
+              ? <CheckCircle2 size={18} className="text-primary" />
+              : <CircleDashed size={18} />}
+            {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select All'}
+          </button>
+
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 flex-wrap border-l pl-3 border-border">
+              <button
+                onClick={() => handleBulkAction('SHORTLISTED', 'RESUME')}
+                disabled={isBulkActioning}
+                className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <ThumbsUp size={14} /> Shortlist (Resume) & Email
+              </button>
+              <button
+                onClick={() => handleBulkAction('REJECTED')}
+                disabled={isBulkActioning}
+                className="bg-destructive/10 text-destructive hover:bg-destructive/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <ThumbsDown size={14} /> Reject & Email
+              </button>
+              <button
+                onClick={() => handleBulkAction('REVIEWING')}
+                disabled={isBulkActioning}
+                className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <Eye size={14} /> Mark Reviewing
+              </button>
+              <span className="text-xs text-muted-foreground ml-1">
+                Tip: set min score + select all to bulk-shortlist top candidates
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -435,8 +545,8 @@ const SmartShortlist = () => {
           <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Award size={28} />
           </div>
-          <h3 className="font-semibold text-lg mb-2">No candidates to match</h3>
-          <p className="text-muted-foreground text-sm">Applications for this job will appear here with their match scores.</p>
+          <h3 className="font-semibold text-lg mb-2">No candidates match your filters</h3>
+          <p className="text-muted-foreground text-sm">Try lowering the minimum score or clearing the status filter.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -444,6 +554,8 @@ const SmartShortlist = () => {
             <CandidateCard
               key={application.id}
               application={application}
+              isSelected={selectedIds.has(application.id)}
+              toggleSelection={toggleSelection}
               onStatusChange={handleStatusChange}
               updatingId={updatingId}
               expanded={expandedId === application.id}

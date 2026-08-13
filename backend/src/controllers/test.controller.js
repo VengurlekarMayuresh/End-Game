@@ -7,7 +7,7 @@ const shuffleArray = (array) => {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[arr[j]]] = [arr[arr[j]], arr[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]]; // fixed: was arr[arr[j]] which used value as index
   }
   return arr;
 };
@@ -962,6 +962,7 @@ const sendTestResultEmails = async (req, res, next) => {
         studentName: attempt.student?.user?.fullName || 'Candidate',
         studentEmail: attempt.student?.user?.email,
         selected,
+        submittedAt: attempt.completedAt || attempt.startedAt,
         thresholdLabel: metric === 'score' ? `${parsedThreshold} marks` : `${parsedThreshold}%`,
         scoreLabel: metric === 'score'
           ? `${attempt.score} marks`
@@ -977,6 +978,7 @@ const sendTestResultEmails = async (req, res, next) => {
         thresholdLabel: recipient.thresholdLabel,
         scoreLabel: recipient.scoreLabel,
         selected: recipient.selected,
+        submittedAt: recipient.submittedAt,
       });
 
       return sendMail({
@@ -1209,32 +1211,70 @@ const applyToJob = async (req, res, next) => {
     const { jobId } = req.params;
     const { coverLetter } = req.body;
 
-    // Check if student has a resume uploaded
-    const hasResume = student.documents?.some(doc => doc.type === 'RESUME');
-    if (!hasResume) {
+    // Check if student has built their resume data
+    if (!student.resumeData) {
       return res.status(400).json({ 
-        message: 'Please upload a resume before applying to jobs. Use the Resume management page to upload your resume.' 
+        message: 'Please build and save your resume on the platform before applying.' 
       });
     }
 
     const existing = await prisma.jobApplication.findFirst({
       where: { jobId, studentId: student.id }
     });
+    
     if (existing) {
+      if (existing.status === 'REJECTED') {
+         return res.status(400).json({ message: 'You cannot re-apply to this job as your previous application was rejected.' });
+      }
       return res.status(400).json({ message: 'You have already applied to this job' });
     }
 
-    // Get the resume URL from the student's documents
-    const resumeDoc = student.documents.find(doc => doc.type === 'RESUME');
-    const resumeUrl = resumeDoc ? resumeDoc.url : null;
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    // ── Match Score Calculation ──────────────────────────────────────────
+    const normalize = (s) => (s || '').trim().toLowerCase();
+    let matchScore = 0;
+    const resumeData = student.resumeData;
+
+    // All candidate skills: explicit skills list + all project tech stacks
+    const resumeSkillsNorm = [
+      ...(resumeData.skills || []),
+      ...(resumeData.projects || []).flatMap(p => p.techStack || [])
+    ].map(normalize).filter(Boolean);
+
+    // Job required skills - normalized
+    const jobSkillsNorm = (job.skills || []).map(normalize).filter(Boolean);
+
+    let skillScore = 0;
+    if (jobSkillsNorm.length > 0 && resumeSkillsNorm.length > 0) {
+      const matchCount = jobSkillsNorm.filter(js =>
+        resumeSkillsNorm.some(rs => rs.includes(js) || js.includes(rs))
+      ).length;
+      skillScore = (matchCount / jobSkillsNorm.length) * 80; // skills = 80% of score
+    } else if (jobSkillsNorm.length === 0) {
+      skillScore = 80; // no required skills = full skill score
+    }
+
+    // Experience score: 20% of total
+    let expScore = 0;
+    const candidateYears = parseFloat(resumeData.yearsOfExperience) || 0;
+    const requiredMin = job.experienceMin || 0;
+    if (requiredMin === 0 || candidateYears >= requiredMin) {
+      expScore = 20;
+    } else {
+      expScore = Math.min((candidateYears / requiredMin) * 20, 20);
+    }
+
+    matchScore = Math.round((skillScore + expScore) * 10) / 10;
 
     const application = await prisma.jobApplication.create({
       data: {
         jobId,
         studentId: student.id,
         coverLetter: coverLetter || null,
-        resumeUrl: resumeUrl,
-        status: 'APPLIED'
+        status: 'APPLIED',
+        matchScore
       }
     });
 
@@ -1312,7 +1352,10 @@ const getStudentTests = async (req, res, next) => {
     let jobIds = [];
     try {
       const applications = await prisma.jobApplication.findMany({
-        where: { studentId: student.id },
+        where: { 
+          studentId: student.id,
+          status: { in: ['SHORTLISTED', 'INTERVIEW', 'OFFERED'] }
+        },
         select: { jobId: true }
       });
       jobIds = applications.map(a => a.jobId);

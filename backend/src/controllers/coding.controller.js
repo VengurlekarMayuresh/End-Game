@@ -408,9 +408,12 @@ const getStudentCodingAssessments = async (req, res, next) => {
     const student = await prisma.student.findUnique({ where: { userId } });
     if (!student) return res.status(403).json({ message: 'Student profile not found' });
 
-    // Find applied job IDs
+    // Find applied job IDs that are shortlisted or further
     const applications = await prisma.jobApplication.findMany({
-      where: { studentId: student.id },
+      where: { 
+        studentId: student.id,
+        status: { in: ['SHORTLISTED', 'INTERVIEW', 'OFFERED'] }
+      },
       select: { jobId: true }
     });
     const jobIds = applications.map(a => a.jobId);
