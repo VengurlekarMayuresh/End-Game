@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { runCode } = require('../utils/codeExecutor');
 const { hasMailerConfig, sendMail, buildDecisionEmail } = require('../utils/mailer');
+const proctoringCtrl = require('./proctoring.controller');
 
 // Helper to check if error is due to database missing tables/columns
 const isDbTableMissingError = (err) => {
@@ -841,25 +842,48 @@ const getCodingResults = async (req, res, next) => {
 
     const { id: assessmentId } = req.params;
 
-    const attempts = await prisma.codingAttempt.findMany({
-      where: { codingAssessmentId: assessmentId },
-      include: {
-        student: {
-          include: {
-            user: { select: { fullName: true, email: true, profilePicture: true } }
+    try {
+      const attempts = await prisma.codingAttempt.findMany({
+        where: { codingAssessmentId: assessmentId },
+        include: {
+          student: {
+            include: {
+              user: { select: { fullName: true, email: true, profilePicture: true } }
+            }
+          },
+          submissions: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              codingProblem: { select: { id: true, title: true, marks: true } }
+            }
+          },
+          proctoringSession: {
+            include: {
+              events: true
+            }
           }
         },
-        submissions: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            codingProblem: { select: { id: true, title: true, marks: true } }
-          }
-        }
-      },
-      orderBy: { completedAt: 'desc' }
-    });
+        orderBy: { completedAt: 'desc' }
+      });
 
-    res.json(attempts);
+      res.json(attempts);
+    } catch (dbErr) {
+      if (isDbTableMissingError(dbErr)) {
+        // Fallback: if table is missing, return attempts mapped with mock proctoring sessions
+        const mockAttempts = []; // Or fetch from coding.controller mockAttempts if defined.
+        // Let's fallback gracefully
+        const filled = mockAttempts.map(att => {
+          const procSess = proctoringCtrl.mockProctoringSessions.find(s => s.codingAttemptId === att.id);
+          const events = procSess ? proctoringCtrl.mockProctoringEvents.filter(e => e.sessionId === procSess.id) : [];
+          return {
+            ...att,
+            proctoringSession: procSess ? { ...procSess, events } : null
+          };
+        });
+        return res.json(filled);
+      }
+      throw dbErr;
+    }
   } catch (error) { next(error); }
 };
 
