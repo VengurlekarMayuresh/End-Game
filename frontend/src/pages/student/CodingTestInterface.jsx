@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import ViolationModal from '../../components/ViolationModal';
+import { useProctoring } from '../../hooks/useProctoring';
 import { 
   Clock, ShieldAlert, Award, FileText, CheckCircle2, 
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
@@ -59,6 +60,44 @@ const CodingTestInterface = () => {
   const [proctorNotice, setProctorNotice] = useState('');
   const [windowViolationTimerLeft, setWindowViolationTimerLeft] = useState(0);
   const [violationModal, setViolationModal] = useState(null);
+  const [proctorWarning, setProctorWarning] = useState(null);
+
+  const {
+    status: pythonProctorStatus,
+    errorMsg: pythonProctorError,
+    startProctoring,
+    stopProctoring
+  } = useProctoring(
+    attempt?.id,
+    'CODING',
+    (msg, eventType) => {
+      setProctorWarning({ message: msg, type: eventType });
+    }
+  );
+
+  const proctorStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (phase === 'TESTING' && attempt?.id && !proctorStartedRef.current) {
+      proctorStartedRef.current = true;
+      startProctoring();
+    }
+  }, [phase, attempt?.id]);
+
+  useEffect(() => {
+    if (phase === 'RESULTS' && proctorStartedRef.current) {
+      stopProctoring();
+      proctorStartedRef.current = false;
+    }
+  }, [phase]);
+
+  useEffect(() => {
+    return () => {
+      if (proctorStartedRef.current) {
+        stopProctoring();
+      }
+    };
+  }, []);
 
   const timerRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
@@ -644,11 +683,24 @@ const CodingTestInterface = () => {
         
         {/* Workspace Header */}
         <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-40 shadow-sm shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 bg-secondary/15 text-secondary-foreground rounded-xl shrink-0">
-              <Terminal size={18} />
-            </div>
+          <div className="flex items-center gap-2.5">
             <h2 className="font-extrabold text-sm sm:text-base text-foreground truncate">{assessment.name}</h2>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted rounded-lg border">
+              <span className={`h-2 w-2 rounded-full ${
+                pythonProctorStatus === 'active' 
+                  ? 'bg-green-500 animate-pulse' 
+                  : pythonProctorStatus === 'issue'
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-muted-foreground'
+              }`} />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                {pythonProctorStatus === 'active' 
+                  ? 'Proctoring Active' 
+                  : pythonProctorStatus === 'issue'
+                  ? 'Proctoring Issue'
+                  : 'Proctoring Offline'}
+              </span>
+            </div>
           </div>
 
           {/* Progress tracker */}
@@ -682,6 +734,28 @@ const CodingTestInterface = () => {
           <div className="px-6 py-3 border-b border-border bg-destructive/10 text-destructive text-sm font-medium flex items-center gap-2">
             <AlertTriangle size={16} />
             <span>{proctorNotice}</span>
+          </div>
+        )}
+
+        {proctorWarning && (
+          <div className="px-6 py-3 border-b border-border bg-amber-500/10 text-amber-600 text-sm font-semibold flex items-center justify-between gap-2 animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+              <span><strong>Proctoring Alert:</strong> {proctorWarning.message}</span>
+            </div>
+            <button 
+              onClick={() => setProctorWarning(null)} 
+              className="p-1 hover:bg-amber-500/20 rounded-lg text-amber-600 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {pythonProctorError && (
+          <div className="px-6 py-3 border-b border-border bg-amber-500/10 text-amber-600 text-sm font-semibold flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+            <span>{pythonProctorError}</span>
           </div>
         )}
 

@@ -72,6 +72,7 @@ model Student {
   applications   JobApplication[]
   testAttempts   TestAttempt[]
   codingAttempts CodingAttempt[]
+  proctoringSessions ProctoringSession[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -396,6 +397,7 @@ model TestAttempt {
   remark              String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  proctoringSession   ProctoringSession?
 }
 
 // -----------------------------------------
@@ -471,6 +473,7 @@ model CodingAttempt {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   submissions        CodingSubmission[]
+  proctoringSession  ProctoringSession?
 }
 
 model CodingSubmission {
@@ -501,4 +504,39 @@ model CodingAutosave {
 
   @@unique([studentId, codingProblemId])
 }
+
+model ProctoringSession {
+  id              String            @id @default(uuid())
+  studentId       String
+  student         Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  testAttemptId   String?           @unique
+  testAttempt     TestAttempt?      @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
+  
+  codingAttemptId String?           @unique
+  codingAttempt   CodingAttempt?    @relation(fields: [codingAttemptId], references: [id], onDelete: Cascade)
+
+  stage           String            // "APTITUDE" or "CODING"
+  startedAt       DateTime          @default(now())
+  completedAt     DateTime?
+  status          String            @default("ACTIVE") // "ACTIVE", "COMPLETED"
+  riskScore       Int               @default(0)
+  riskLevel       String            @default("LOW") // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  events          ProctoringEvent[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model ProctoringEvent {
+  id          String            @id @default(uuid())
+  sessionId   String
+  session     ProctoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  eventType   String            // "LOOKING_AWAY", "NO_FACE", "MULTIPLE_FACES", "OBJECT", "TAB_SWITCH", "CAMERA_DISCONNECTED", "CAMERA_RECONNECTED"
+  timestamp   DateTime          @default(now())
+  severity    String            // "INFO", "WARNING", "CRITICAL"
+  duration    Float?            // duration in seconds
+  metadata    String?           // extra context
+  createdAt   DateTime          @default(now())
+}
+
 

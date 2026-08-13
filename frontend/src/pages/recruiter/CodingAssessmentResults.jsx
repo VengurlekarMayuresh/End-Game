@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../lib/axios';
 import { 
   ArrowLeft, Clock, BarChart3, AlertCircle, 
-  Terminal, Search, UserCircle, CheckCircle2, XCircle, Eye, Code, Award, X, Send, Mail
+  Terminal, Search, UserCircle, CheckCircle2, XCircle, Eye, Code, Award, X, Send, Mail, ShieldAlert
 } from 'lucide-react';
 
 const STATUS_BADGES = {
@@ -267,6 +267,17 @@ const CodingAssessmentResults = () => {
                       <span className={`text-[10px] px-2 py-0.5 rounded font-bold capitalize ${STATUS_BADGES[att.status]}`}>
                         {att.status.replace('_', ' ').toLowerCase()}
                       </span>
+                      {att.proctoringSession && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                          att.proctoringSession.riskLevel === 'CRITICAL' || att.proctoringSession.riskLevel === 'HIGH'
+                            ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                            : att.proctoringSession.riskLevel === 'MEDIUM'
+                            ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                            : 'bg-green-500/10 text-green-600 border border-green-500/20'
+                        }`}>
+                          Proctor: {att.proctoringSession.riskScore}% ({att.proctoringSession.riskLevel})
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium pt-0.5">
@@ -314,6 +325,107 @@ const CodingAssessmentResults = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Proctoring integrity report in Modal */}
+              {inspectAttempt.proctoringSession && (
+                <div className="p-5 border border-border/80 bg-muted/10 rounded-2xl space-y-4 shadow-sm text-xs">
+                  <p className="text-sm font-bold text-foreground flex items-center gap-1.5 border-b pb-2">
+                    <ShieldAlert size={16} className="text-primary animate-pulse" /> Integrity Proctoring Report
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-3 bg-card border rounded-lg space-y-1">
+                      <p className="text-muted-foreground uppercase font-bold text-[9px]">Integrity Risk Score</p>
+                      <div className="flex items-baseline gap-1.5 mt-1">
+                        <p className={`text-xl font-extrabold ${
+                          inspectAttempt.proctoringSession.riskLevel === 'CRITICAL' || inspectAttempt.proctoringSession.riskLevel === 'HIGH'
+                            ? 'text-red-500'
+                            : inspectAttempt.proctoringSession.riskLevel === 'MEDIUM'
+                            ? 'text-amber-500'
+                            : 'text-green-600'
+                        }`}>
+                          {inspectAttempt.proctoringSession.riskScore} / 100
+                        </p>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                          inspectAttempt.proctoringSession.riskLevel === 'CRITICAL' || inspectAttempt.proctoringSession.riskLevel === 'HIGH'
+                            ? 'bg-red-500/10 text-red-500'
+                            : inspectAttempt.proctoringSession.riskLevel === 'MEDIUM'
+                            ? 'bg-amber-500/10 text-amber-500'
+                            : 'bg-green-600/10 text-green-600'
+                        }`}>
+                          {inspectAttempt.proctoringSession.riskLevel}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 bg-card border rounded-lg space-y-1">
+                      <p className="text-muted-foreground uppercase font-bold text-[9px]">Assessment Stage</p>
+                      <p className="text-base font-bold text-foreground mt-1 capitalize">
+                        {inspectAttempt.proctoringSession.stage.toLowerCase()} Test
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Status: {inspectAttempt.proctoringSession.status}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-card border rounded-lg space-y-1">
+                      <p className="text-muted-foreground uppercase font-bold text-[9px]">Proctor Events</p>
+                      <p className="text-base font-bold text-foreground mt-1 font-semibold">
+                        {inspectAttempt.proctoringSession.events?.length || 0} events logged
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Started: {new Date(inspectAttempt.proctoringSession.startedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Proctoring events timeline list */}
+                  {inspectAttempt.proctoringSession.events && inspectAttempt.proctoringSession.events.length > 0 && (
+                    <div className="bg-card border rounded-xl overflow-hidden mt-2">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-muted/40 border-b text-muted-foreground font-bold">
+                            <th className="p-2.5">Time</th>
+                            <th className="p-2.5">Event Type</th>
+                            <th className="p-2.5">Severity</th>
+                            <th className="p-2.5">Duration</th>
+                            <th className="p-2.5">Details</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inspectAttempt.proctoringSession.events.map((evt, idx) => (
+                            <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                              <td className="p-2.5 text-muted-foreground">
+                                {new Date(evt.timestamp).toLocaleTimeString()}
+                              </td>
+                              <td className="p-2.5 font-semibold text-foreground capitalize">
+                                {evt.eventType.replace('_', ' ').toLowerCase()}
+                              </td>
+                              <td className="p-2.5">
+                                <span className={`px-1.5 py-0.5 rounded font-bold text-[9px] uppercase ${
+                                  evt.severity === 'CRITICAL' 
+                                    ? 'bg-red-500/10 text-red-500' 
+                                    : evt.severity === 'WARNING' 
+                                    ? 'bg-amber-500/10 text-amber-500' 
+                                    : 'bg-blue-500/10 text-blue-500'
+                                }`}>
+                                  {evt.severity}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-muted-foreground">
+                                {evt.duration ? `${evt.duration.toFixed(1)}s` : '-'}
+                              </td>
+                              <td className="p-2.5 text-muted-foreground italic max-w-[200px] truncate">
+                                {evt.metadata || '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {inspectAttempt.submissions.map((sub, idx) => (
                 <div key={sub.id} className="border border-border/80 rounded-2xl overflow-hidden shadow-sm">
                   {/* Problem bar */}
