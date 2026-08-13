@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import ViolationModal from '../../components/ViolationModal';
 import { useProctoring } from '../../hooks/useProctoring';
+import { useHardwareMonitor } from '../../hooks/useHardwareMonitor';
 import { 
   Clock, ShieldAlert, Award, FileText, CheckCircle2, 
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
@@ -74,6 +75,14 @@ const CodingTestInterface = () => {
       setProctorWarning({ message: msg, type: eventType });
     }
   );
+
+  const {
+    hasPermissions: hardwarePermissions,
+    hardwareError,
+    isHardwareLost,
+    requestPermissions,
+    stream: hardwareStream
+  } = useHardwareMonitor(phase === 'TESTING');
 
   const proctorStartedRef = useRef(false);
 
@@ -653,19 +662,48 @@ const CodingTestInterface = () => {
             </div>
           </div>
 
-          <div className="pt-4 flex gap-3 justify-end border-t border-border/50">
-            <button 
-              onClick={() => navigate('/student/tests')} 
-              className="px-6 py-3 border border-input rounded-xl hover:bg-muted font-medium text-sm transition-all"
-            >
-              Go Back
-            </button>
-            <button 
-              onClick={startAssessment} 
-              className="px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/95 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
-            >
-              {isResuming ? 'Resume Coding Assessment' : 'Start Coding Assessment'}
-            </button>
+          <div className="pt-4 flex flex-col gap-4 border-t border-border/50">
+            {/* Hardware Check UI */}
+            <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-muted/20 border rounded-2xl">
+              <div className="space-y-1 text-sm">
+                <p className="font-bold text-foreground flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-primary" /> Proctoring Hardware Check
+                </p>
+                <p className="text-muted-foreground text-xs">Camera and microphone access is required before starting the test.</p>
+                {hardwareError && <p className="text-destructive font-semibold text-xs mt-1">{hardwareError}</p>}
+              </div>
+              <div className="mt-3 sm:mt-0 flex shrink-0 gap-2">
+                {!hardwarePermissions ? (
+                  <button
+                    onClick={requestPermissions}
+                    className="px-4 py-2 bg-primary/10 text-primary font-bold text-xs rounded-xl hover:bg-primary/20 transition-all border border-primary/20"
+                  >
+                    Grant Access
+                  </button>
+                ) : (
+                  <div className="px-4 py-2 bg-green-500/10 text-green-600 font-bold text-xs rounded-xl border border-green-500/20 flex items-center gap-1.5">
+                    <CheckCircle2 size={16} /> Access Granted
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button 
+                onClick={() => navigate('/student/tests')} 
+                className="px-6 py-3 border border-input rounded-xl hover:bg-muted font-medium text-sm transition-all"
+              >
+                Go Back
+              </button>
+              <button 
+                onClick={startAssessment}
+                disabled={!hardwarePermissions}
+                className="px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/95 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!hardwarePermissions ? "Please grant hardware access first" : ""}
+              >
+                {isResuming ? 'Resume Coding Assessment' : 'Start Coding Assessment'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -681,6 +719,24 @@ const CodingTestInterface = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col animate-in fade-in duration-300">
         
+        {isHardwareLost && (
+          <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="bg-card border-2 border-destructive max-w-md w-full rounded-3xl p-8 text-center space-y-4 shadow-2xl">
+              <ShieldAlert size={48} className="text-destructive mx-auto" />
+              <h2 className="text-2xl font-bold text-foreground">Proctoring Interrupted</h2>
+              <p className="text-muted-foreground text-sm">
+                Camera or microphone access has been lost. The test is paused, but the timer is still ticking. Please restore access to continue.
+              </p>
+              <button 
+                onClick={requestPermissions}
+                className="px-6 py-3 bg-destructive text-destructive-foreground font-bold rounded-xl hover:bg-destructive/90 transition-all w-full mt-4"
+              >
+                Reconnect Hardware
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Workspace Header */}
         <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-40 shadow-sm shrink-0">
           <div className="flex items-center gap-2.5">

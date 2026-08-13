@@ -228,6 +228,47 @@ const TestResults = () => {
           </div>
         </div>
 
+        {/* Candidate lists for preview */}
+        {completedResults.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
+            <div className="border border-border rounded-xl p-4 bg-background max-h-64 overflow-y-auto relative">
+              <h4 className="font-bold text-green-600 mb-3 sticky top-0 bg-background pb-2 border-b border-border z-10 flex items-center justify-between">
+                <span>Eligible</span>
+                <span className="text-xs bg-green-500/10 px-2 py-0.5 rounded-full">{eligibleAttempts.length}</span>
+              </h4>
+              <div className="space-y-2">
+                {eligibleAttempts.map(att => (
+                  <div key={att.id} className="flex justify-between items-center bg-muted/30 p-2 rounded-lg">
+                    <span className="font-medium truncate mr-2">{att.student?.user?.fullName || 'Anonymous'}</span>
+                    <span className="text-xs font-bold whitespace-nowrap text-green-600">
+                      {scoreForDecision(att)} {decisionMetric === 'score' ? 'marks' : '%'}
+                    </span>
+                  </div>
+                ))}
+                {eligibleAttempts.length === 0 && <p className="text-xs text-muted-foreground">No eligible candidates.</p>}
+              </div>
+            </div>
+            
+            <div className="border border-border rounded-xl p-4 bg-background max-h-64 overflow-y-auto relative">
+              <h4 className="font-bold text-destructive mb-3 sticky top-0 bg-background pb-2 border-b border-border z-10 flex items-center justify-between">
+                <span>Not Selected</span>
+                <span className="text-xs bg-destructive/10 px-2 py-0.5 rounded-full">{rejectedAttempts.length}</span>
+              </h4>
+              <div className="space-y-2">
+                {rejectedAttempts.map(att => (
+                  <div key={att.id} className="flex justify-between items-center bg-muted/30 p-2 rounded-lg">
+                    <span className="font-medium truncate mr-2">{att.student?.user?.fullName || 'Anonymous'}</span>
+                    <span className="text-xs font-bold whitespace-nowrap text-destructive">
+                      {scoreForDecision(att)} {decisionMetric === 'score' ? 'marks' : '%'}
+                    </span>
+                  </div>
+                ))}
+                {rejectedAttempts.length === 0 && <p className="text-xs text-muted-foreground">No rejected candidates.</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {sendError && (
           <div className="flex items-center gap-2 px-4 py-3 bg-destructive/10 text-destructive text-sm rounded-xl border border-destructive/20">
             <AlertCircle size={16} /> {sendError}
