@@ -56,5 +56,16 @@ Thumbs.db
 .oxlint/
 .eslintcache
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+*.db
+*.sqlite3
 
 opencode.json
+

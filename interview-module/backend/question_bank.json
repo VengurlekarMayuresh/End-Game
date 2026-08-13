@@ -1,0 +1,32 @@
+{
+  "DSA": [
+    "What is the time complexity of searching in a balanced binary search tree, and why?",
+    "Explain the difference between a stack and a queue with a real-world example.",
+    "How would you detect a cycle in a linked list?",
+    "When would you prefer a hash map over an array for lookups, and what's the trade-off?"
+  ],
+  "OS": [
+    "What is the difference between a process and a thread?",
+    "Explain what a deadlock is and one way to prevent it.",
+    "What is virtual memory and why is it needed?",
+    "Walk me through what happens during a context switch."
+  ],
+  "Computer Networks": [
+    "Explain the difference between TCP and UDP, and when you'd use each.",
+    "What happens when you type a URL into a browser and hit enter?",
+    "What is the purpose of DNS?",
+    "Explain the three-way handshake in TCP."
+  ],
+  "DBMS": [
+    "What is database normalization and why is it useful?",
+    "Explain the difference between a primary key and a foreign key.",
+    "What is an index and how does it speed up queries?",
+    "What is the difference between SQL and NoSQL databases?"
+  ],
+  "HR": [
+    "Tell me about a time you faced a conflict while working in a team. What was the situation, and how did you handle it?",
+    "Describe a time you failed at something or made a mistake. What happened, and what did you learn from it?",
+    "Tell me about a situation where you had to make a decision under pressure or with limited information. Walk me through your thought process.",
+    "Describe a time you had to convince someone — a teammate, professor, or manager — to see things your way. How did that go?"
+  ]
+}
