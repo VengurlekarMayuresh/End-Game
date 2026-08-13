@@ -1,0 +1,23 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Environment/config
+.env
+
+# Proctoring generated screenshots
+bj_screenshots/
+obj_screenshots/
+person_screenshots/
+
+# Proctoring session/runtime logs
+session_log.csv
+
+# Generated images
+*.jpg
+*.jpeg
+*.png

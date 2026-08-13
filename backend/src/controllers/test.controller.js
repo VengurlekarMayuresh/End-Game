@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { hasMailerConfig, sendMail, buildDecisionEmail } = require('../utils/mailer');
+const proctoringCtrl = require('./proctoring.controller');
 
 // Helper to shuffle array (Fisher-Yates)
 const shuffleArray = (array) => {
@@ -876,6 +877,11 @@ const getTestResults = async (req, res, next) => {
             include: {
               user: { select: { fullName: true, email: true, profilePicture: true } }
             }
+          },
+          proctoringSession: {
+            include: {
+              events: true
+            }
           }
         },
         orderBy: { completedAt: 'desc' }
@@ -887,21 +893,27 @@ const getTestResults = async (req, res, next) => {
           fullscreenViolations: att.fullscreenViolations,
           disqualified: att.disqualified || false,
           remark: att.remark || null
-        }
+        },
+        proctoringSession: att.proctoringSession || null
       }));
       return res.json(filledAttempts);
     } catch (dbErr) {
       if (isDbTableMissingError(dbErr)) {
         const attempts = mockTestAttempts.filter(x => x.testId === id);
-        const filled = attempts.map(att => ({
-          ...att,
-          violationInfo: {
-            tabViolations: att.tabViolations,
-            fullscreenViolations: att.fullscreenViolations,
-            disqualified: att.disqualified || false,
-            remark: att.remark || null
-          }
-        }));
+        const filled = attempts.map(att => {
+          const procSess = proctoringCtrl.mockProctoringSessions.find(s => s.testAttemptId === att.id);
+          const events = procSess ? proctoringCtrl.mockProctoringEvents.filter(e => e.sessionId === procSess.id) : [];
+          return {
+            ...att,
+            violationInfo: {
+              tabViolations: att.tabViolations,
+              fullscreenViolations: att.fullscreenViolations,
+              disqualified: att.disqualified || false,
+              remark: att.remark || null
+            },
+            proctoringSession: procSess ? { ...procSess, events } : null
+          };
+        });
         return res.json(filled);
       }
       throw dbErr;

@@ -5,7 +5,7 @@ import { getImageUrl } from '../../lib/utils';
 import { 
   ArrowLeft, BarChart3, Users, CheckCircle2, XCircle, 
   Clock, Award, ChevronDown, ChevronUp, AlertCircle, FileText,
-  TrendingUp, Activity, HelpCircle, Send, Mail
+  TrendingUp, Activity, HelpCircle, Send, Mail, ShieldAlert
 } from 'lucide-react';
 
 const TestResults = () => {
@@ -395,6 +395,104 @@ const TestResults = () => {
                           <p className="text-base font-bold text-foreground mt-1 capitalize">{att.status.replace('_', ' ')}</p>
                         </div>
                       </div>
+
+                      {/* Proctoring Report */}
+                      {att.proctoringSession && (
+                        <div className="space-y-3 mt-4 border-t border-border pt-4">
+                          <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                            <ShieldAlert size={16} className="text-primary animate-pulse" /> Integrity Proctoring Report
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            <div className="p-3 bg-card border rounded-lg space-y-1">
+                              <p className="text-muted-foreground uppercase font-bold text-[9px]">Integrity Risk Score</p>
+                              <div className="flex items-baseline gap-1.5 mt-1">
+                                <p className={`text-xl font-extrabold ${
+                                  att.proctoringSession.riskLevel === 'CRITICAL' || att.proctoringSession.riskLevel === 'HIGH'
+                                    ? 'text-red-500'
+                                    : att.proctoringSession.riskLevel === 'MEDIUM'
+                                    ? 'text-amber-500'
+                                    : 'text-green-600'
+                                }`}>
+                                  {att.proctoringSession.riskScore} / 100
+                                </p>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                  att.proctoringSession.riskLevel === 'CRITICAL' || att.proctoringSession.riskLevel === 'HIGH'
+                                    ? 'bg-red-500/10 text-red-500'
+                                    : att.proctoringSession.riskLevel === 'MEDIUM'
+                                    ? 'bg-amber-500/10 text-amber-500'
+                                    : 'bg-green-600/10 text-green-600'
+                                }`}>
+                                  {att.proctoringSession.riskLevel}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-card border rounded-lg space-y-1">
+                              <p className="text-muted-foreground uppercase font-bold text-[9px]">Assessment Stage</p>
+                              <p className="text-base font-bold text-foreground mt-1 capitalize">
+                                {att.proctoringSession.stage.toLowerCase()} Test
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Status: {att.proctoringSession.status}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-card border rounded-lg space-y-1">
+                              <p className="text-muted-foreground uppercase font-bold text-[9px]">Proctor Events</p>
+                              <p className="text-base font-bold text-foreground mt-1">
+                                {att.proctoringSession.events?.length || 0} events logged
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Started: {new Date(att.proctoringSession.startedAt).toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Proctoring Event List */}
+                          {att.proctoringSession.events && att.proctoringSession.events.length > 0 && (
+                            <div className="bg-card border rounded-xl overflow-hidden mt-2">
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-muted/40 border-b text-muted-foreground font-bold">
+                                    <th className="p-2.5">Time</th>
+                                    <th className="p-2.5">Event Type</th>
+                                    <th className="p-2.5">Severity</th>
+                                    <th className="p-2.5">Duration</th>
+                                    <th className="p-2.5">Details</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {att.proctoringSession.events.map((evt, idx) => (
+                                    <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                                      <td className="p-2.5 text-muted-foreground">
+                                        {new Date(evt.timestamp).toLocaleTimeString()}
+                                      </td>
+                                      <td className="p-2.5 font-semibold text-foreground capitalize">
+                                        {evt.eventType.replace('_', ' ').toLowerCase()}
+                                      </td>
+                                      <td className="p-2.5">
+                                        <span className={`px-1.5 py-0.5 rounded font-bold text-[9px] uppercase ${
+                                          evt.severity === 'CRITICAL' 
+                                            ? 'bg-red-500/10 text-red-500' 
+                                            : evt.severity === 'WARNING' 
+                                            ? 'bg-amber-500/10 text-amber-500' 
+                                            : 'bg-blue-500/10 text-blue-500'
+                                        }`}>
+                                          {evt.severity}
+                                        </span>
+                                      </td>
+                                      <td className="p-2.5 text-muted-foreground">
+                                        {evt.duration ? `${evt.duration.toFixed(1)}s` : '-'}
+                                      </td>
+                                      <td className="p-2.5 text-muted-foreground italic max-w-[200px] truncate">
+                                        {evt.metadata || '-'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Evaluated Answers */}
                       {att.answers && att.answers.length > 0 && (

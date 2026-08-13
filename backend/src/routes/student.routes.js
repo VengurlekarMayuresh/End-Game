@@ -10,6 +10,11 @@ const {
   uploadDocument, deleteDocument,
   updateSocialLinks, updatePreferences,
 } = require('../controllers/student.controller');
+const {
+  startProctoringSession,
+  logProctoringEvent,
+  completeProctoringSession
+} = require('../controllers/proctoring.controller');
 const { authenticateUser, authorizeRole } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
@@ -94,5 +99,10 @@ router.post('/coding-assessments/:id/problems/:problemId/autosave', saveCodingDr
 router.get('/coding-assessments/:id/problems/:problemId/autosave', getCodingDraft);
 router.post('/coding-assessments/:id/problems/:problemId/run', runCodingCode);
 router.post('/coding-assessments/:id/problems/:problemId/submit', submitCodingCode);
+
+// Proctoring Session Routes
+router.post('/proctoring/session/start', startProctoringSession);
+router.post('/proctoring/session/:sessionId/event', logProctoringEvent);
+router.post('/proctoring/session/:sessionId/complete', completeProctoringSession);
 
 module.exports = router;
