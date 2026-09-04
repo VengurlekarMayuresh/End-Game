@@ -51,6 +51,10 @@ import StudentOnboarding from './pages/onboarding/StudentOnboarding'
 import RecruiterOnboarding from './pages/onboarding/RecruiterOnboarding'
 import Terms from './pages/Terms'
 
+// Module 13.5 Pages
+import ResumeAptitudeTestInterface from './pages/student/ResumeAptitudeTestInterface'
+import ResumeAptitudeResults from './pages/recruiter/ResumeAptitudeResults'
+
 function App() {
   return (
     <Router>
@@ -91,6 +95,7 @@ function App() {
           </Route>
           <Route path="tests/:id/attempt" element={<TestInterface />} />
           <Route path="coding-assessments/:id/attempt" element={<CodingTestInterface />} />
+          <Route path="resume-aptitude/:attemptId" element={<ResumeAptitudeTestInterface />} />
         </Route>
 
         {/* Recruiter Routes */}
@@ -112,6 +117,7 @@ function App() {
             <Route path="coding-assessments/new" element={<CodingAssessmentForm />} />
             <Route path="coding-assessments/:id/edit" element={<CodingAssessmentForm />} />
             <Route path="coding-assessments/:id/results" element={<CodingAssessmentResults />} />
+            <Route path="resume-aptitude/:attemptId/results" element={<ResumeAptitudeResults />} />
             <Route path="settings" element={<RecruiterSettings />} />
           </Route>
         </Route>

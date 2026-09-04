@@ -17,6 +17,9 @@ const StudentTests = () => {
   const [completedCoding, setCompletedCoding] = useState([]);
   const [codingHistory, setCodingHistory] = useState([]);
 
+  // Module 13.5 Resume Aptitude state (assigned by recruiter)
+  const [assignedResumeAptitude, setAssignedResumeAptitude] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -65,6 +68,14 @@ const StudentTests = () => {
       setActiveCoding(activeCod);
       setCompletedCoding(completedCod);
       setCodingHistory(historyCod);
+
+      // Fetch assigned Module 13.5 (Resume-Driven Aptitude)
+      try {
+        const resAptRes = await api.get('/student/resume-aptitude/assigned');
+        if (resAptRes.data?.assigned?.length > 0) {
+          setAssignedResumeAptitude(resAptRes.data.assigned[0]);
+        }
+      } catch (e) {}
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch assessments');
     } finally {
@@ -84,15 +95,15 @@ const StudentTests = () => {
     );
   }
 
-  const totalActive = activeTests.length + activeCoding.length;
+  const totalActive = activeTests.length + activeCoding.length + (assignedResumeAptitude ? 1 : 0);
   const totalCompleted = completedTests.length + completedCoding.length;
   const totalHistory = history.length + codingHistory.length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300">
       <div>
-        <h1 className="text-3xl font-bold mb-1">My Assessments</h1>
-        <p className="text-muted-foreground">Complete mandatory online tests assigned for your job applications</p>
+        <h1 className="text-3xl font-bold mb-1">Candidate Assessments</h1>
+        <p className="text-muted-foreground">Complete mandatory online tests and assigned interview rounds for your job applications</p>
       </div>
 
       {error && (
@@ -142,14 +153,36 @@ const StudentTests = () => {
         
         {/* ACTIVE TAB */}
         {activeTab === 'active' && (
-          totalActive === 0 ? (
-            <div className="bg-card border border-border rounded-2xl p-12 text-center text-muted-foreground">
-              <ClipboardList size={36} className="mx-auto mb-3 opacity-30 text-primary" />
-              <p className="font-semibold text-foreground">No active assessments assigned</p>
-              <p className="text-xs mt-1">Once you apply to a job that has assessments, they will appear here.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
+          <div className="space-y-6">
+
+            {/* MODULE 13.5 FEATURED CARD - ONLY SHOWN WHEN EXPLICITLY ASSIGNED BY RECRUITER */}
+            {assignedResumeAptitude && (
+              <div className="bg-gradient-to-r from-primary/10 via-violet-500/10 to-emerald-500/10 border-2 border-primary/30 rounded-2xl p-6 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-0.5 bg-primary text-primary-foreground font-bold text-xs rounded-full uppercase tracking-wider">
+                      Assigned by Recruiter · Module 13.5
+                    </span>
+                    <h3 className="font-bold text-xl text-foreground">Resume-Driven Aptitude & Project Deep-Dive Round</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    You have been shortlisted! Complete your 45-minute hybrid test combining pre-vetted DSA/SQL/Core-CS bank questions with an LLM-generated theoretical ladder based on your resume projects.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium pt-1">
+                    <span className="flex items-center gap-1 font-bold text-foreground"><Clock size={13} /> 45 Minutes (Server Authoritative)</span>
+                    <span>15 Questions Total (2 DSA + 2 SQL + 4 Core CS + 7 Project Ladder)</span>
+                  </div>
+                </div>
+
+                <Link
+                  to={`/student/resume-aptitude/${assignedResumeAptitude.id}`}
+                  className="w-full sm:w-auto px-6 py-3.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shrink-0"
+                >
+                  <Play size={16} /> Start 45-Min Hybrid Round
+                </Link>
+              </div>
+            )}
+
               
               {/* Aptitude Section */}
               {activeTests.length > 0 && (
@@ -292,7 +325,6 @@ const StudentTests = () => {
                 </div>
               )}
             </div>
-          )
         )}
 
         {/* UPCOMING TAB */}

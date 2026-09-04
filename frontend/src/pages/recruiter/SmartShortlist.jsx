@@ -158,6 +158,19 @@ const CandidateCard = ({ application, isSelected, toggleSelection, onStatusChang
               <ThumbsUp size={13} /> {isBusy && updatingId === application.id ? 'Updating...' : 'Shortlist (Resume)'}
             </button>
             <button
+              onClick={async () => {
+                try {
+                  await api.post('/recruiter/assign-resume-aptitude', { applicationId: application.id });
+                  alert('Assigned candidate to Module 13.5 Resume-Driven Aptitude & Deep-Dive Round!');
+                } catch (e) {
+                  alert(e.response?.data?.message || 'Failed to assign round');
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-violet-500/10 text-violet-600 font-semibold hover:bg-violet-500/20 transition-colors"
+            >
+              <Sparkles size={13} /> Assign Module 13.5 Round
+            </button>
+            <button
               onClick={() => handleAction('REJECTED')}
               disabled={isBusy || application.status === 'REJECTED'}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 disabled:opacity-50 transition-colors"
