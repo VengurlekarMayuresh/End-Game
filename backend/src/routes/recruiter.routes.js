@@ -95,4 +95,8 @@ router.post('/coding-assessments/:assessmentId/problems', createCodingProblem);
 router.put('/coding-problems/:id', updateCodingProblem);
 router.delete('/coding-problems/:id', deleteCodingProblem);
 
+// Module 13.5: Assign Candidate to Resume Aptitude & Project Deep-Dive Round
+const { assignSessionForCandidate } = require('../controllers/resumeAptitude.controller');
+router.post('/assign-resume-aptitude', assignSessionForCandidate);
+
 module.exports = router;
