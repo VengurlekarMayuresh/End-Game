@@ -74,6 +74,7 @@ model Student {
   codingAttempts CodingAttempt[]
   resumeData     Json?
   proctoringSessions ProctoringSession[]
+  resumeAptitudeAttempts ResumeAptitudeAttempt[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -541,4 +542,51 @@ model ProctoringEvent {
   createdAt   DateTime          @default(now())
 }
 
+// -----------------------------------------
+// MODULE 13.5: RESUME-DRIVEN APTITUDE & PROJECT DEEP-DIVE ROUND
+// -----------------------------------------
 
+model ResumeAptitudeQuestion {
+  id                 String   @id @default(uuid())
+  category           String   // DSA, SQL, CORE_CS
+  topic              String   // e.g. "complexity trade-offs", "hashing", "aggregation", "indexing", "OS", "Networking", "DBMS", "OOP"
+  statement          String   @db.Text
+  canonicalAnswer    String   // 1-4 word canonical short answer
+  acceptedSynonyms   String[] // Pre-validated synonyms array
+  referenceSchemaSql String?  @db.Text // Optional reference DDL/DML for SQL sandbox
+  expectedQueryOutput Json?   // Expected JSON row array for SQL verification
+  difficulty         String   // EASY, MEDIUM, HARD
+  marks              Float    @default(1.0)
+  tags               String[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model ResumeAptitudeAttempt {
+  id                   String    @id @default(uuid())
+  studentId            String
+  student              Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  jobId                String?
+  score                Float     @default(0.0)
+  maxScore             Float     @default(15.0)
+  percentage           Float     @default(0.0)
+  passed               Boolean   @default(false)
+  startedAt            DateTime  @default(now())
+  expiresAt            DateTime  // Server-authoritative 45-minute countdown expiry
+  completedAt          DateTime?
+  timeTaken            Int?      // in seconds
+  status               String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
+  
+  skillExtraction      Json      // Matched, claimed-but-unverified, missing skills & project tech
+  questions            Json      // 15 session questions (DSA x2, SQL x2, Core CS x3-4, Project Ladder ~7)
+  answers              Json      // Submitted short answers, execution results, scores
+  ladderState          Json      // Topic depth levels reached (Basic=1, Inter=2, Adv=3)
+  categoryBreakdown    Json?     // Detailed score breakdown by category
+  
+  tabViolations        Int       @default(0)
+  fullscreenViolations Int       @default(0)
+  disqualified         Boolean   @default(false)
+  remark               String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
