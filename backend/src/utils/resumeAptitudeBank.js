@@ -143,35 +143,63 @@ const CORE_CS_QUESTION_BANK = [
 ];
 
 /**
- * Filter questions based on JD keyword mapping
+ * Simple pseudo-random shuffle based on seed or random
  */
-function selectJdFilteredQuestions(jobDetails, coreTopics = []) {
+function shuffleWithSeed(array, seed = Date.now()) {
+  const arr = [...array];
+  let m = arr.length, t, i;
+  let s = typeof seed === 'number' ? seed : String(seed).split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+  while (m) {
+    s = (s * 9301 + 49297) % 233280;
+    i = Math.floor((s / 233280) * m--);
+    t = arr[m];
+    arr[m] = arr[i];
+    arr[i] = t;
+  }
+  return arr;
+}
+
+/**
+ * Filter and select questions based on JD keyword mapping and candidate uniqueness
+ * Ensures EXACTLY 2 Core CS theory questions and all other questions JD/Resume-specific.
+ */
+function selectJdFilteredQuestions(jobDetails, coreTopics = [], seed = Date.now()) {
   const jdText = `${jobDetails?.title || ''} ${jobDetails?.description || ''} ${jobDetails?.requirements || ''}`.toLowerCase();
 
-  // 1. Select 2 DSA Questions
-  let selectedDsa = [];
-  if (jdText.includes('scale') || jdText.includes('distributed') || jdText.includes('performance')) {
-    selectedDsa = DSA_QUESTION_BANK.filter(q => q.topic === 'complexity trade-offs' || q.topic === 'hashing');
-  }
+  // 1. Select 2 DSA Questions (shuffled & matched against JD/Resume tech stack)
+  const shuffledDsaBank = shuffleWithSeed(DSA_QUESTION_BANK, seed);
+  let selectedDsa = shuffledDsaBank.filter(q => 
+    q.tags.some(tag => jdText.includes(tag)) || coreTopics.some(t => q.tags.includes((t || '').toLowerCase()))
+  );
   if (selectedDsa.length < 2) {
-    selectedDsa = DSA_QUESTION_BANK.slice(0, 2);
+    selectedDsa = shuffledDsaBank;
   }
+  selectedDsa = selectedDsa.slice(0, 2);
 
-  // 2. Select 2 SQL Questions
-  let selectedSql = [];
-  if (jdText.includes('analytic') || jdText.includes('report') || jdText.includes('data')) {
-    selectedSql = SQL_QUESTION_BANK.filter(q => q.topic === 'aggregation and window functions');
-  }
+  // 2. Select 2 SQL Questions (shuffled & matched against JD/Resume)
+  const shuffledSqlBank = shuffleWithSeed(SQL_QUESTION_BANK, seed + 1);
+  let selectedSql = shuffledSqlBank.filter(q =>
+    q.tags.some(tag => jdText.includes(tag)) || coreTopics.some(t => q.tags.includes((t || '').toLowerCase()))
+  );
   if (selectedSql.length < 2) {
-    selectedSql = SQL_QUESTION_BANK.slice(0, 2);
+    selectedSql = shuffledSqlBank;
   }
+  selectedSql = selectedSql.slice(0, 2);
 
-  // 3. Select 3-4 Core CS Questions
-  const selectedCoreCs = CORE_CS_QUESTION_BANK.slice(0, 4);
+  // 3. Select EXACTLY 2 Core CS Theory Questions (shuffled for candidate sequence variation)
+  const shuffledCoreCsBank = shuffleWithSeed(CORE_CS_QUESTION_BANK, seed + 2);
+  let selectedCoreCs = shuffledCoreCsBank.filter(q =>
+    q.tags.some(tag => jdText.includes(tag)) || coreTopics.some(t => q.tags.includes((t || '').toLowerCase()))
+  );
+  if (selectedCoreCs.length < 2) {
+    selectedCoreCs = shuffledCoreCsBank;
+  }
+  selectedCoreCs = selectedCoreCs.slice(0, 2); // Strictly 2 theory questions max
 
   return {
-    dsaQuestions: selectedDsa.slice(0, 2),
-    sqlQuestions: selectedSql.slice(0, 2),
+    dsaQuestions: selectedDsa,
+    sqlQuestions: selectedSql,
     coreCsQuestions: selectedCoreCs
   };
 }
@@ -180,5 +208,6 @@ module.exports = {
   DSA_QUESTION_BANK,
   SQL_QUESTION_BANK,
   CORE_CS_QUESTION_BANK,
-  selectJdFilteredQuestions
+  selectJdFilteredQuestions,
+  shuffleWithSeed
 };

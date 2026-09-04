@@ -95,8 +95,18 @@ router.post('/coding-assessments/:assessmentId/problems', createCodingProblem);
 router.put('/coding-problems/:id', updateCodingProblem);
 router.delete('/coding-problems/:id', deleteCodingProblem);
 
-// Module 13.5: Assign Candidate to Resume Aptitude & Project Deep-Dive Round
-const { assignSessionForCandidate } = require('../controllers/resumeAptitude.controller');
+// Module 13.5: Assign Candidate, Overview & Advance to Next Round (GD / Interview)
+const {
+  assignSessionForCandidate,
+  getResultsByApplicationId,
+  advanceCandidateToNextRound,
+  getRecruiterAptitudeOverview
+} = require('../controllers/resumeAptitude.controller');
+
+router.get('/resume-aptitude/overview', getRecruiterAptitudeOverview);
 router.post('/assign-resume-aptitude', assignSessionForCandidate);
+router.get('/resume-aptitude/application/:applicationId/results', getResultsByApplicationId);
+router.post('/resume-aptitude/application/:applicationId/advance', advanceCandidateToNextRound);
 
 module.exports = router;
+

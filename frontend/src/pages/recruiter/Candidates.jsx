@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../lib/axios';
 import { getImageUrl } from '../../lib/utils';
 import {
   Users, Search, CheckCircle2,
   XCircle, Clock, MessageSquare, Download,
-  UserCircle, ChevronDown, CheckSquare, Square, Mail
+  UserCircle, ChevronDown, CheckSquare, Square, Mail, BadgeCheck
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -88,6 +89,23 @@ const CandidateCard = ({ app, isSelected, toggleSelection, onStatusChange }) => 
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${status === 'INTERVIEW' ? 'bg-primary/5 text-primary font-medium' : ''}`}>
                         Shortlist (Exam/Coding)
                       </button>
+                      <button onClick={async () => {
+                        setShowDropdown(false);
+                        try {
+                          await api.post('/recruiter/assign-resume-aptitude', { applicationId: app.id });
+                          alert(`Assigned ${user?.fullName || 'candidate'} to Role-Specific Aptitude Round!`);
+                        } catch (err) {
+                          alert(err.response?.data?.message || 'Failed to assign round');
+                        }
+                      }}
+                        className="w-full text-left px-3 py-2 text-sm font-semibold text-violet-600 hover:bg-violet-500/10">
+                        ✨ Assign Role-Specific Aptitude
+                      </button>
+                      <Link to={`/recruiter/resume-aptitude/application/${app.id}/results`}
+                        onClick={() => setShowDropdown(false)}
+                        className="w-full text-left block px-3 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-500/10">
+                        📊 View Role-Specific Results
+                      </Link>
                       <button onClick={() => handleStatus('OFFERED')}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${status === 'OFFERED' ? 'bg-primary/5 text-primary font-medium' : ''}`}>
                         Offered
@@ -108,7 +126,26 @@ const CandidateCard = ({ app, isSelected, toggleSelection, onStatusChange }) => 
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            <button
+              onClick={async () => {
+                try {
+                  await api.post('/recruiter/assign-resume-aptitude', { applicationId: app.id });
+                  alert(`Assigned ${user?.fullName || 'candidate'} to Role-Specific Aptitude Round!`);
+                } catch (err) {
+                  alert(err.response?.data?.message || 'Failed to assign round');
+                }
+              }}
+              className="text-xs px-3 py-1.5 rounded-xl bg-violet-500/10 text-violet-600 font-bold hover:bg-violet-500/20 transition-colors flex items-center gap-1"
+            >
+              Assign Role-Specific Aptitude
+            </button>
+            <Link
+              to={`/recruiter/resume-aptitude/application/${app.id}/results`}
+              className="text-xs px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+            >
+              <BadgeCheck size={12} /> View Role-Specific Results
+            </Link>
             <button onClick={() => setShowNotes(!showNotes)} className="text-xs font-medium flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
               <MessageSquare size={14} /> Notes {notes ? '(1)' : ''}
             </button>

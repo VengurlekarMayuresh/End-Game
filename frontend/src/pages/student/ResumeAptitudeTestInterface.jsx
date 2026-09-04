@@ -20,9 +20,11 @@ const ResumeAptitudeTestInterface = () => {
   const [remainingSeconds, setRemainingSeconds] = useState(2700); // 45 mins
   const [currentIdx, setCurrentIdx] = useState(0);
 
-  // Form states
+  // Form & Autosave states
   const [answersMap, setAnswersMap] = useState({});
   const [submittingQ, setSubmittingQ] = useState(null);
+  const [saveStatusMap, setSaveStatusMap] = useState({}); // { [qId]: 'saved' | 'saving' | 'typing' | 'unsaved' }
+  const autosaveTimerRef = useRef({});
 
   // SQL Sandbox execution state
   const [sqlDraft, setSqlDraft] = useState('');
@@ -58,10 +60,15 @@ const ResumeAptitudeTestInterface = () => {
 
         // Pre-fill answers map
         const initialAnswers = {};
+        const initialStatus = {};
         (data.attempt?.answers || []).forEach(a => {
-          initialAnswers[a.questionId] = a.studentAnswer || '';
+          if (a.questionId) {
+            initialAnswers[a.questionId] = a.studentAnswer || '';
+            if (a.studentAnswer) initialStatus[a.questionId] = 'saved';
+          }
         });
         setAnswersMap(initialAnswers);
+        setSaveStatusMap(initialStatus);
       } catch (err) {
         if (mounted) {
           setError(err.response?.data?.message || 'Failed to initialize aptitude session');
@@ -74,6 +81,72 @@ const ResumeAptitudeTestInterface = () => {
     fetchSession();
     return () => { mounted = false; };
   }, [attemptId]);
+
+  // Save answer to server
+  const saveAnswerToServer = async (q, textValue) => {
+    if (!attempt?.id || !q) return;
+    const answerToSave = textValue !== undefined ? textValue : (q.category === 'SQL' ? sqlDraft : (answersMap[q.id] || ''));
+    if (!answerToSave.trim()) return;
+
+    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'saving' }));
+    setSubmittingQ(q.id);
+
+    try {
+      await api.post(`/student/resume-aptitude/session/${attempt.id}/submit-answer`, {
+        questionId: q.id,
+        studentAnswer: answerToSave
+      });
+
+      setSaveStatusMap(prev => ({ ...prev, [q.id]: 'saved' }));
+      setAnswersMap(prev => ({ ...prev, [q.id]: answerToSave }));
+
+      // Refresh visible questions to update unlocked ladder levels
+      const res = await api.get(`/student/resume-aptitude/session/${attempt.id}`);
+      setVisibleQuestions(res.data.visibleQuestions || []);
+      setAttempt(res.data.attempt);
+    } catch (err) {
+      console.error('Autosave error', err);
+      setSaveStatusMap(prev => ({ ...prev, [q.id]: 'unsaved' }));
+    } finally {
+      setSubmittingQ(null);
+    }
+  };
+
+  // Real-time typing handler with 600ms debounced autosave
+  const handleInputChange = (q, value) => {
+    setAnswersMap(prev => ({ ...prev, [q.id]: value }));
+    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'typing' }));
+
+    if (autosaveTimerRef.current[q.id]) {
+      clearTimeout(autosaveTimerRef.current[q.id]);
+    }
+
+    autosaveTimerRef.current[q.id] = setTimeout(() => {
+      saveAnswerToServer(q, value);
+    }, 600);
+  };
+
+  const handleSqlDraftChange = (q, value) => {
+    setSqlDraft(value);
+    setAnswersMap(prev => ({ ...prev, [q.id]: value }));
+    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'typing' }));
+
+    if (autosaveTimerRef.current[q.id]) {
+      clearTimeout(autosaveTimerRef.current[q.id]);
+    }
+
+    autosaveTimerRef.current[q.id] = setTimeout(() => {
+      saveAnswerToServer(q, value);
+    }, 800);
+  };
+
+  const handleSubmitAnswer = async (q) => {
+    if (autosaveTimerRef.current[q.id]) {
+      clearTimeout(autosaveTimerRef.current[q.id]);
+    }
+    const studentAnswer = q.category === 'SQL' ? sqlDraft : (answersMap[q.id] || '');
+    await saveAnswerToServer(q, studentAnswer);
+  };
 
   // Server-authoritative 45-minute countdown timer
   useEffect(() => {
@@ -136,31 +209,6 @@ const ResumeAptitudeTestInterface = () => {
     }
   };
 
-  const handleSubmitAnswer = async (q) => {
-    const studentAnswer = q.category === 'SQL' ? sqlDraft : (answersMap[q.id] || '');
-    if (!studentAnswer.trim()) return;
-
-    setSubmittingQ(q.id);
-    try {
-      const { data } = await api.post(`/student/resume-aptitude/session/${attempt?.id}/submit-answer`, {
-        questionId: q.id,
-        studentAnswer
-      });
-
-      // Update local attempt and visible questions
-      setAnswersMap(prev => ({ ...prev, [q.id]: studentAnswer }));
-      
-      // Refresh visible questions to update unlocked ladder levels
-      const res = await api.get(`/student/resume-aptitude/session/${attempt?.id}`);
-      setVisibleQuestions(res.data.visibleQuestions || []);
-      setAttempt(res.data.attempt);
-    } catch (err) {
-      console.error('Failed to submit answer', err);
-    } finally {
-      setSubmittingQ(null);
-    }
-  };
-
   const handleFinishTest = async () => {
     setIsSubmittingTest(true);
     try {
@@ -210,7 +258,7 @@ const ResumeAptitudeTestInterface = () => {
           <Award size={36} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold">Aptitude & Project Round Complete!</h2>
+          <h2 className="text-2xl font-bold">Role-Specific Aptitude Round Complete!</h2>
           <p className="text-muted-foreground text-sm mt-1">Your responses have been recorded and graded automatically.</p>
         </div>
 
@@ -254,7 +302,7 @@ const ResumeAptitudeTestInterface = () => {
       <div className="bg-card border border-border rounded-2xl p-4 sticky top-4 z-20 shadow-md flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-bold text-lg flex items-center gap-2">
-            <Sparkles size={20} className="text-primary" /> Resume-Driven Aptitude & Project Deep-Dive Round
+            <Sparkles size={20} className="text-primary" /> Role-Specific Aptitude Round
           </h1>
           <p className="text-xs text-muted-foreground">15 Short-Answer Questions · Automated Grading & Escalation Engine</p>
         </div>
@@ -376,19 +424,37 @@ const ResumeAptitudeTestInterface = () => {
             /* Feature 4: SQL Sandbox Execution Panel */
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">
-                  SQL Query Input (Sandbox Execution Engine)
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    SQL Query Input (Sandbox Execution Engine)
+                  </label>
+                  {saveStatusMap[currentQ.id] === 'saved' && (
+                    <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1">
+                      <CheckCircle2 size={13} /> Auto-saved as typed
+                    </span>
+                  )}
+                  {saveStatusMap[currentQ.id] === 'saving' && (
+                    <span className="text-primary text-xs font-semibold flex items-center gap-1 animate-pulse">
+                      <Sparkles size={13} /> Saving query...
+                    </span>
+                  )}
+                  {saveStatusMap[currentQ.id] === 'typing' && (
+                    <span className="text-amber-600 text-xs font-semibold flex items-center gap-1">
+                      <Clock size={13} /> Typing query...
+                    </span>
+                  )}
+                </div>
                 <textarea
                   rows={4}
                   value={sqlDraft}
-                  onChange={e => setSqlDraft(e.target.value)}
+                  onChange={e => handleSqlDraftChange(currentQ, e.target.value)}
+                  onBlur={() => handleSubmitAnswer(currentQ)}
                   placeholder="SELECT department, AVG(salary) FROM employees GROUP BY department..."
                   className="w-full p-3 font-mono text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <button
                   onClick={() => handleRunSqlSandbox(currentQ.id)}
                   disabled={executingSql || !sqlDraft.trim()}
@@ -402,7 +468,7 @@ const ResumeAptitudeTestInterface = () => {
                   disabled={submittingQ === currentQ.id || !sqlDraft.trim()}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 transition-colors"
                 >
-                  <Send size={14} /> Submit Query Answer
+                  <Send size={14} /> {submittingQ === currentQ.id ? 'Saving...' : 'Save Answer'}
                 </button>
               </div>
 
@@ -433,14 +499,32 @@ const ResumeAptitudeTestInterface = () => {
             /* Feature 8: Short-Answer Input Format (1-4 words) */
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">
-                  Short-Answer Text Input (1–4 words verbal answer)
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Short-Answer Text Input (1–4 words verbal answer)
+                  </label>
+                  {saveStatusMap[currentQ.id] === 'saved' && (
+                    <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1">
+                      <CheckCircle2 size={13} /> Auto-saved as typed
+                    </span>
+                  )}
+                  {saveStatusMap[currentQ.id] === 'saving' && (
+                    <span className="text-primary text-xs font-semibold flex items-center gap-1 animate-pulse">
+                      <Sparkles size={13} /> Saving answer...
+                    </span>
+                  )}
+                  {saveStatusMap[currentQ.id] === 'typing' && (
+                    <span className="text-amber-600 text-xs font-semibold flex items-center gap-1">
+                      <Clock size={13} /> Typing...
+                    </span>
+                  )}
+                </div>
                 <div className="relative max-w-lg">
                   <input
                     type="text"
                     value={answersMap[currentQ.id] || ''}
-                    onChange={e => setAnswersMap({ ...answersMap, [currentQ.id]: e.target.value })}
+                    onChange={e => handleInputChange(currentQ, e.target.value)}
+                    onBlur={() => handleSubmitAnswer(currentQ)}
                     placeholder="e.g. O(log n) or Hash Map or Shared Memory"
                     className="w-full px-4 py-2.5 text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 pr-20"
                   />
@@ -449,7 +533,7 @@ const ResumeAptitudeTestInterface = () => {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  Answer format mirrors concise verbal interview answers (synonyms & casing auto-validated).
+                  Answer format mirrors concise verbal interview answers. Auto-saved in real-time as you type with flexible matching (lowercased, hyphens, and spaces like "hash map" or "hashmap" automatically recognized).
                 </p>
               </div>
 
@@ -458,7 +542,7 @@ const ResumeAptitudeTestInterface = () => {
                 disabled={submittingQ === currentQ.id || !(answersMap[currentQ.id] || '').trim()}
                 className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
               >
-                <Send size={14} /> {submittingQ === currentQ.id ? 'Saving...' : 'Save & Lock Answer'}
+                <Send size={14} /> {submittingQ === currentQ.id ? 'Saving...' : 'Save Answer'}
               </button>
             </div>
           )}

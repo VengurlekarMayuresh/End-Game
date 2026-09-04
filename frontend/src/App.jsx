@@ -54,6 +54,8 @@ import Terms from './pages/Terms'
 // Module 13.5 Pages
 import ResumeAptitudeTestInterface from './pages/student/ResumeAptitudeTestInterface'
 import ResumeAptitudeResults from './pages/recruiter/ResumeAptitudeResults'
+import RoleSpecificAptitudeDashboard from './pages/recruiter/RoleSpecificAptitudeDashboard'
+import InterviewDashboard from './pages/recruiter/InterviewDashboard'
 
 function App() {
   return (
@@ -118,6 +120,9 @@ function App() {
             <Route path="coding-assessments/:id/edit" element={<CodingAssessmentForm />} />
             <Route path="coding-assessments/:id/results" element={<CodingAssessmentResults />} />
             <Route path="resume-aptitude/:attemptId/results" element={<ResumeAptitudeResults />} />
+            <Route path="resume-aptitude/application/:applicationId/results" element={<ResumeAptitudeResults />} />
+            <Route path="role-specific-aptitude" element={<RoleSpecificAptitudeDashboard />} />
+            <Route path="interviews" element={<InterviewDashboard />} />
             <Route path="settings" element={<RecruiterSettings />} />
           </Route>
         </Route>

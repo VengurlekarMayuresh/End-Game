@@ -184,6 +184,13 @@ const RecruiterDashboard = () => {
               color="bg-violet-500/10 text-violet-500"
             />
             <QuickAction
+              to="/recruiter/candidates?assign=true"
+              icon={<Zap size={20} />}
+              title="Assign Role-Specific Aptitude"
+              desc="Assign shortlisted candidates to Role-Specific Aptitude Round"
+              color="bg-violet-500/15 text-violet-600 font-bold"
+            />
+            <QuickAction
               to="/recruiter/jobs"
               icon={<BarChart3 size={20} />}
               title="View Job Analytics"

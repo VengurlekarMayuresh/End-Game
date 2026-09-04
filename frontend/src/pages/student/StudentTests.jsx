@@ -19,6 +19,7 @@ const StudentTests = () => {
 
   // Module 13.5 Resume Aptitude state (assigned by recruiter)
   const [assignedResumeAptitude, setAssignedResumeAptitude] = useState(null);
+  const [completedResumeAptitude, setCompletedResumeAptitude] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,11 +70,14 @@ const StudentTests = () => {
       setCompletedCoding(completedCod);
       setCodingHistory(historyCod);
 
-      // Fetch assigned Module 13.5 (Resume-Driven Aptitude)
+      // Fetch assigned & completed Module 13.5 (Resume-Driven Aptitude)
       try {
         const resAptRes = await api.get('/student/resume-aptitude/assigned');
         if (resAptRes.data?.assigned?.length > 0) {
           setAssignedResumeAptitude(resAptRes.data.assigned[0]);
+        }
+        if (resAptRes.data?.completed?.length > 0) {
+          setCompletedResumeAptitude(resAptRes.data.completed);
         }
       } catch (e) {}
     } catch (err) {
@@ -96,8 +100,8 @@ const StudentTests = () => {
   }
 
   const totalActive = activeTests.length + activeCoding.length + (assignedResumeAptitude ? 1 : 0);
-  const totalCompleted = completedTests.length + completedCoding.length;
-  const totalHistory = history.length + codingHistory.length;
+  const totalCompleted = completedTests.length + completedCoding.length + completedResumeAptitude.length;
+  const totalHistory = history.length + codingHistory.length + completedResumeAptitude.length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300">
@@ -161,16 +165,16 @@ const StudentTests = () => {
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 bg-primary text-primary-foreground font-bold text-xs rounded-full uppercase tracking-wider">
-                      Assigned by Recruiter · Module 13.5
+                      Assigned by Recruiter · Role-Specific Aptitude
                     </span>
-                    <h3 className="font-bold text-xl text-foreground">Resume-Driven Aptitude & Project Deep-Dive Round</h3>
+                    <h3 className="font-bold text-xl text-foreground">Role-Specific Aptitude Round</h3>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    You have been shortlisted! Complete your 45-minute hybrid test combining pre-vetted DSA/SQL/Core-CS bank questions with an LLM-generated theoretical ladder based on your resume projects.
+                    You have been shortlisted! Complete your 45-minute hybrid test combining core theory questions with JD-filtered DSA/SQL and an adaptive project ladder based on your resume.
                   </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium pt-1">
                     <span className="flex items-center gap-1 font-bold text-foreground"><Clock size={13} /> 45 Minutes (Server Authoritative)</span>
-                    <span>15 Questions Total (2 DSA + 2 SQL + 4 Core CS + 7 Project Ladder)</span>
+                    <span>15 Questions Total (2 Theory + 2 DSA + 2 SQL + 9 Project Ladder)</span>
                   </div>
                 </div>
 
@@ -178,7 +182,7 @@ const StudentTests = () => {
                   to={`/student/resume-aptitude/${assignedResumeAptitude.id}`}
                   className="w-full sm:w-auto px-6 py-3.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shrink-0"
                 >
-                  <Play size={16} /> Start 45-Min Hybrid Round
+                  <Play size={16} /> Start 45-Min Test
                 </Link>
               </div>
             )}
@@ -409,6 +413,31 @@ const StudentTests = () => {
                         <div className="w-full sm:w-auto px-5 py-2.5 bg-green-500/10 text-green-600 font-bold text-sm rounded-xl border border-green-500/20 text-center shrink-0">
                           Completed
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {completedResumeAptitude.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Role-Specific Aptitude Round</h3>
+                  <div className="grid gap-4">
+                    {completedResumeAptitude.map(att => (
+                      <div key={att.id} className="bg-card border border-border rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="space-y-2 flex-1">
+                          <h3 className="font-bold text-lg text-foreground">Role-Specific Aptitude Round</h3>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1"><Clock size={13} />45 minutes</span>
+                            <span>Score: {att.score?.toFixed(1) || 0} / {att.maxScore || 15} ({att.percentage?.toFixed(1) || 0}%)</span>
+                          </div>
+                        </div>
+                        <Link
+                          to={`/recruiter/resume-aptitude/${att.id}/results`}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-primary/10 text-primary font-bold text-sm rounded-xl hover:bg-primary/20 transition-all text-center shrink-0 flex items-center justify-center gap-1.5"
+                        >
+                          <Award size={14} /> View Attempt Breakdown
+                        </Link>
                       </div>
                     ))}
                   </div>

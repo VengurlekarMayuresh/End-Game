@@ -161,15 +161,21 @@ const CandidateCard = ({ application, isSelected, toggleSelection, onStatusChang
               onClick={async () => {
                 try {
                   await api.post('/recruiter/assign-resume-aptitude', { applicationId: application.id });
-                  alert('Assigned candidate to Module 13.5 Resume-Driven Aptitude & Deep-Dive Round!');
+                  alert('Assigned candidate to Role-Specific Aptitude Round!');
                 } catch (e) {
                   alert(e.response?.data?.message || 'Failed to assign round');
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-violet-500/10 text-violet-600 font-semibold hover:bg-violet-500/20 transition-colors"
             >
-              <Sparkles size={13} /> Assign Module 13.5 Round
+              <Sparkles size={13} /> Assign Role-Specific Aptitude
             </button>
+            <Link
+              to={`/recruiter/resume-aptitude/application/${application.id}/results`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-emerald-500/10 text-emerald-600 font-semibold hover:bg-emerald-500/20 transition-colors"
+            >
+              <Award size={13} /> View Role-Specific Results
+            </Link>
             <button
               onClick={() => handleAction('REJECTED')}
               disabled={isBusy || application.status === 'REJECTED'}

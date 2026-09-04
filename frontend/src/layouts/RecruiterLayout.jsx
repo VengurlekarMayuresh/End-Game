@@ -3,9 +3,9 @@ import { Outlet, NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getImageUrl } from '../lib/utils';
 import {
-  LayoutDashboard, UserCircle, Briefcase, Users,
+  LayoutDashboard, UserCircle, Briefcase,
   Settings, LogOut, Building2, ChevronLeft, ChevronRight, Bell,
-  ClipboardList, HelpCircle, Code
+  ClipboardList, Code, Sparkles, MessageSquare
 } from 'lucide-react';
 
 const RecruiterLayout = () => {
@@ -13,15 +13,15 @@ const RecruiterLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard',          path: '/recruiter',                 icon: <LayoutDashboard size={20} />, end: true },
-    { name: 'My Profile',         path: '/recruiter/profile',         icon: <UserCircle size={20} /> },
-    { name: 'Post a Job',         path: '/recruiter/jobs/new',        icon: <Briefcase size={20} /> },
-    { name: 'My Jobs',            path: '/recruiter/jobs',            icon: <Building2 size={20} /> },
-    { name: 'Aptitude Tests',     path: '/recruiter/tests',           icon: <ClipboardList size={20} /> },
-    { name: 'Coding Assessments', path: '/recruiter/coding-assessments',icon: <Code size={20} /> },
-    { name: 'Question Bank',      path: '/recruiter/questions',       icon: <HelpCircle size={20} /> },
-    { name: 'Candidates',         path: '/recruiter/candidates',      icon: <Users size={20} /> },
-    { name: 'Settings',           path: '/recruiter/settings',        icon: <Settings size={20} /> },
+    { name: 'Dashboard',              path: '/recruiter',                 icon: <LayoutDashboard size={20} />, end: true },
+    { name: 'My Profile',             path: '/recruiter/profile',         icon: <UserCircle size={20} /> },
+    { name: 'Post a Job',             path: '/recruiter/jobs/new',        icon: <Briefcase size={20} /> },
+    { name: 'My Jobs',                path: '/recruiter/jobs',            icon: <Building2 size={20} /> },
+    { name: 'Aptitude Tests',         path: '/recruiter/tests',           icon: <ClipboardList size={20} /> },
+    { name: 'Coding Assessments',     path: '/recruiter/coding-assessments',icon: <Code size={20} /> },
+    { name: 'Role-Specific Aptitude', path: '/recruiter/role-specific-aptitude', icon: <Sparkles size={20} /> },
+    { name: 'Interview',              path: '/recruiter/interviews',      icon: <MessageSquare size={20} /> },
+    { name: 'Settings',               path: '/recruiter/settings',        icon: <Settings size={20} /> },
   ];
 
   return (

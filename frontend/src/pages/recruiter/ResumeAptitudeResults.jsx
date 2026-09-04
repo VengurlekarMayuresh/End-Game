@@ -3,21 +3,30 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../lib/axios';
 import {
   ArrowLeft, Award, CheckCircle2, AlertTriangle, Layers, Database,
-  Code, Cpu, Clock, Check, X, ShieldCheck
+  Code, Cpu, Clock, Check, X, ShieldCheck, Sparkles, Sliders, UserCheck, XCircle
 } from 'lucide-react';
 
 const ResumeAptitudeResults = () => {
-  const { attemptId } = useParams();
+  const { attemptId, applicationId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+
+  // Passing threshold state & advancement state
+  const [threshold, setThreshold] = useState(40);
+  const [advancing, setAdvancing] = useState(false);
+  const [advancementResult, setAdvancementResult] = useState(null);
 
   useEffect(() => {
     let mounted = true;
     const fetchResults = async () => {
       try {
         setLoading(true);
-        const res = await api.get(`/student/resume-aptitude/session/${attemptId}/results`);
+        let endpoint = `/student/resume-aptitude/session/${attemptId}/results`;
+        if (applicationId) {
+          endpoint = `/recruiter/resume-aptitude/application/${applicationId}/results`;
+        }
+        const res = await api.get(endpoint);
         if (!mounted) return;
         setData(res.data);
       } catch (err) {
@@ -28,7 +37,31 @@ const ResumeAptitudeResults = () => {
     };
     fetchResults();
     return () => { mounted = false; };
-  }, [attemptId]);
+  }, [attemptId, applicationId]);
+
+  const handleAdvanceCandidate = async (override = false) => {
+    const appId = data?.application?.id || applicationId;
+    if (!appId) {
+      alert('Application ID unavailable for advancement.');
+      return;
+    }
+
+    setAdvancing(true);
+    try {
+      const res = await api.post(`/recruiter/resume-aptitude/application/${appId}/advance`, {
+        threshold,
+        status: 'INTERVIEW',
+        override
+      });
+      setAdvancementResult({ success: true, message: res.data.message });
+      alert(res.data.message || 'Candidate advanced to GD / Interview Round!');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to advance candidate');
+      setAdvancementResult({ success: false, message: err.response?.data?.message });
+    } finally {
+      setAdvancing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -53,10 +86,77 @@ const ResumeAptitudeResults = () => {
     );
   }
 
-  const { attempt, scoreResult } = data;
-  const student = attempt?.student;
+  const { attempt, scoreResult, application } = data;
+  const student = attempt?.student || application?.student;
   const user = student?.user;
+  const job = application?.job;
   const breakdown = scoreResult?.categoryBreakdown || {};
+
+  const candidateScore = scoreResult?.weightedCompositeScore ?? scoreResult?.percentage ?? 0;
+  const clearsThreshold = candidateScore >= threshold;
+
+  // Render unattempted candidate view with direct advancement provision
+  if (!attempt) {
+    const appId = application?.id || applicationId;
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 p-4 lg:p-6">
+        <div>
+          <Link to="/recruiter/jobs" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors">
+            <ArrowLeft size={16} /> Back to Jobs
+          </Link>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Award size={24} className="text-primary" /> Role-Specific Aptitude Round
+          </h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Candidate: <span className="font-semibold text-foreground">{user?.fullName || 'Candidate'}</span> ({user?.email}) {job ? `· Applied for ${job.title}` : ''}
+          </p>
+        </div>
+
+        <div className="bg-card border-2 border-dashed border-border rounded-2xl p-8 text-center space-y-5 shadow-sm">
+          <div className="w-16 h-16 bg-amber-500/10 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <Clock size={32} />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-foreground">Candidate Has Not Attempted This Round Yet</h2>
+            <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+              This candidate has not started or completed the 45-minute Role-Specific Aptitude Round. You can assign the test to them or directly advance them to the next round.
+            </p>
+          </div>
+
+          <div className="pt-3 flex flex-wrap items-center justify-center gap-4">
+            <button
+              onClick={async () => {
+                try {
+                  await api.post('/recruiter/assign-resume-aptitude', { applicationId: appId });
+                  alert(`Assigned ${user?.fullName || 'candidate'} to Role-Specific Aptitude Round!`);
+                } catch (e) {
+                  alert(e.response?.data?.message || 'Failed to assign round');
+                }
+              }}
+              className="px-5 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center gap-2"
+            >
+              <Sparkles size={16} /> Assign Role-Specific Aptitude Round
+            </button>
+
+            <button
+              onClick={() => handleAdvanceCandidate(true)}
+              disabled={advancing || advancementResult?.success}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-60"
+            >
+              <UserCheck size={16} />
+              {advancementResult?.success ? '✓ Advanced to Next Round (GD / Interview)' : advancing ? 'Advancing Candidate...' : 'Proceed Candidate to Next Round (GD / Interview)'}
+            </button>
+          </div>
+
+          {advancementResult && (
+            <p className={`text-xs font-bold mt-2 ${advancementResult.success ? 'text-emerald-600' : 'text-destructive'}`}>
+              {advancementResult.message}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-4 lg:p-6">
@@ -67,7 +167,7 @@ const ResumeAptitudeResults = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Award size={24} className="text-primary" /> Resume-Driven Aptitude Results
+              <Award size={24} className="text-primary" /> Role-Specific Aptitude Results
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
               Candidate: <span className="font-semibold text-foreground">{user?.fullName || 'Candidate'}</span> ({user?.email})
@@ -79,9 +179,93 @@ const ResumeAptitudeResults = () => {
               {attempt.passed ? 'PASSED ROUND' : 'FAILED'}
             </span>
             <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">
-              Weighted Composite: {scoreResult.weightedCompositeScore}%
+              Weighted Composite: {candidateScore}%
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Threshold Evaluation & Next Round Advancement Panel */}
+      <div className="bg-gradient-to-r from-card via-muted/30 to-card border-2 border-primary/20 rounded-2xl p-6 shadow-md space-y-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-border">
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-2">
+              <Sliders size={18} className="text-primary" /> Threshold & Progression Control
+            </h2>
+            <p className="text-xs text-muted-foreground">Set evaluation threshold and advance candidate to GD / Interview (Modules 14-15)</p>
+          </div>
+
+          {/* Threshold Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">Passing Threshold:</span>
+            <div className="flex gap-1 bg-muted p-1 rounded-xl">
+              {[40, 50, 60, 70].map(pct => (
+                <button
+                  key={pct}
+                  onClick={() => setThreshold(pct)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${threshold === pct ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-4 items-center">
+          <div className="p-3.5 bg-background rounded-xl border space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Candidate Score</p>
+            <p className="text-2xl font-extrabold text-foreground">{candidateScore}%</p>
+          </div>
+
+          <div className="p-3.5 bg-background rounded-xl border space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Configured Threshold</p>
+            <p className="text-2xl font-extrabold text-primary">{threshold}%</p>
+          </div>
+
+          <div className="p-3.5 bg-background rounded-xl border space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Evaluation Result</p>
+            {clearsThreshold ? (
+              <p className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">
+                <CheckCircle2 size={16} /> Clears Threshold ({candidateScore}% ≥ {threshold}%)
+              </p>
+            ) : (
+              <p className="text-sm font-bold text-destructive flex items-center gap-1.5">
+                <XCircle size={16} /> Below Threshold ({candidateScore}% &lt; {threshold}%)
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Advancement Action Buttons */}
+        <div className="pt-2 flex items-center justify-between gap-3 flex-wrap">
+          {clearsThreshold ? (
+            <button
+              onClick={() => handleAdvanceCandidate(false)}
+              disabled={advancing || advancementResult?.success}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-60"
+            >
+              <Sparkles size={16} />
+              {advancementResult?.success ? '✓ Advanced to Next Round (GD / Interview)' : advancing ? 'Advancing Candidate...' : 'Shortlist & Proceed to Next Round (GD / Interview)'}
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => handleAdvanceCandidate(true)}
+                disabled={advancing || advancementResult?.success}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-60"
+              >
+                <UserCheck size={14} /> Override Threshold & Advance Anyway
+              </button>
+              <span className="text-xs text-muted-foreground font-medium">Candidate is below {threshold}% passing mark.</span>
+            </div>
+          )}
+
+          {advancementResult && (
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl ${advancementResult.success ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
+              {advancementResult.message}
+            </span>
+          )}
         </div>
       </div>
 

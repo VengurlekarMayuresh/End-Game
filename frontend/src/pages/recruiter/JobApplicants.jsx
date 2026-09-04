@@ -109,7 +109,26 @@ const ApplicantCard = ({ application }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50 flex-wrap">
+            <button
+              onClick={async () => {
+                try {
+                  await api.post('/recruiter/assign-resume-aptitude', { applicationId: application.id });
+                  alert(`Assigned ${user?.fullName || 'candidate'} to Role-Specific Aptitude Round!`);
+                } catch (err) {
+                  alert(err.response?.data?.message || 'Failed to assign round');
+                }
+              }}
+              className="text-xs px-3 py-1.5 rounded-xl bg-violet-500/10 text-violet-600 font-bold hover:bg-violet-500/20 transition-colors flex items-center gap-1"
+            >
+              Assign Role-Specific Aptitude Round
+            </button>
+            <Link
+              to={`/recruiter/resume-aptitude/application/${application.id}/results`}
+              className="text-xs px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+            >
+              <BadgeCheck size={12} /> View Role-Specific Aptitude Results
+            </Link>
             {resume && (
               <a href={`http://localhost:5000${resume.url}`} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1.5 text-xs text-secondary hover:underline font-medium">
@@ -121,7 +140,7 @@ const ApplicantCard = ({ application }) => {
                 <BadgeCheck size={12} /> Score-ready candidate
               </span>
             )}
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
               <Clock size={12} /> {new Date(application.appliedAt).toLocaleString()}
             </span>
           </div>
