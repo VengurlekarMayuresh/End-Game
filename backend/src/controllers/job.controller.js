@@ -352,7 +352,8 @@ const getAllCandidates = async (req, res, next) => {
         student: {
           include: {
             user: { select: { fullName: true, email: true, profilePicture: true } },
-            resumeData: true
+            skills: true,
+            projects: true
           },
         },
       },

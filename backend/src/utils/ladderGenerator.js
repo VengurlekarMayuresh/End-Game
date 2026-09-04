@@ -123,18 +123,20 @@ const PREDEFINED_LADDERS = {
 };
 
 /**
- * Generate 2-3 topic ladders totaling ~7 questions based on candidate coreTopics
+ * Generate up to 3 topic ladders producing exactly 8 questions total.
+ * Distribution: 3 questions from topic 1, 3 from topic 2, 2 from topic 3 (or adjusted).
+ * This ensures: 2 DSA_CODE + 3 SQL + 2 Core CS + 8 Ladder = 15 total questions.
  */
 function generateProjectLadder(coreTopics = []) {
-  const topicsToUse = coreTopics.length > 0 ? coreTopics : ['rag', 'microservices', 'caching'];
-  const questions = [];
+  const topicsToUse = coreTopics.length > 0 ? coreTopics.slice(0, 3) : ['rag', 'microservices', 'caching'];
+  const allQuestions = [];
 
-  topicsToUse.forEach((topicKey, index) => {
+  topicsToUse.forEach((topicKey) => {
     const key = (topicKey || '').toLowerCase();
     const ladder = PREDEFINED_LADDERS[key] || generateGenericLadder(topicKey);
 
     ladder.forEach(item => {
-      questions.push({
+      allQuestions.push({
         id: `ladder-${key}-${item.level}`,
         category: 'PROJECT_LADDER',
         topic: topicKey,
@@ -143,12 +145,12 @@ function generateProjectLadder(coreTopics = []) {
         canonicalAnswer: item.canonicalAnswer,
         acceptedSynonyms: item.acceptedSynonyms,
         marks: item.marks,
-        status: item.level === 1 ? 'UNLOCKED' : 'LOCKED' // Level 1 starts unlocked
+        status: item.level === 1 ? 'UNLOCKED' : 'LOCKED'
       });
     });
   });
 
-  return questions.slice(0, 8); // ~7-8 questions total
+  return allQuestions.slice(0, 8); // Exactly 8 ladder questions
 }
 
 /**

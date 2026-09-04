@@ -113,7 +113,8 @@ router.post('/proctoring/session/:sessionId/complete', completeProctoringSession
 
 // Module 13.5: Resume-Driven Aptitude & Project Deep-Dive Round
 const {
-  startSession, getSession, executeSqlSandbox, submitAnswer, submitSession, getResults, getAssignedSessionsForCandidate
+  startSession, getSession, executeSqlSandbox, submitAnswer, submitSession, getResults,
+  getAssignedSessionsForCandidate, runDsaCode, submitDsaCode
 } = require('../controllers/resumeAptitude.controller');
 
 router.get('/resume-aptitude/assigned', getAssignedSessionsForCandidate);
@@ -121,6 +122,8 @@ router.post('/resume-aptitude/start', startSession);
 router.get('/resume-aptitude/session/:attemptId', getSession);
 router.post('/resume-aptitude/session/:attemptId/execute-sql', executeSqlSandbox);
 router.post('/resume-aptitude/session/:attemptId/submit-answer', submitAnswer);
+router.post('/resume-aptitude/session/:attemptId/run-code', runDsaCode);
+router.post('/resume-aptitude/session/:attemptId/submit-code', submitDsaCode);
 router.post('/resume-aptitude/session/:attemptId/submit', submitSession);
 router.get('/resume-aptitude/session/:attemptId/results', getResults);
 

@@ -7,6 +7,7 @@ const { executeSqlInSandbox } = require('../utils/sqlSandboxExecutor');
 const { validateShortAnswer } = require('../utils/shortAnswerValidator');
 const { generateProjectLadder, updateLadderState } = require('../utils/ladderGenerator');
 const { calculateResumeAptitudeScore } = require('../utils/resumeAptitudeScorer');
+const { runCode } = require('../utils/codeExecutor');
 
 // In-memory store fallback for attempts
 const mockResumeAptitudeAttempts = [];
@@ -108,24 +109,25 @@ const startSession = async (req, res, next) => {
     // Seed based on student ID + time to guarantee unique question selection and order per candidate
     const seedVal = (student.id ? String(student.id).split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) : 0) + Date.now();
 
-    // 2. Select Bank Questions (2 DSA, 2 SQL, EXACTLY 2 Core CS Theory Questions)
-    const bankSelection = selectJdFilteredQuestions(jobDetails, skillExtraction.coreTopics, seedVal);
+    // 2. Select Bank Questions: 2 DSA_CODE + 3 SQL + 2 Core CS (language auto-detected from resume)
+    const bankSelection = selectJdFilteredQuestions(jobDetails, skillExtraction.coreTopics, seedVal, student);
 
-    // Shuffle non-ladder questions sequence per candidate
+    // Shuffle the non-ladder block per candidate (2+3+2 = 7 questions)
     const shuffledNonLadder = shuffleWithSeed([
       ...bankSelection.dsaQuestions,
       ...bankSelection.sqlQuestions,
       ...bankSelection.coreCsQuestions
     ], seedVal);
 
-    // 3. Primary Block: Generate Project/JD Theoretical Ladder (~9 questions) from candidate's resume
+    // 3. Project Ladder: 8 questions (resume/JD topic-driven)
     const projectLadderQuestions = generateProjectLadder(skillExtraction.coreTopics);
 
-    // Combine all questions: 2 Theory + 2 DSA + 2 SQL + Project Ladder (Resume-driven)
+    // Total: 7 bank + 8 ladder = 15 questions exactly
     const allQuestions = [
-      ...shuffledNonLadder,
-      ...projectLadderQuestions
-    ];
+      ...shuffledNonLadder,      // 7
+      ...projectLadderQuestions  // 8
+    ].slice(0, 15); // Hard cap at 15
+
 
     // Initial Ladder State
     const ladderState = {};
@@ -303,7 +305,9 @@ const executeSqlSandbox = async (req, res, next) => {
 };
 
 /**
- * Submit short answer for a question & trigger ladder escalation update
+ * Submit short answer for a question & trigger ladder escalation update.
+ * For DSA_CODE, just saves the code draft (execution via /run-code endpoint).
+ * For SQL, runs sandbox execution. For others, validates short-answer.
  */
 const submitAnswer = async (req, res, next) => {
   try {
@@ -336,8 +340,15 @@ const submitAnswer = async (req, res, next) => {
 
     let isCorrect = false;
     let sqlResult = null;
+    let testCasesResult = null;
 
-    if (question.category === 'SQL') {
+    if (question.category === 'DSA_CODE') {
+      // For DSA_CODE: just save the code draft; correctness evaluated via /run-code
+      // Retrieve existing testCasesResult if already run
+      const existing = (attempt.answers || []).find(a => a.questionId === questionId);
+      testCasesResult = existing?.testCasesResult || null;
+      isCorrect = existing?.isCorrect || false;
+    } else if (question.category === 'SQL') {
       sqlResult = await executeSqlInSandbox(
         studentAnswer,
         question.referenceSchemaSql,
@@ -357,6 +368,7 @@ const submitAnswer = async (req, res, next) => {
       studentAnswer,
       isCorrect,
       sqlResult,
+      testCasesResult,
       submittedAt: now
     };
 
@@ -408,6 +420,7 @@ const submitAnswer = async (req, res, next) => {
     return res.json({
       message: 'Answer recorded',
       isCorrect,
+      testCasesResult,
       scoreResult,
       ladderState
     });
@@ -415,6 +428,212 @@ const submitAnswer = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Run candidate's DSA code against sample (visible) test cases.
+ * POST /student/resume-aptitude/session/:attemptId/run-code
+ * Body: { questionId, code, language? }
+ * Returns: sampleResults (2 visible), does NOT run hidden test cases yet.
+ */
+const runDsaCode = async (req, res, next) => {
+  try {
+    const { attemptId } = req.params;
+    const { questionId, code } = req.body;
+
+    let attempt = null;
+    try {
+      if (prisma.resumeAptitudeAttempt) {
+        attempt = await prisma.resumeAptitudeAttempt.findUnique({ where: { id: attemptId } });
+      } else {
+        attempt = mockResumeAptitudeAttempts.find(a => a.id === attemptId);
+      }
+    } catch (dbErr) {
+      if (isDbTableMissingError(dbErr)) {
+        attempt = mockResumeAptitudeAttempts.find(a => a.id === attemptId);
+      } else throw dbErr;
+    }
+
+    if (!attempt) return res.status(404).json({ message: 'Session not found' });
+
+    const now = new Date();
+    if (now >= new Date(attempt.expiresAt) || attempt.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ message: 'Session has expired or is completed.', isExpired: true });
+    }
+
+    const question = (attempt.questions || []).find(q => q.id === questionId);
+    if (!question || question.category !== 'DSA_CODE') {
+      return res.status(400).json({ message: 'Target question is not a DSA code question.' });
+    }
+
+    const language = question.language || 'python';
+    const sampleTestCases = question.sampleTestCases || [];
+
+    // Run only visible sample test cases for "Run Code" feedback
+    const sampleResults = [];
+    for (const tc of sampleTestCases) {
+      const result = await runCode(language, code, tc.input || '', 5000);
+      const actualOutput = (result.output || '').trim();
+      const expectedOutput = (tc.expectedOutput || '').trim();
+      sampleResults.push({
+        input: tc.input,
+        expectedOutput,
+        actualOutput,
+        passed: result.success && actualOutput === expectedOutput,
+        status: result.status,
+        error: result.error || null,
+        description: tc.description || '',
+      });
+    }
+
+    const samplePassed = sampleResults.filter(r => r.passed).length;
+
+    return res.json({
+      message: 'Sample test cases executed',
+      language,
+      sampleResults,
+      samplePassed,
+      sampleTotal: sampleTestCases.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Submit candidate's final DSA code — runs all 5 hidden test cases and scores them.
+ * POST /student/resume-aptitude/session/:attemptId/submit-code
+ * Body: { questionId, code }
+ */
+const submitDsaCode = async (req, res, next) => {
+  try {
+    const { attemptId } = req.params;
+    const { questionId, code } = req.body;
+
+    let attempt = null;
+    try {
+      if (prisma.resumeAptitudeAttempt) {
+        attempt = await prisma.resumeAptitudeAttempt.findUnique({ where: { id: attemptId } });
+      } else {
+        attempt = mockResumeAptitudeAttempts.find(a => a.id === attemptId);
+      }
+    } catch (dbErr) {
+      if (isDbTableMissingError(dbErr)) {
+        attempt = mockResumeAptitudeAttempts.find(a => a.id === attemptId);
+      } else throw dbErr;
+    }
+
+    if (!attempt) return res.status(404).json({ message: 'Session not found' });
+
+    const now = new Date();
+    if (now >= new Date(attempt.expiresAt) || attempt.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ message: 'Session has expired or is completed.', isExpired: true });
+    }
+
+    // Find the question — hidden test cases are stored in _hiddenTestCases
+    const question = (attempt.questions || []).find(q => q.id === questionId);
+    if (!question || question.category !== 'DSA_CODE') {
+      return res.status(400).json({ message: 'Target question is not a DSA code question.' });
+    }
+
+    const language = question.language || 'python';
+
+    // Run 2 visible sample test cases first (for display)
+    const sampleTestCases = question.sampleTestCases || [];
+    const sampleResults = [];
+    for (const tc of sampleTestCases) {
+      const result = await runCode(language, code, tc.input || '', 5000);
+      const actualOutput = (result.output || '').trim();
+      sampleResults.push({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        actualOutput,
+        passed: result.success && actualOutput === tc.expectedOutput.trim(),
+        status: result.status,
+        error: result.error || null,
+        description: tc.description || '',
+      });
+    }
+
+    // Run 5 hidden test cases (results hidden from candidate — just pass/fail counts shown)
+    const hiddenTestCases = question._hiddenTestCases || [];
+    let hiddenPassed = 0;
+    for (const tc of hiddenTestCases) {
+      const result = await runCode(language, code, tc.input || '', 5000);
+      const actualOutput = (result.output || '').trim();
+      if (result.success && actualOutput === tc.expectedOutput.trim()) {
+        hiddenPassed++;
+      }
+    }
+
+    const hiddenTotal = hiddenTestCases.length;
+    const isCorrect = hiddenPassed === hiddenTotal && hiddenTotal > 0;
+    const testCasesResult = {
+      samplePassed: sampleResults.filter(r => r.passed).length,
+      sampleTotal: sampleTestCases.length,
+      hiddenPassed,
+      hiddenTotal,
+    };
+
+    // Update answers
+    let answers = attempt.answers || [];
+    const existingIdx = answers.findIndex(a => a.questionId === questionId);
+    const ansPayload = {
+      questionId,
+      studentAnswer: code,
+      isCorrect,
+      testCasesResult,
+      sqlResult: null,
+      submittedAt: now,
+    };
+    if (existingIdx >= 0) {
+      answers[existingIdx] = ansPayload;
+    } else {
+      answers.push(ansPayload);
+    }
+
+    const ladderState = attempt.ladderState || {};
+    const scoreResult = calculateResumeAptitudeScore(attempt.questions, answers, ladderState);
+
+    attempt.answers = answers;
+    attempt.score = scoreResult.totalScore;
+    attempt.percentage = scoreResult.percentage;
+    attempt.passed = scoreResult.passed;
+
+    try {
+      if (prisma.resumeAptitudeAttempt) {
+        await prisma.resumeAptitudeAttempt.update({
+          where: { id: attemptId },
+          data: {
+            answers,
+            score: scoreResult.totalScore,
+            percentage: scoreResult.percentage,
+            passed: scoreResult.passed,
+            categoryBreakdown: scoreResult.categoryBreakdown,
+          }
+        });
+      } else {
+        const idx = mockResumeAptitudeAttempts.findIndex(a => a.id === attemptId);
+        if (idx >= 0) mockResumeAptitudeAttempts[idx] = attempt;
+      }
+    } catch (dbErr) {
+      if (isDbTableMissingError(dbErr)) {
+        const idx = mockResumeAptitudeAttempts.findIndex(a => a.id === attemptId);
+        if (idx >= 0) mockResumeAptitudeAttempts[idx] = attempt;
+      } else throw dbErr;
+    }
+
+    return res.json({
+      message: 'Code submitted and evaluated',
+      sampleResults,
+      testCasesResult,
+      isCorrect,
+      scoreResult,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 /**
  * Submit entire session (or auto-submit on 45-min timer expiry)
@@ -620,9 +839,10 @@ const assignSessionForCandidate = async (req, res, next) => {
     const skillExtraction = extractSkillGapAndTopics(student, jobDetails);
     const seedVal = (student.id ? String(student.id).split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) : 0) + Date.now();
 
-    const bankSelection = selectJdFilteredQuestions(jobDetails, skillExtraction.coreTopics, seedVal);
+    // 2 DSA_CODE + 3 SQL + 2 Core CS (language auto-detected from resume)
+    const bankSelection = selectJdFilteredQuestions(jobDetails, skillExtraction.coreTopics, seedVal, student);
 
-    // Shuffle non-ladder questions sequence per candidate
+    // Shuffle the non-ladder block per candidate
     const shuffledNonLadder = shuffleWithSeed([
       ...bankSelection.dsaQuestions,
       ...bankSelection.sqlQuestions,
@@ -631,10 +851,12 @@ const assignSessionForCandidate = async (req, res, next) => {
 
     const projectLadderQuestions = generateProjectLadder(skillExtraction.coreTopics);
 
+    // Total: 7 bank + 8 ladder = 15 questions
     const allQuestions = [
       ...shuffledNonLadder,
       ...projectLadderQuestions
-    ];
+    ].slice(0, 15);
+
 
     const ladderState = {};
     skillExtraction.coreTopics.forEach(topic => {
@@ -974,5 +1196,7 @@ module.exports = {
   assignSessionForCandidate,
   getResultsByApplicationId,
   advanceCandidateToNextRound,
-  getRecruiterAptitudeOverview
+  getRecruiterAptitudeOverview,
+  runDsaCode,
+  submitDsaCode,
 };

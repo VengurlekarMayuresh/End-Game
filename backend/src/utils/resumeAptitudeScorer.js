@@ -1,6 +1,14 @@
 /**
- * Automated Scoring Engine & Evaluation Engine Integration for Module 13.5
- * Calculates category breakdown, JD-criticality weighted score, and integrates with Module 20/21.
+ * Scoring Engine for Module 13.5 — Role-Specific Aptitude Round
+ *
+ * Question breakdown (total 15):
+ *   DSA_CODE      → 2 questions × 2 marks each (based on test case pass rate)
+ *   SQL           → 3 questions × 1.5 marks each
+ *   CORE_CS       → 2 questions × 1.0 mark each
+ *   PROJECT_LADDER→ 8 questions × variable marks (1.0 / 1.5 / 2.0 per level)
+ *
+ * DSA scoring: full marks if all 5 hidden test cases pass,
+ *   else proportional (e.g. 3/5 passing → 60% of marks).
  */
 
 function calculateResumeAptitudeScore(questions, answers, ladderState) {
@@ -8,10 +16,11 @@ function calculateResumeAptitudeScore(questions, answers, ladderState) {
   let maxPossibleScore = 0.0;
 
   const categoryStats = {
-    DSA: { score: 0, max: 0, count: 0, correct: 0 },
-    SQL: { score: 0, max: 0, count: 0, correct: 0 },
-    CORE_CS: { score: 0, max: 0, count: 0, correct: 0 },
-    PROJECT_LADDER: { score: 0, max: 0, count: 0, correct: 0 }
+    DSA_CODE: { score: 0, max: 0, count: 0, correct: 0, partialCredit: 0 },
+    DSA:      { score: 0, max: 0, count: 0, correct: 0 }, // legacy compatibility
+    SQL:      { score: 0, max: 0, count: 0, correct: 0 },
+    CORE_CS:  { score: 0, max: 0, count: 0, correct: 0 },
+    PROJECT_LADDER: { score: 0, max: 0, count: 0, correct: 0 },
   };
 
   const gradedAnswers = [];
@@ -34,15 +43,38 @@ function calculateResumeAptitudeScore(questions, answers, ladderState) {
     let marksObtained = 0.0;
     let studentInput = '';
     let sqlResult = null;
+    let codeResult = null;
+    let testCasesResult = null;
 
     if (ansObj) {
       studentInput = ansObj.studentAnswer || '';
-      isCorrect = Boolean(ansObj.isCorrect);
       sqlResult = ansObj.sqlResult || null;
+      codeResult = ansObj.codeResult || null;
+      testCasesResult = ansObj.testCasesResult || null;
 
-      if (isCorrect) {
-        marksObtained = maxMarks;
-        categoryStats[cat].correct += 1;
+      if (cat === 'DSA_CODE') {
+        // Score based on proportion of hidden test cases passed
+        if (testCasesResult && testCasesResult.hiddenTotal > 0) {
+          const passedHidden = testCasesResult.hiddenPassed || 0;
+          const ratio = passedHidden / testCasesResult.hiddenTotal;
+          marksObtained = parseFloat((maxMarks * ratio).toFixed(2));
+          isCorrect = ratio >= 1.0;
+          categoryStats[cat].partialCredit = (categoryStats[cat].partialCredit || 0) + marksObtained;
+        } else if (ansObj.isCorrect) {
+          // Fallback: if isCorrect was set manually
+          marksObtained = maxMarks;
+          isCorrect = true;
+        }
+      } else {
+        isCorrect = Boolean(ansObj.isCorrect);
+        if (isCorrect) {
+          marksObtained = maxMarks;
+        }
+      }
+
+      if (isCorrect || (cat === 'DSA_CODE' && marksObtained > 0)) {
+        if (cat !== 'DSA_CODE') categoryStats[cat].correct += 1;
+        else if (isCorrect) categoryStats[cat].correct += 1;
         categoryStats[cat].score += marksObtained;
         totalScore += marksObtained;
       }
@@ -60,25 +92,31 @@ function calculateResumeAptitudeScore(questions, answers, ladderState) {
       isCorrect,
       marksObtained,
       maxMarks,
-      sqlResult
+      sqlResult,
+      codeResult,
+      testCasesResult,
     });
   });
 
-  const percentage = maxPossibleScore > 0 ? Math.round((totalScore / maxPossibleScore) * 100) : 0;
+  const percentage = maxPossibleScore > 0
+    ? Math.round((totalScore / maxPossibleScore) * 100)
+    : 0;
   const passed = percentage >= 40.0;
 
   // JD-criticality weighted composite score
-  // Weights: Project Ladder (40%), Core CS (25%), SQL Sandbox (20%), DSA (15%)
+  // Weights: Project Ladder (40%), Core CS (20%), SQL Sandbox (20%), DSA Code (20%)
   const getCatPct = (catKey) => {
-    const stat = categoryStats[catKey];
+    const stat = categoryStats[catKey] || categoryStats['DSA'];
     return stat && stat.max > 0 ? (stat.score / stat.max) * 100 : 100;
   };
 
+  const dsaPct = getCatPct('DSA_CODE');
+
   const weightedCompositeScore = Math.round(
     (getCatPct('PROJECT_LADDER') * 0.40) +
-    (getCatPct('CORE_CS') * 0.25) +
-    (getCatPct('SQL') * 0.20) +
-    (getCatPct('DSA') * 0.15)
+    (getCatPct('CORE_CS')        * 0.20) +
+    (getCatPct('SQL')            * 0.20) +
+    (dsaPct                      * 0.20)
   );
 
   return {
@@ -88,15 +126,15 @@ function calculateResumeAptitudeScore(questions, answers, ladderState) {
     weightedCompositeScore,
     passed,
     categoryBreakdown: {
-      dsa: categoryStats.DSA,
+      dsaCode: categoryStats.DSA_CODE,
       sql: categoryStats.SQL,
       coreCs: categoryStats.CORE_CS,
-      projectLadder: categoryStats.PROJECT_LADDER
+      projectLadder: categoryStats.PROJECT_LADDER,
     },
-    gradedAnswers
+    gradedAnswers,
   };
 }
 
 module.exports = {
-  calculateResumeAptitudeScore
+  calculateResumeAptitudeScore,
 };
