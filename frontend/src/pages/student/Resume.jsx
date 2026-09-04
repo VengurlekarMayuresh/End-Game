@@ -4,7 +4,7 @@ import { useStudentProfile } from '../../hooks/useStudent';
 import api from '../../lib/axios';
 import {
   Save, CheckCircle2, Plus, X, ChevronDown, Search,
-  User, BookOpen, Briefcase, Code2, Award, Star
+  User, BookOpen, Briefcase, Code2, Award, Star, AlertCircle
 } from 'lucide-react';
 
 // ── Huge list of common skills ──────────────────────────────────────────────
@@ -219,6 +219,7 @@ const Resume = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
     if (profile?.resumeData) {
@@ -238,6 +239,7 @@ const Resume = () => {
   const handleSave = async () => {
     setIsSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
       await api.post('/student/resume', { resumeData: form });
       setSaved(true);
@@ -245,6 +247,7 @@ const Resume = () => {
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error(err);
+      setSaveError(err.response?.data?.message || 'Failed to save resume details. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -275,6 +278,13 @@ const Resume = () => {
           {saved ? <><CheckCircle2 size={16} /> Saved!</> : <><Save size={16} /> {isSaving ? 'Saving...' : 'Save Resume'}</>}
         </button>
       </div>
+
+      {saveError && (
+        <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-sm font-medium">
+          <AlertCircle size={18} className="shrink-0" />
+          <span>{saveError}</span>
+        </div>
+      )}
 
       {/* ── 1. Basics ─────────────────────────────────────────────────── */}
       <SectionCard icon={<User size={18} />} title="Basic Info" subtitle="Auto-filled from your profile">
