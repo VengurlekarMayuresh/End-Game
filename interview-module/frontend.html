@@ -1,56 +1,116 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HireSense AI — Intelligent Interview Suite</title>
+<title>HireSense — Interview Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg-dark: #07090e;
-    --bg-card: rgba(15, 23, 42, 0.75);
-    --bg-card-hover: rgba(30, 41, 59, 0.85);
-    --border-color: rgba(255, 255, 255, 0.08);
-    --border-highlight: rgba(139, 92, 246, 0.4);
-    --primary: #8b5cf6;
-    --primary-gradient: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
-    --accent-cyan: #06b6d4;
-    --accent-green: #10b981;
-    --accent-amber: #f59e0b;
-    --accent-rose: #f43f5e;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --text-dim: #64748b;
-    --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
-    --shadow-glow: 0 0 35px rgba(139, 92, 246, 0.25);
+  /* -------------------------------------------------------------
+     THEME DESIGN TOKENS
+     Light Mode: White (0 0% 100%), Dark Gray (222.2 84% 4.9%), Primary Indigo (221.2 83.2% 53.3%), Light Gray (210 40% 96.1%)
+     Dark Mode: Dark Gray (222.2 84% 4.9%), White (210 40% 98%), Primary Light Indigo (217.2 91.2% 59.8%), Darker Gray (217.2 32.6% 17.5%)
+  ------------------------------------------------------------- */
+  :root, [data-theme="light"] {
+    --bg: #ffffff;                       /* hsl(0, 0%, 100%) */
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f8fafc;
+    --bg-well: #f1f5f9;                  /* hsl(210, 40%, 96.1%) - Light Gray */
+    --line: rgba(2, 8, 23, 0.08);
+    --line-strong: rgba(2, 8, 23, 0.16);
+    --ink: #020817;                      /* hsl(222.2, 84%, 4.9%) - Dark Gray Foreground */
+    --ink-dim: #334155;
+    --ink-faint: #64748b;
+    
+    --primary: #2563eb;                  /* hsl(221.2, 83.2%, 53.3%) - Indigo / Dark Blue */
+    --primary-soft: rgba(37, 99, 235, 0.1);
+    --primary-line: rgba(37, 99, 235, 0.35);
+    --primary-fg: #ffffff;
+    
+    --secondary: #f1f5f9;                /* hsl(210, 40%, 96.1%) */
+    --secondary-fg: #0f172a;
+    --muted: #f1f5f9;                    /* hsl(210, 40%, 96.1%) */
+    --muted-fg: #64748b;
+    --accent: #f1f5f9;                   /* hsl(210, 40%, 96.1%) */
+    --accent-fg: #0f172a;
+    
+    --teal: #0d9488;
+    --teal-soft: rgba(13, 148, 136, 0.1);
+    --live: #ef4444;
+    --live-soft: rgba(239, 68, 68, 0.1);
+    --ok: #16a34a;
+    --ok-soft: rgba(22, 163, 74, 0.1);
+    
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --r-s: 8px;
+    --r-m: 14px;
+    --r-l: 22px;
+  }
+
+  [data-theme="dark"] {
+    --bg: #020817;                       /* hsl(222.2, 84%, 4.9%) - Dark Gray Background */
+    --bg-elev: #0b1329;
+    --bg-elev-2: #0f172a;
+    --bg-well: #1e293b;                  /* hsl(217.2, 32.6%, 17.5%) - Darker Gray Secondary/Muted */
+    --line: rgba(248, 250, 252, 0.09);
+    --line-strong: rgba(248, 250, 252, 0.18);
+    --ink: #f8fafc;                      /* hsl(210, 40%, 98%) - White Foreground */
+    --ink-dim: #94a3b8;
+    --ink-faint: #64748b;
+    
+    --primary: #3b82f6;                  /* hsl(217.2, 91.2%, 59.8%) - Lighter Indigo */
+    --primary-soft: rgba(59, 130, 246, 0.16);
+    --primary-line: rgba(59, 130, 246, 0.45);
+    --primary-fg: #ffffff;
+    
+    --secondary: #1e293b;                /* hsl(217.2, 32.6%, 17.5%) */
+    --secondary-fg: #f8fafc;
+    --muted: #1e293b;                    /* hsl(217.2, 32.6%, 17.5%) */
+    --muted-fg: #94a3b8;
+    --accent: #1e293b;                   /* hsl(217.2, 32.6%, 17.5%) */
+    --accent-fg: #f8fafc;
+    
+    --teal: #2dd4bf;
+    --teal-soft: rgba(45, 212, 191, 0.14);
+    --live: #f87171;
+    --live-soft: rgba(248, 113, 113, 0.14);
+    --ok: #4ade80;
+    --ok-soft: rgba(74, 222, 128, 0.14);
+    
+    --card-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  
+
   body {
     font-family: var(--font-body);
-    background-color: var(--bg-dark);
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.08) 0px, transparent 50%);
-    color: var(--text-main);
+    background:
+      radial-gradient(1200px 500px at 15% -10%, var(--primary-soft), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, var(--teal-soft), transparent 55%),
+      var(--bg);
+    color: var(--ink);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  /* Header & Navigation */
+  svg.icon {
+    width: 17px; height: 17px; stroke: currentColor; fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    flex-shrink: 0; vertical-align: -3px;
+  }
+
+  /* ---------- Header ---------- */
   header {
-    background: rgba(11, 15, 25, 0.85);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border-color);
+    background: var(--bg);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -58,817 +118,374 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 20px;
   }
 
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-decoration: none;
-    color: var(--text-main);
-  }
+  .brand { display: flex; align-items: center; gap: 12px; }
 
-  .brand-logo {
-    width: 38px;
-    height: 38px;
-    background: var(--primary-gradient);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
+  .mark {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 1.5px solid var(--primary-line);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    background: radial-gradient(circle at 35% 30%, var(--primary-soft), transparent 65%);
+    box-shadow: 0 0 15px var(--primary-soft);
   }
+  .mark svg { width: 19px; height: 19px; stroke: var(--primary); }
 
   .brand-text h1 {
-    font-family: var(--font-heading);
+    font-family: var(--font-display);
     font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    background: linear-gradient(135deg, #fff 40%, #c4b5fd 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .brand-text p {
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
     font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+  .brand-text p {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-top: 1px;
   }
 
   .nav-tabs {
-    display: flex;
-    gap: 6px;
-    background: rgba(15, 23, 42, 0.6);
-    padding: 5px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    display: flex; gap: 4px;
+    background: var(--bg-well);
+    padding: 4px; border-radius: 999px;
+    border: 1px solid var(--line);
   }
-
   .nav-tab {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
+    background: transparent; border: none; color: var(--ink-dim);
+    font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+    padding: 8px 18px; border-radius: 999px; cursor: pointer;
+    transition: all 0.2s ease; display: flex; align-items: center; gap: 7px;
+  }
+  .nav-tab:hover { color: var(--ink); }
+  .nav-tab.active { background: var(--primary); color: var(--primary-fg); box-shadow: 0 4px 14px var(--primary-soft); }
+
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+
+  .theme-toggle-btn {
+    background: var(--bg-well);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 999px;
     font-family: var(--font-body);
-    font-size: 0.88rem;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .nav-tab:hover {
-    color: var(--text-main);
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .nav-tab.active {
-    background: var(--primary-gradient);
-    color: #fff;
-    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
-  }
-
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.8rem;
-    color: var(--accent-green);
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-weight: 600;
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent-green);
-    box-shadow: 0 0 8px var(--accent-green);
-    animation: pulse-dot 2s infinite;
-  }
-
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
-  }
-
-  /* Main Container */
-  main {
-    flex: 1;
-    max-width: 1200px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 28px 20px;
-  }
-
-  .view-tab {
-    display: none;
-    animation: fadeIn 0.3s ease forwards;
-  }
-
-  .view-tab.active {
-    display: block;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Common Card Components */
-  .card {
-    background: var(--bg-card);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 18px;
-  }
-
-  .card-title {
-    font-family: var(--font-heading);
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--text-main);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  /* Mode Switcher */
-  .mode-switch-bar {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 22px;
-  }
-
-  .mode-btn {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid var(--border-color);
-    color: var(--text-muted);
-    padding: 10px 20px;
-    border-radius: 999px;
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .mode-btn.active {
-    background: rgba(139, 92, 246, 0.2);
-    border-color: var(--primary);
-    color: #fff;
-    box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
-  }
-
-  /* Setup Grid */
-  .setup-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  @media (max-width: 860px) {
-    .setup-grid { grid-template-columns: 1fr; }
-  }
-
-  .drop-zone {
-    border: 2px dashed rgba(139, 92, 246, 0.35);
-    background: rgba(139, 92, 246, 0.03);
-    border-radius: var(--radius-md);
-    padding: 36px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    position: relative;
-  }
-
-  .drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--primary);
-    background: rgba(139, 92, 246, 0.08);
-  }
-
-  .drop-icon { font-size: 2.8rem; margin-bottom: 12px; }
-  .drop-title { font-family: var(--font-heading); font-weight: 600; font-size: 1rem; margin-bottom: 6px; }
-  .drop-sub { font-size: 0.8rem; color: var(--text-dim); }
-
-  .file-input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-  }
-
-  .form-group { margin-bottom: 16px; }
-  .form-label {
-    display: block;
     font-size: 0.82rem;
     font-weight: 600;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-  }
-
-  .form-control {
-    width: 100%;
-    background: rgba(11, 15, 25, 0.7);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    color: var(--text-main);
-    padding: 10px 14px;
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .form-control:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
-  }
-
-  textarea.form-control { min-height: 110px; resize: vertical; }
-
-  select.form-control {
     cursor: pointer;
-  }
-
-  .skills-tag-cloud {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .theme-toggle-btn:hover { border-color: var(--primary-line); color: var(--primary); }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: var(--ok); background: var(--ok-soft);
+    border: 1px solid rgba(22, 163, 74, 0.3);
+    padding: 7px 14px; border-radius: 999px; white-space: nowrap;
+  }
+  .status-pill.offline { color: var(--live); background: var(--live-soft); border-color: rgba(239, 68, 68, 0.3); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  /* ---------- Main ---------- */
+  main { flex: 1; max-width: 1180px; width: 100%; margin: 0 auto; padding: 34px 22px 60px; }
+  .view-tab { display: none; animation: fadeIn 0.35s ease forwards; }
+  .view-tab.active { display: block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+
+  .eyebrow { font-family: var(--font-mono); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--primary); margin-bottom: 8px; font-weight: 600; }
+  .page-title { font-family: var(--font-display); font-size: 1.95rem; font-weight: 600; margin-bottom: 26px; color: var(--ink); }
+
+  .card {
+    background: linear-gradient(180deg, var(--bg-elev), var(--bg-elev-2));
+    border: 1px solid var(--line);
+    border-radius: var(--r-l);
+    padding: 26px;
+    margin-bottom: 22px;
+    box-shadow: var(--card-shadow);
+    transition: all 0.25s ease;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+  .card-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 10px; color: var(--ink); }
+  .card-title svg { color: var(--primary); }
+
+  .tag {
+    font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-dim); background: var(--bg-well); border: 1px solid var(--line);
+    padding: 4px 12px; border-radius: 999px;
   }
 
+  /* ---------- Mode switch ---------- */
+  .mode-switch-bar { display: flex; justify-content: center; gap: 12px; margin-bottom: 26px; }
+  .mode-btn {
+    background: var(--bg-well); border: 1px solid var(--line); color: var(--ink-dim);
+    padding: 10px 20px; border-radius: 999px; font-size: 0.86rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+  }
+  .mode-btn.active { background: var(--primary-soft); border-color: var(--primary-line); color: var(--primary); }
+  .mode-btn svg { width: 16px; height: 16px; }
+
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 880px) { .setup-grid { grid-template-columns: 1fr; } }
+
+  .drop-zone {
+    border: 1.5px dashed var(--primary-line); background: var(--primary-soft);
+    border-radius: var(--r-m); padding: 36px 20px; text-align: center;
+    cursor: pointer; transition: all 0.25s ease; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: var(--primary-soft); }
+  .file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-icon { color: var(--primary); margin-bottom: 12px; }
+  .drop-icon svg { width: 32px; height: 32px; }
+  .drop-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 5px; color: var(--ink); }
+  .drop-sub { font-size: 0.82rem; color: var(--ink-faint); }
+
+  .form-group { margin-bottom: 18px; }
+  .form-label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--ink-dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-control {
+    width: 100%; background: var(--bg-well); border: 1px solid var(--line); border-radius: var(--r-s);
+    color: var(--ink); padding: 11px 14px; font-family: var(--font-body); font-size: 0.92rem;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  textarea.form-control { min-height: 105px; resize: vertical; }
+  select.form-control { cursor: pointer; }
+
+  .info-well { background: var(--bg-well); padding: 16px; border-radius: var(--r-s); border: 1px solid var(--line); }
+  .info-well .name { font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+  .info-well .sub { font-size: 0.82rem; color: var(--ink-faint); margin: 4px 0 12px; }
+
+  .skills-tag-cloud { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
   .skill-badge {
-    background: rgba(139, 92, 246, 0.12);
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    color: #c4b5fd;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 999px;
+    background: var(--teal-soft); border: 1px solid rgba(13, 148, 136, 0.35); color: var(--teal);
+    font-size: 0.74rem; font-weight: 600; padding: 4px 11px; border-radius: 999px;
   }
 
   .btn-primary {
-    background: var(--primary-gradient);
-    color: #fff;
-    border: none;
-    padding: 14px 28px;
-    border-radius: var(--radius-md);
-    font-family: var(--font-heading);
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
+    background: var(--primary); color: var(--primary-fg); border: none; padding: 14px 26px;
+    border-radius: var(--r-m); font-family: var(--font-body); font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
     transition: all 0.2s ease;
   }
-
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(139, 92, 246, 0.5);
-  }
-
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  /* Tab 2: Interview Room */
-  .interview-layout {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 24px;
-  }
-
-  @media (max-width: 900px) {
-    .interview-layout { grid-template-columns: 1fr; }
-  }
-
-  .avatar-stage {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 30px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .avatar-ring {
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #2e1065 0%, #1e1b4b 100%);
-    border: 3px solid rgba(139, 92, 246, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3.8rem;
-    position: relative;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--shadow-glow);
-  }
-
-  .avatar-ring.speaking {
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 45px rgba(6, 182, 212, 0.45);
-    animation: avatar-pulse 1.4s infinite ease-in-out;
-  }
-
-  .avatar-ring.listening {
-    border-color: var(--accent-rose);
-    box-shadow: 0 0 45px rgba(244, 63, 94, 0.45);
-    animation: avatar-pulse 1s infinite ease-in-out;
-  }
-
-  @keyframes avatar-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.06); }
-  }
-
-  .waveform-canvas {
-    width: 100%;
-    height: 50px;
-    margin: 20px 0 10px;
-  }
-
-  .interview-status-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    min-height: 22px;
-  }
-
-  .turn-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
-    margin-top: 20px;
-  }
-
-  .btn-ptt {
-    background: rgba(30, 41, 59, 0.9);
-    border: 2px solid rgba(139, 92, 246, 0.5);
-    color: #fff;
-    padding: 16px;
-    border-radius: var(--radius-md);
-    font-family: var(--font-heading);
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    transition: all 0.2s ease;
-    user-select: none;
-  }
-
-  .btn-ptt:hover {
-    background: rgba(139, 92, 246, 0.2);
-    border-color: var(--primary);
-  }
-
-  .btn-ptt.recording {
-    background: var(--accent-rose);
-    border-color: #fda4af;
-    box-shadow: 0 0 25px rgba(244, 63, 94, 0.6);
-    animation: record-pulse 1s infinite;
-  }
-
-  @keyframes record-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(0.98); }
-  }
-
-  .text-answer-bar { display: flex; gap: 8px; }
-
-  /* Active Question & Live Feed */
-  .feed-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .active-question-card {
-    background: linear-gradient(135deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
-    border: 1px solid var(--border-highlight);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  }
-
-  .q-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(139, 92, 246, 0.2);
-    color: #c4b5fd;
-    margin-bottom: 12px;
-  }
-
-  .active-q-text {
-    font-family: var(--font-heading);
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.45;
-    color: #fff;
-  }
-
-  .live-interim {
-    min-height: 24px;
-    font-size: 0.88rem;
-    color: var(--accent-cyan);
-    font-style: italic;
-    margin-top: 10px;
-  }
-
-  .transcript-stream {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    max-height: 380px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .speech-bubble {
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    max-width: 85%;
-    font-size: 0.9rem;
-    line-height: 1.5;
-  }
-
-  .speech-bubble.interviewer {
-    align-self: flex-start;
-    background: rgba(30, 41, 59, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e2e8f0;
-  }
-
-  .speech-bubble.candidate {
-    align-self: flex-end;
-    background: rgba(139, 92, 246, 0.2);
-    border: 1px solid rgba(139, 92, 246, 0.35);
-    color: #f1f5f9;
-  }
-
-  .bubble-speaker {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 4px;
-    color: var(--text-dim);
-  }
-
-  .speech-bubble.interviewer .bubble-speaker { color: var(--accent-cyan); }
-  .speech-bubble.candidate .bubble-speaker { color: #c4b5fd; }
-
-  /* Tab 3: Scorecard & Analytics */
-  .scorecard-header {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 28px;
-    align-items: center;
-  }
-
-  @media (max-width: 700px) {
-    .scorecard-header { grid-template-columns: 1fr; text-align: center; }
-  }
-
-  .score-dial {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    background: conic-gradient(var(--primary) calc(var(--score-pct, 0) * 1%), rgba(255, 255, 255, 0.06) 0);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    margin: 0 auto;
-    box-shadow: var(--shadow-glow);
-  }
-
-  .score-dial-inner {
-    width: 118px;
-    height: 118px;
-    border-radius: 50%;
-    background: var(--bg-dark);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .score-dial-number {
-    font-family: var(--font-heading);
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: #fff;
-    line-height: 1;
-  }
-
-  .score-dial-label {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-
-  .verdict-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 18px;
-    border-radius: 999px;
-    font-family: var(--font-heading);
-    font-size: 1.05rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 12px;
-  }
-
-  .verdict-badge.Strong-Hire, .verdict-badge.Hire {
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.35);
-  }
-
-  .verdict-badge.Lean-Hire {
-    background: rgba(6, 182, 212, 0.15);
-    color: #38bdf8;
-    border: 1px solid rgba(6, 182, 212, 0.35);
-  }
-
-  .verdict-badge.Lean-No-Hire, .verdict-badge.No-Hire {
-    background: rgba(244, 63, 94, 0.15);
-    color: #fb7185;
-    border: 1px solid rgba(244, 63, 94, 0.35);
-  }
-
-  .competency-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
-    margin-top: 20px;
-  }
-
-  .competency-card {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 16px;
-  }
-
-  .comp-title-row {
-    display: flex;
-    justify-content: space-between;
-    font-weight: 600;
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-  }
-
-  .progress-bar-bg {
-    width: 100%;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    background: var(--primary-gradient);
-    border-radius: 999px;
-    transition: width 0.8s ease;
-  }
-
-  .comp-feedback {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    line-height: 1.4;
-  }
-
-  .dual-columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-top: 20px;
-  }
-
-  @media (max-width: 760px) {
-    .dual-columns { grid-template-columns: 1fr; }
-  }
-
-  .list-bullet {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .list-bullet li {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    position: relative;
-    padding-left: 20px;
-    line-height: 1.45;
-  }
-
-  .list-bullet.strengths li::before {
-    content: "✓";
-    position: absolute;
-    left: 0;
-    color: var(--accent-green);
-    font-weight: 800;
-  }
-
-  .list-bullet.growth li::before {
-    content: "!";
-    position: absolute;
-    left: 0;
-    color: var(--accent-amber);
-    font-weight: 800;
-  }
-
-  .action-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 24px;
-  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 22px var(--primary-soft); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
   .btn-outline {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border-color);
-    color: var(--text-main);
-    padding: 10px 20px;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    font-size: 0.88rem;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
+    background: var(--bg-well); border: 1px solid var(--line); color: var(--ink);
+    padding: 10px 18px; border-radius: var(--r-s); font-weight: 600; font-size: 0.86rem;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
     transition: all 0.2s;
   }
+  .btn-outline:hover { border-color: var(--primary-line); color: var(--primary); }
+  .btn-outline svg { width: 15px; height: 15px; }
 
-  .btn-outline:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--primary);
+  /* ---------- Scorecard ---------- */
+  .sc-empty, .sc-waiting { text-align: center; padding: 60px 20px; }
+  .sc-empty svg, .sc-waiting-mark svg { width: 44px; height: 44px; color: var(--ink-faint); }
+  .sc-empty h3, .sc-waiting h3 { font-family: var(--font-display); font-size: 1.35rem; margin: 16px 0 6px; color: var(--ink); }
+  .sc-empty p, .sc-waiting p { color: var(--ink-faint); font-size: 0.92rem; max-width: 400px; margin: 0 auto; line-height: 1.55; }
+
+  .sc-waiting-mark {
+    width: 86px; height: 86px; border-radius: 50%; margin: 0 auto;
+    border: 1.5px solid var(--primary-line); display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 35% 30%, var(--primary-soft), transparent 65%);
+    animation: breathe 2.6s ease-in-out infinite;
   }
+  @keyframes breathe { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.07); } }
+  .sc-waiting-mark svg { color: var(--primary); }
+  .sc-waiting-actions { display: flex; gap: 10px; justify-content: center; margin-top: 22px; flex-wrap: wrap; }
+  .sc-waiting-turns { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint); margin-top: 14px; }
+
+  .scorecard-header { display: grid; grid-template-columns: 200px 1fr; gap: 32px; align-items: center; }
+  @media (max-width: 720px) { .scorecard-header { grid-template-columns: 1fr; text-align: center; } }
+
+  .score-dial {
+    width: 152px; height: 152px; border-radius: 50%;
+    background: conic-gradient(var(--primary) calc(var(--score-pct, 0) * 10%), var(--bg-well) 0);
+    display: flex; align-items: center; justify-content: center; position: relative; margin: 0 auto;
+  }
+  .score-dial-inner {
+    width: 120px; height: 120px; border-radius: 50%; background: var(--bg-elev);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .score-dial-number { font-family: var(--font-display); font-size: 2.2rem; font-weight: 600; line-height: 1; color: var(--ink); }
+  .score-dial-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+  .verdict-badge {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 18px; border-radius: 999px;
+    font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 12px; border: 1px solid;
+  }
+  .verdict-badge.Strong-Hire, .verdict-badge.Hire { background: var(--ok-soft); color: var(--ok); border-color: rgba(22, 163, 74, 0.4); }
+  .verdict-badge.Lean-Hire { background: var(--teal-soft); color: var(--teal); border-color: rgba(13, 148, 136, 0.4); }
+  .verdict-badge.Lean-No-Hire, .verdict-badge.No-Hire { background: var(--live-soft); color: var(--live); border-color: rgba(239, 68, 68, 0.4); }
+
+  .report-title { font-family: var(--font-display); font-size: 1.6rem; margin-bottom: 8px; color: var(--ink); }
+  .exec-summary { font-size: 0.94rem; color: var(--ink-dim); line-height: 1.65; }
+
+  .competency-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 26px; }
+  .competency-card { background: var(--bg-well); border: 1px solid var(--line); border-radius: var(--r-m); padding: 16px; }
+  .comp-title-row { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.82rem; margin-bottom: 8px; letter-spacing: 0.02em; color: var(--ink); }
+  .comp-title-row span:last-child { font-family: var(--font-mono); color: var(--primary); }
+  .progress-bar-bg { width: 100%; height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 9px; }
+  .progress-bar-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.8s ease; }
+  .comp-feedback { font-size: 0.8rem; color: var(--ink-faint); line-height: 1.5; }
+
+  .dual-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 22px; }
+  @media (max-width: 760px) { .dual-columns { grid-template-columns: 1fr; } }
+  .list-bullet { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .list-bullet li { font-size: 0.88rem; color: var(--ink-dim); position: relative; padding-left: 24px; line-height: 1.5; }
+  .list-bullet.strengths li svg { position: absolute; left: 0; top: 3px; width: 16px; height: 16px; color: var(--ok); }
+  .list-bullet.growth li svg { position: absolute; left: 0; top: 3px; width: 16px; height: 16px; color: var(--primary); }
+
+  .action-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
 
   .table-container { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left; }
   th {
-    background: rgba(15, 23, 42, 0.8);
-    color: var(--text-dim);
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.72rem;
-    letter-spacing: 0.05em;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-well); color: var(--ink-faint); font-weight: 600; text-transform: uppercase;
+    font-size: 0.7rem; letter-spacing: 0.06em; padding: 13px 18px; border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
   }
-  td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
-  tr:hover td { background: rgba(255, 255, 255, 0.02); color: var(--text-main); }
+  td { padding: 14px 18px; border-bottom: 1px solid var(--line); color: var(--ink-dim); }
+  tr:hover td { background: var(--bg-well); color: var(--ink); }
 </style>
 </head>
 <body>
 
 <header>
-  <a href="#" class="brand">
-    <div class="brand-logo">⚡</div>
-    <div class="brand-text">
-      <h1>HireSense AI</h1>
-      <p>Intelligent Interview Suite</p>
+  <div class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" class="icon">
+        <circle cx="12" cy="12" r="8.5"/>
+        <g stroke-width="1.8">
+          <line x1="12" y1="4" x2="12" y2="7.4"/>
+          <line x1="12" y1="16.6" x2="12" y2="20"/>
+          <line x1="4" y1="12" x2="7.4" y2="12"/>
+          <line x1="16.6" y1="12" x2="20" y2="12"/>
+        </g>
+        <circle cx="12" cy="12" r="2.6" fill="var(--primary)" stroke="none"/>
+      </svg>
     </div>
-  </a>
+    <div class="brand-text">
+      <h1>HireSense</h1>
+      <p>Interview Studio</p>
+    </div>
+  </div>
 
   <nav class="nav-tabs">
-    <button class="nav-tab active" data-tab="tab-setup">📝 Candidate & Job Setup</button>
-    <button class="nav-tab" data-tab="tab-interview" id="interviewNavTab">🎙️ Interview Room</button>
-    <button class="nav-tab" data-tab="tab-scorecard" id="scorecardNavTab">📊 Scorecard</button>
-    <button class="nav-tab" data-tab="tab-history">📜 History</button>
+    <button class="nav-tab active" data-tab="tab-setup">
+      <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.4"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="13" y2="14"/></svg>
+      Setup
+    </button>
+    <button class="nav-tab" data-tab="tab-scorecard" id="scorecardNavTab">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="19" x2="6" y2="12"/><line x1="12" y1="19" x2="12" y2="8"/><line x1="18" y1="19" x2="18" y2="14"/></svg>
+      Scorecard
+    </button>
+    <button class="nav-tab" data-tab="tab-history">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="12 7.5 12 12 15.5 14"/></svg>
+      History
+    </button>
   </nav>
 
-  <div class="status-pill">
-    <div class="status-dot"></div>
-    <span id="backendStatus">Checking backend...</span>
+  <div class="header-actions">
+    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Light / Dark Mode">
+      <svg class="icon theme-icon-sun" viewBox="0 0 24 24" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="icon theme-icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <span id="themeLabelText">Theme</span>
+    </button>
+
+    <div class="status-pill" id="backendStatusPill">
+      <div class="status-dot"></div>
+      <span id="backendStatus">Checking backend…</span>
+    </div>
   </div>
 </header>
 
 <main>
 
-  <!-- ===================================================================== -->
-  <!-- TAB 1: CANDIDATE & JOB SETUP (STORED RECORDS OR NEW UPLOAD)          -->
-  <!-- ===================================================================== -->
+  <!-- ===================== TAB 1: SETUP ===================== -->
   <section id="tab-setup" class="view-tab active">
+    <div class="eyebrow">Before the interview</div>
+    <div class="page-title">Pair a candidate with a role</div>
 
-    <!-- Mode Selector -->
     <div class="mode-switch-bar">
       <button class="mode-btn active" id="modeSelectStored" onclick="switchSetupMode('stored')">
-        🗄️ Select from Stored Records (Candidate Resume + Recruiter JD)
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-6"/></svg>
+        Stored records
       </button>
       <button class="mode-btn" id="modeSelectUpload" onclick="switchSetupMode('upload')">
-        📤 Upload New Resume / Custom JD
+        <svg viewBox="0 0 24 24"><path d="M12 15V4"/><polyline points="7.5 8.5 12 4 16.5 8.5"/><path d="M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3"/></svg>
+        Upload new
       </button>
     </div>
 
-    <!-- VIEW A: Stored Records Selection Mode -->
+    <!-- View A: Stored -->
     <div id="setupModeStored" class="setup-grid">
-      <!-- Left: Stored Candidate Selector -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">👤 1. Select Registered Candidate</h2>
-          <span class="skill-badge" id="candidateCountBadge">Stored in Database</span>
+          <h2 class="card-title">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.2"/><path d="M5.2 19.5c0-3.9 3-6.3 6.8-6.3s6.8 2.4 6.8 6.3"/></svg>
+            Candidate
+          </h2>
+          <span class="tag" id="candidateCountBadge">—</span>
         </div>
-
         <div class="form-group">
-          <label class="form-label" for="candidateSelect">Candidate Profile</label>
+          <label class="form-label" for="candidateSelect">Registered profile</label>
           <select id="candidateSelect" class="form-control" onchange="onCandidateSelected()">
-            <option value="">Loading candidate records...</option>
+            <option value="">Loading candidate records…</option>
           </select>
         </div>
-
-        <div id="storedCandidateDetails" style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-          <div style="font-weight: 700; color: #fff; font-size: 1rem;" id="candDetailName">--</div>
-          <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;" id="candDetailEmail">--</div>
-          <div class="form-label" style="font-size: 0.78rem;">Stored Resume Skills:</div>
+        <div class="info-well">
+          <div class="name" id="candDetailName">—</div>
+          <div class="sub" id="candDetailEmail">—</div>
+          <div class="form-label" style="margin-bottom:0;">Resume skills</div>
           <div class="skills-tag-cloud" id="candDetailSkillsCloud"></div>
         </div>
       </div>
 
-      <!-- Right: Stored Recruiter Job Selector -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">📋 2. Select Recruiter Job Posting</h2>
-          <span class="skill-badge" id="jobCountBadge">Posted by Recruiter</span>
+          <h2 class="card-title">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="11" rx="1.8"/><path d="M8.5 8V6.3A2 2 0 0 1 10.5 4.3h3A2 2 0 0 1 15.5 6.3V8"/><line x1="3.5" y1="12.5" x2="20.5" y2="12.5"/></svg>
+            Role
+          </h2>
+          <span class="tag" id="jobCountBadge">—</span>
         </div>
-
         <div class="form-group">
-          <label class="form-label" for="jobSelect">Job Posting</label>
+          <label class="form-label" for="jobSelect">Job posting</label>
           <select id="jobSelect" class="form-control" onchange="onJobSelected()">
-            <option value="">Loading recruiter jobs...</option>
+            <option value="">Loading recruiter jobs…</option>
           </select>
         </div>
-
-        <div id="storedJobDetails" style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 18px;">
-          <div style="font-weight: 700; color: #fff; font-size: 1rem;" id="jobDetailTitle">--</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); margin: 6px 0;" id="jobDetailDesc">--</div>
-          <div class="form-label" style="font-size: 0.78rem;">Required Skills:</div>
+        <div class="info-well" style="margin-bottom: 16px;">
+          <div class="name" id="jobDetailTitle">—</div>
+          <div class="sub" id="jobDetailDesc">—</div>
+          <div class="form-label" style="margin-bottom:0;">Required skills</div>
           <div class="skills-tag-cloud" id="jobDetailSkillsCloud"></div>
         </div>
 
         <button id="startFromRecordsBtn" class="btn-primary" onclick="launchInterviewFromRecords()">
-          <span>🚀 Start Interview from Stored Records</span>
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          Begin interview
         </button>
 
-        <button id="togglePostJobBtn" class="btn-outline" style="margin-top: 10px; justify-content: center; font-size: 0.85rem;" onclick="togglePostJobForm()">
-          <span>➕ Post a New Job (Recruiter)</span>
+        <button id="togglePostJobBtn" class="btn-outline" style="margin-top: 12px; justify-content: center; width: 100%;" onclick="togglePostJobForm()">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Post a new job
         </button>
 
-        <div id="postJobForm" style="display: none; margin-top: 16px; background: rgba(0,0,0,0.25); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+        <div id="postJobForm" style="display: none; margin-top: 16px;" class="info-well">
           <div class="form-group">
-            <label class="form-label" for="newJobTitle">Job Title</label>
+            <label class="form-label" for="newJobTitle">Job title</label>
             <input type="text" id="newJobTitle" class="form-control" placeholder="e.g. Backend Software Engineer">
           </div>
           <div class="form-group">
@@ -876,200 +493,187 @@
             <input type="text" id="newJobDept" class="form-control" placeholder="e.g. Engineering" value="Engineering">
           </div>
           <div class="form-group">
-            <label class="form-label" for="newJobDesc">Job Description & Requirements</label>
-            <textarea id="newJobDesc" class="form-control" placeholder="Describe the role, required skills, and experience level. Required skills and core CS topics are auto-detected from this text, or you can override them below."></textarea>
+            <label class="form-label" for="newJobDesc">Description & requirements</label>
+            <textarea id="newJobDesc" class="form-control" placeholder="Describe the role, required skills, and experience level. Skills and core topics are auto-detected from this text."></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label" for="newJobSkills">Required Skills (comma-separated, optional — auto-detected if left blank)</label>
-            <input type="text" id="newJobSkills" class="form-control" placeholder="e.g. Python, FastAPI, PostgreSQL, Docker">
+            <label class="form-label" for="newJobSkills">Required skills (comma-separated, optional)</label>
+            <input type="text" id="newJobSkills" class="form-control" placeholder="e.g. Python, FastAPI, PostgreSQL">
           </div>
           <div class="form-group">
-            <label class="form-label" for="newJobTopics">Core Topics to Ask About (comma-separated, optional)</label>
+            <label class="form-label" for="newJobTopics">Core topics to ask about (optional)</label>
             <input type="text" id="newJobTopics" class="form-control" placeholder="e.g. DSA, OS, Computer Networks">
           </div>
           <button id="submitNewJobBtn" class="btn-primary" onclick="submitNewJob()">
-            <span>✅ Post Job</span>
+            <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Post job
           </button>
-          <div id="postJobStatus" style="font-size: 0.8rem; margin-top: 8px; color: var(--text-muted);"></div>
+          <div id="postJobStatus" style="font-size: 0.82rem; margin-top: 8px; color: var(--ink-faint);"></div>
         </div>
       </div>
     </div>
 
-    <!-- VIEW B: Upload / Direct Form Mode -->
+    <!-- View B: Upload -->
     <div id="setupModeUpload" class="setup-grid" style="display: none;">
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">📄 Upload New Candidate Resume</h2>
-          <span class="skill-badge">PDF, DOCX, TXT</span>
+          <h2 class="card-title">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V19a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 19V5.1A1.6 1.6 0 0 1 7 3.5Z"/><polyline points="14 3.5 14 7.5 18 7.5"/></svg>
+            New resume
+          </h2>
+          <span class="tag">PDF · DOCX · TXT</span>
         </div>
 
         <div class="drop-zone" id="resumeDropZone">
           <input type="file" id="resumeFileInput" class="file-input" accept=".pdf,.docx,.doc,.txt">
-          <div class="drop-icon">📁</div>
+          <div class="drop-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 15V4"/><polyline points="7.5 8.5 12 4 16.5 8.5"/><path d="M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3"/></svg>
+          </div>
           <div class="drop-title" id="dropTitle">Drop resume file here or click to browse</div>
           <div class="drop-sub">Extracts skills & saves candidate to database</div>
         </div>
 
         <div id="parsedResumePreview" style="display: none; margin-top: 18px;">
-          <div class="form-label">Extracted Candidate:</div>
-          <div style="font-weight: 700; font-size: 1rem; color: #fff;" id="candNameDisplay">--</div>
+          <div class="form-label">Extracted candidate</div>
+          <div style="font-weight: 700; font-size: 1rem; color: var(--ink);" id="candNameDisplay">—</div>
           <div class="skills-tag-cloud" id="parsedSkillsCloud"></div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">🎯 Recruiter Job Description</h2>
+          <h2 class="card-title">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="11" rx="1.8"/><path d="M8.5 8V6.3A2 2 0 0 1 10.5 4.3h3A2 2 0 0 1 15.5 6.3V8"/></svg>
+            Job description
+          </h2>
         </div>
-
         <div class="form-group">
-          <label class="form-label" for="roleInput">Job Role</label>
+          <label class="form-label" for="roleInput">Job role</label>
           <input type="text" id="roleInput" class="form-control" value="Backend Software Engineer">
         </div>
-
         <div class="form-group">
-          <label class="form-label" for="jdInput">Job Description</label>
+          <label class="form-label" for="jdInput">Description</label>
           <textarea id="jdInput" class="form-control">We are seeking a Backend Software Engineer with experience in Python, FastAPI, and PostgreSQL. Familiarity with Docker containerization, Redis caching, and REST API architecture required. Strong CS fundamentals in DSA and Operating Systems expected.</textarea>
         </div>
-
         <button id="startUploadInterviewBtn" class="btn-primary" onclick="launchInterviewFromUpload()">
-          <span>🚀 Upload & Start AI Interview</span>
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          Upload & begin interview
         </button>
       </div>
     </div>
-
   </section>
 
-  <!-- ===================================================================== -->
-  <!-- TAB 2: LIVE AI INTERVIEW ROOM                                        -->
-  <!-- ===================================================================== -->
-  <section id="tab-interview" class="view-tab">
-    <div class="interview-layout">
-      <!-- Left: Interactive AI Avatar -->
-      <div class="avatar-stage">
-        <div class="avatar-ring" id="avatarRing">🤖</div>
-        <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
-        <div class="interview-status-label" id="interviewStatusText">Click Start to begin session</div>
+  <!-- ===================== TAB 2: SCORECARD ===================== -->
+  <section id="tab-scorecard" class="view-tab">
+    <div class="eyebrow">Assessment</div>
+    <div class="page-title">Candidate scorecard</div>
 
-        <div class="turn-controls">
-          <button id="pttBtn" class="btn-ptt" disabled>
-            <span id="pttIcon">🎤</span>
-            <span id="pttLabel">Hold Space or Button to Speak</span>
-          </button>
-
-          <div class="text-answer-bar">
-            <input type="text" id="manualAnswerInput" class="form-control" placeholder="Or type your response..." disabled>
-            <button id="sendAnswerBtn" class="btn-outline" style="padding: 0 16px;" onclick="submitTextAnswer()" disabled>➤</button>
-          </div>
-
-          <button class="btn-outline" style="margin-top: 10px; justify-content: center; font-size: 0.8rem; border-color: rgba(244, 63, 94, 0.3);" onclick="finishInterviewEarly()">
-            🏁 End Interview & Generate Report
-          </button>
-        </div>
+    <div class="card" id="scorecardEmpty">
+      <div class="sc-empty">
+        <svg viewBox="0 0 24 24"><line x1="6" y1="19" x2="6" y2="12"/><line x1="12" y1="19" x2="12" y2="8"/><line x1="18" y1="19" x2="18" y2="14"/></svg>
+        <h3>No active session yet</h3>
+        <p>Pair a candidate with a role on the Setup tab to open the interview room window.</p>
       </div>
+    </div>
 
-      <!-- Right: Active Question & Live Feed -->
-      <div class="feed-panel">
-        <div class="active-question-card">
-          <div class="q-badge" id="questionTypeBadge">🎯 Introduction</div>
-          <div class="active-q-text" id="currentQuestionDisplay">Select candidate & job, then launch to start.</div>
-          <div class="live-interim" id="liveInterimText"></div>
+    <div class="card" id="scorecardWaiting" style="display: none;">
+      <div class="sc-waiting">
+        <div class="sc-waiting-mark">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
         </div>
-
-        <div class="card" style="margin-bottom: 0; flex: 1;">
-          <div class="card-header" style="margin-bottom: 12px;">
-            <h3 class="card-title" style="font-size: 0.95rem;">📜 Live Dialogue Stream</h3>
-            <span id="turnCounter" style="font-size: 0.78rem; color: var(--text-dim);">Turn 0</span>
-          </div>
-          <div class="transcript-stream" id="transcriptStream"></div>
+        <h3 id="waitingCandidateLine">Interview in progress</h3>
+        <p id="waitingSubline">The interview is running in its own window. This tab will update automatically when it's finished.</p>
+        <div class="sc-waiting-turns" id="waitingTurnCounter">Turn 0</div>
+        <div class="sc-waiting-actions">
+          <button class="btn-outline" onclick="reopenInterviewPopup()">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.4"/><path d="M9.5 14.5 15 9"/><polyline points="10.5 9 15 9 15 13.5"/></svg>
+            Reopen window
+          </button>
+          <button class="btn-outline" onclick="finishInterviewEarly()">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polygon points="10 8.5 16 12 10 15.5 10 8.5"/></svg>
+            Generate report now
+          </button>
         </div>
       </div>
     </div>
-  </section>
 
-  <!-- ===================================================================== -->
-  <!-- TAB 3: EVALUATION SCORECARD & ANALYTICS                             -->
-  <!-- ===================================================================== -->
-  <section id="tab-scorecard" class="view-tab">
-    <div class="card">
+    <div class="card" id="scorecardResult" style="display: none;">
       <div class="scorecard-header">
         <div class="score-dial" id="scoreDial">
           <div class="score-dial-inner">
             <div class="score-dial-number" id="overallScoreNum">--</div>
-            <div class="score-dial-label">Overall Score</div>
+            <div class="score-dial-label">Score</div>
           </div>
         </div>
-
         <div>
-          <div class="verdict-badge" id="hiringVerdictBadge">Evaluating...</div>
-          <h2 style="font-family: var(--font-heading); font-size: 1.4rem; margin-bottom: 8px;" id="candidateReportTitle">Candidate Assessment</h2>
-          <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;" id="executiveSummaryText">
-            Complete the interview to generate the AI evaluation matrix.
-          </p>
+          <div class="verdict-badge" id="hiringVerdictBadge">Evaluating…</div>
+          <h2 class="report-title" id="candidateReportTitle">Candidate Assessment</h2>
+          <p class="exec-summary" id="executiveSummaryText">Complete the interview to generate the evaluation.</p>
         </div>
       </div>
 
-      <!-- Competency Scores -->
       <div class="competency-grid" id="competencyGrid"></div>
 
-      <!-- Strengths & Growth Areas -->
       <div class="dual-columns">
-        <div class="card" style="background: rgba(16, 185, 129, 0.04); border-color: rgba(16, 185, 129, 0.2); margin-bottom: 0;">
-          <h3 class="card-title" style="color: var(--accent-green); font-size: 1rem; margin-bottom: 12px;">🌟 Key Strengths</h3>
-          <ul class="list-bullet strengths" id="strengthsList">
-            <li>Completed interview session.</li>
-          </ul>
+        <div class="card" style="background: var(--ok-soft); border-color: rgba(22, 163, 74, 0.3); margin-bottom: 0;">
+          <h3 class="card-title" style="color: var(--ok); font-size: 1.05rem;">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="8.5 12.5 11 15 15.5 9.5"/></svg>
+            Key strengths
+          </h3>
+          <ul class="list-bullet strengths" id="strengthsList"></ul>
         </div>
-
-        <div class="card" style="background: rgba(245, 158, 11, 0.04); border-color: rgba(245, 158, 11, 0.2); margin-bottom: 0;">
-          <h3 class="card-title" style="color: var(--accent-amber); font-size: 1rem; margin-bottom: 12px;">🎯 Growth Opportunities</h3>
-          <ul class="list-bullet growth" id="growthList">
-            <li>Detailed critique in breakdown.</li>
-          </ul>
+        <div class="card" style="background: var(--primary-soft); border-color: var(--primary-line); margin-bottom: 0;">
+          <h3 class="card-title" style="color: var(--primary); font-size: 1.05rem;">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.2" r="0.9" fill="currentColor" stroke="none"/></svg>
+            Growth opportunities
+          </h3>
+          <ul class="list-bullet growth" id="growthList"></ul>
         </div>
       </div>
 
-      <!-- Export Buttons -->
       <div class="action-row">
         <a id="downloadDocxBtn" href="#" class="btn-outline">
-          <span>📥 Download Word Report (.docx)</span>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 4v11"/><polyline points="7.5 11 12 15.5 16.5 11"/><path d="M4.5 18.5v1.6a1.9 1.9 0 0 0 1.9 1.9h11.2a1.9 1.9 0 0 0 1.9-1.9v-1.6"/></svg>
+          Word report
         </a>
         <a id="downloadMdBtn" href="#" class="btn-outline">
-          <span>📄 View Markdown (.md)</span>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V19a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 19V5.1A1.6 1.6 0 0 1 7 3.5Z"/><polyline points="14 3.5 14 7.5 18 7.5"/></svg>
+          Markdown
         </a>
         <button class="btn-outline" onclick="copyReportText()">
-          <span>📋 Copy Summary to Clipboard</span>
+          <svg class="icon" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="1.8"/><path d="M15 8.5V6.4A1.9 1.9 0 0 0 13.1 4.5H6.4A1.9 1.9 0 0 0 4.5 6.4v6.7a1.9 1.9 0 0 0 1.9 1.9H8.5"/></svg>
+          Copy summary
         </button>
       </div>
     </div>
   </section>
 
-  <!-- ===================================================================== -->
-  <!-- TAB 4: SESSION HISTORY & AUDIT LOG                                   -->
-  <!-- ===================================================================== -->
+  <!-- ===================== TAB 3: HISTORY ===================== -->
   <section id="tab-history" class="view-tab">
+    <div class="eyebrow">Audit log</div>
+    <div class="page-title">Session history</div>
+
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">📜 Historical Interview Sessions</h2>
-        <button class="btn-outline" onclick="loadSessionHistory()" style="font-size: 0.8rem; padding: 6px 14px;">🔄 Refresh</button>
+        <h2 class="card-title">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="12 7.5 12 12 15.5 14"/></svg>
+          All sessions
+        </h2>
+        <button class="btn-outline" onclick="loadSessionHistory()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M19.5 12A7.5 7.5 0 1 1 17 6.4"/><polyline points="19.5 4 19.5 9 14.5 9"/></svg>
+          Refresh
+        </button>
       </div>
-
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>Session ID</th>
-              <th>Candidate</th>
-              <th>Role</th>
-              <th>Date</th>
-              <th>Turns</th>
-              <th>Score</th>
-              <th>Recommendation</th>
-              <th>Actions</th>
+              <th>Session</th><th>Candidate</th><th>Role</th><th>Date</th>
+              <th>Turns</th><th>Score</th><th>Recommendation</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="historyTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Loading sessions...</td></tr>
+            <tr><td colspan="8" style="text-align:center; color:var(--ink-faint);">Loading sessions…</td></tr>
           </tbody>
         </table>
       </div>
@@ -1085,46 +689,65 @@ let candidatesList = [];
 let jobsList = [];
 let currentSessionId = null;
 let currentUploadedFile = null;
-let recognition = null;
-let isRecognizing = false;
-let waveAnimationId = null;
+let interviewPopup = null;
+let pollHandle = null;
 
-// Tab Switcher
+// ---- Theme toggle logic ----
+function initTheme() {
+  const saved = localStorage.getItem("hiresense_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", saved);
+  updateThemeUI(saved);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("hiresense_theme", next);
+  updateThemeUI(next);
+}
+
+function updateThemeUI(theme) {
+  const isDark = theme === "dark";
+  const sunIcon = document.querySelector(".theme-icon-sun");
+  const moonIcon = document.querySelector(".theme-icon-moon");
+  const label = document.getElementById("themeLabelText");
+  if (sunIcon && moonIcon) {
+    sunIcon.style.display = isDark ? "block" : "none";
+    moonIcon.style.display = isDark ? "none" : "block";
+  }
+  if (label) {
+    label.textContent = isDark ? "Light" : "Dark";
+  }
+}
+
+// ---- Tab switcher ----
 document.querySelectorAll(".nav-tab").forEach(tab => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".view-tab").forEach(v => v.classList.remove("active"));
-    
     tab.classList.add("active");
     const targetId = tab.getAttribute("data-tab");
     document.getElementById(targetId).classList.add("active");
-
     if (targetId === "tab-history") loadSessionHistory();
     if (targetId === "tab-setup") loadStoredCandidatesAndJobs();
   });
 });
 
-// Setup Mode Switcher (Stored vs Upload)
 function switchSetupMode(mode) {
   const btnStored = document.getElementById("modeSelectStored");
   const btnUpload = document.getElementById("modeSelectUpload");
   const viewStored = document.getElementById("setupModeStored");
   const viewUpload = document.getElementById("setupModeUpload");
-
   if (mode === "stored") {
-    btnStored.classList.add("active");
-    btnUpload.classList.remove("active");
-    viewStored.style.display = "grid";
-    viewUpload.style.display = "none";
+    btnStored.classList.add("active"); btnUpload.classList.remove("active");
+    viewStored.style.display = "grid"; viewUpload.style.display = "none";
   } else {
-    btnUpload.classList.add("active");
-    btnStored.classList.remove("active");
-    viewUpload.style.display = "grid";
-    viewStored.style.display = "none";
+    btnUpload.classList.add("active"); btnStored.classList.remove("active");
+    viewUpload.style.display = "grid"; viewStored.style.display = "none";
   }
 }
 
-// Recruiter: post a new job description
 function togglePostJobForm() {
   const form = document.getElementById("postJobForm");
   form.style.display = form.style.display === "none" ? "block" : "none";
@@ -1140,54 +763,46 @@ async function submitNewJob() {
 
   if (!title || !description) {
     statusEl.textContent = "Please fill in at least the job title and description.";
-    statusEl.style.color = "var(--accent-rose)";
+    statusEl.style.color = "var(--live)";
     return;
   }
 
   const payload = {
-    title,
-    description,
-    department: dept,
+    title, description, department: dept,
     required_skills: skillsRaw ? skillsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
     core_topics: topicsRaw ? topicsRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
   };
 
   statusEl.textContent = "Posting job…";
-  statusEl.style.color = "var(--text-muted)";
+  statusEl.style.color = "var(--ink-faint)";
 
   try {
     const res = await fetch(`${API_BASE}/jobs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
     const data = await res.json();
 
-    statusEl.textContent = `✅ Posted: "${data.job.title}" — required skills and core topics auto-detected where left blank.`;
-    statusEl.style.color = "var(--accent-teal, #7fd)";
+    statusEl.textContent = `Posted "${data.job.title}" — skills and topics saved.`;
+    statusEl.style.color = "var(--ok)";
 
-    // Clear the form and refresh the job list so the new posting shows up immediately
     document.getElementById("newJobTitle").value = "";
     document.getElementById("newJobDesc").value = "";
     document.getElementById("newJobSkills").value = "";
     document.getElementById("newJobTopics").value = "";
     await loadStoredCandidatesAndJobs();
 
-    // Select the newly created job automatically
     const jSelect = document.getElementById("jobSelect");
     jSelect.value = data.job.job_id;
     onJobSelected();
   } catch (err) {
-    statusEl.textContent = "Failed to post job — check that the backend server is running.";
-    statusEl.style.color = "var(--accent-rose)";
+    statusEl.textContent = "Failed to post job — check backend server.";
+    statusEl.style.color = "var(--live)";
   }
 }
 
-// Fetch stored candidates & recruiter jobs from backend SQLite DB
 async function loadStoredCandidatesAndJobs() {
   try {
-    // 1. Fetch Candidates
     const cRes = await fetch(`${API_BASE}/candidates`);
     const cData = await cRes.json();
     candidatesList = cData.candidates || [];
@@ -1200,10 +815,9 @@ async function loadStoredCandidatesAndJobs() {
       opt.textContent = `${c.name} (${(c.skills || []).slice(0, 3).join(", ")})`;
       cSelect.appendChild(opt);
     });
-    document.getElementById("candidateCountBadge").textContent = `${candidatesList.length} Stored Profiles`;
+    document.getElementById("candidateCountBadge").textContent = `${candidatesList.length} stored`;
     onCandidateSelected();
 
-    // 2. Fetch Jobs
     const jRes = await fetch(`${API_BASE}/jobs`);
     const jData = await jRes.json();
     jobsList = jData.jobs || [];
@@ -1216,387 +830,214 @@ async function loadStoredCandidatesAndJobs() {
       opt.textContent = `${j.title} (${j.department || 'Engineering'})`;
       jSelect.appendChild(opt);
     });
-    document.getElementById("jobCountBadge").textContent = `${jobsList.length} Active Postings`;
+    document.getElementById("jobCountBadge").textContent = `${jobsList.length} active`;
     onJobSelected();
 
-    document.getElementById("backendStatus").textContent = "Connected (SQLite DB Ready)";
+    const pill = document.getElementById("backendStatusPill");
+    pill.classList.remove("offline");
+    document.getElementById("backendStatus").textContent = "Backend connected";
   } catch (err) {
-    document.getElementById("backendStatus").textContent = "Backend Offline";
-    document.getElementById("backendStatus").style.color = "var(--accent-rose)";
+    const pill = document.getElementById("backendStatusPill");
+    pill.classList.add("offline");
+    document.getElementById("backendStatus").textContent = "Backend offline";
   }
 }
 
 async function onCandidateSelected() {
   const cid = document.getElementById("candidateSelect").value;
   if (!cid) return;
-  
   try {
     const res = await fetch(`${API_BASE}/candidate/${cid}`);
     const data = await res.json();
     document.getElementById("candDetailName").textContent = data.name || "Candidate";
     document.getElementById("candDetailEmail").textContent = data.email || "";
-
     const cloud = document.getElementById("candDetailSkillsCloud");
     cloud.innerHTML = "";
     (data.resume_data?.skills || []).forEach(s => {
       const span = document.createElement("span");
-      span.className = "skill-badge";
-      span.textContent = s;
+      span.className = "skill-badge"; span.textContent = s;
       cloud.appendChild(span);
     });
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 async function onJobSelected() {
   const jid = document.getElementById("jobSelect").value;
   if (!jid) return;
-
   try {
     const res = await fetch(`${API_BASE}/job/${jid}`);
     const data = await res.json();
     document.getElementById("jobDetailTitle").textContent = data.title || "Role";
     document.getElementById("jobDetailDesc").textContent = (data.description || "").substring(0, 180) + "...";
-
     const cloud = document.getElementById("jobDetailSkillsCloud");
     cloud.innerHTML = "";
     (data.required_skills || []).forEach(s => {
       const span = document.createElement("span");
-      span.className = "skill-badge";
-      span.textContent = s;
+      span.className = "skill-badge"; span.textContent = s;
       cloud.appendChild(span);
     });
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
-// Start Interview using Stored Records
+// ---- Launch interview ----
 async function launchInterviewFromRecords() {
   const cid = document.getElementById("candidateSelect").value;
   const jid = document.getElementById("jobSelect").value;
-
-  if (!cid || !jid) {
-    alert("Please select both a candidate and a job posting.");
-    return;
-  }
+  if (!cid || !jid) { alert("Please select both a candidate and a job posting."); return; }
 
   const startBtn = document.getElementById("startFromRecordsBtn");
   startBtn.disabled = true;
-  startBtn.innerHTML = "<span>⏳ Fetching Records & Initializing...</span>";
 
   try {
     const res = await fetch(`${API_BASE}/session/start-by-id`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ candidate_id: cid, job_id: jid })
     });
     const data = await res.json();
     currentSessionId = data.session_id;
-
-    // Switch to Interview Tab
-    document.getElementById("interviewNavTab").click();
-    document.getElementById("pttBtn").disabled = false;
-    document.getElementById("manualAnswerInput").disabled = false;
-    document.getElementById("sendAnswerBtn").disabled = false;
-
-    await displayAndPlayQuestion(data.question, data.type || "intro");
+    openInterviewWindow(data.candidate_name, data.role);
   } catch (err) {
     alert("Error launching session: " + err.message);
   } finally {
     startBtn.disabled = false;
-    startBtn.innerHTML = "<span>🚀 Start Interview from Stored Records</span>";
   }
 }
 
-// Start Interview from Upload
 async function launchInterviewFromUpload() {
   const startBtn = document.getElementById("startUploadInterviewBtn");
   startBtn.disabled = true;
-  startBtn.innerHTML = "<span>⏳ Parsing Resume & Initializing...</span>";
 
   const role = document.getElementById("roleInput").value.trim() || "Software Engineer";
   const jdText = document.getElementById("jdInput").value.trim();
 
   try {
-    let resData;
-    if (currentUploadedFile) {
-      const fd = new FormData();
-      fd.append("resume_file", currentUploadedFile);
-      fd.append("job_description", jdText);
-      fd.append("role", role);
-      const res = await fetch(`${API_BASE}/session/start-with-file`, { method: "POST", body: fd });
-      resData = await res.json();
-    } else {
+    if (!currentUploadedFile) {
       alert("Please upload a resume file (.pdf, .docx, .txt).");
       startBtn.disabled = false;
-      startBtn.innerHTML = "<span>🚀 Upload & Start AI Interview</span>";
       return;
     }
+    const fd = new FormData();
+    fd.append("resume_file", currentUploadedFile);
+    fd.append("job_description", jdText);
+    fd.append("role", role);
+    const res = await fetch(`${API_BASE}/session/start-with-file`, { method: "POST", body: fd });
+    const resData = await res.json();
 
     currentSessionId = resData.session_id;
-
-    document.getElementById("interviewNavTab").click();
-    document.getElementById("pttBtn").disabled = false;
-    document.getElementById("manualAnswerInput").disabled = false;
-    document.getElementById("sendAnswerBtn").disabled = false;
-
-    await displayAndPlayQuestion(resData.question, resData.type || "intro");
+    openInterviewWindow(resData.candidate_name, resData.role || role);
   } catch (err) {
     alert("Error: " + err.message);
   } finally {
     startBtn.disabled = false;
-    startBtn.innerHTML = "<span>🚀 Upload & Start AI Interview</span>";
   }
 }
 
-// Drag & Drop Upload Handlers
+function openInterviewWindow(candidateName, role) {
+  const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+  const url = `interview-room.html?session=${encodeURIComponent(currentSessionId)}&api=${encodeURIComponent(API_BASE)}&candidate=${encodeURIComponent(candidateName || '')}&role=${encodeURIComponent(role || '')}&theme=${encodeURIComponent(currentTheme)}`;
+  interviewPopup = window.open(url, "hiresense_interview", "width=600,height=820,resizable=yes");
+
+  if (!interviewPopup) {
+    alert("Your browser blocked the interview popup. Please allow popups for this site and try again.");
+    return;
+  }
+
+  document.getElementById("waitingCandidateLine").textContent = candidateName ? `Interviewing ${candidateName}` : "Interview in progress";
+  document.getElementById("waitingSubline").textContent = `Role: ${role || 'N/A'}. The interview is running in its own window — this tab updates automatically when completed.`;
+  showScorecardState("waiting");
+  document.getElementById("scorecardNavTab").click();
+  startPolling();
+}
+
+function reopenInterviewPopup() {
+  if (interviewPopup && !interviewPopup.closed) { interviewPopup.focus(); return; }
+  if (!currentSessionId) return;
+  const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+  const url = `interview-room.html?session=${encodeURIComponent(currentSessionId)}&api=${encodeURIComponent(API_BASE)}&theme=${encodeURIComponent(currentTheme)}`;
+  interviewPopup = window.open(url, "hiresense_interview", "width=600,height=820,resizable=yes");
+}
+
+function showScorecardState(state) {
+  document.getElementById("scorecardEmpty").style.display = state === "empty" ? "block" : "none";
+  document.getElementById("scorecardWaiting").style.display = state === "waiting" ? "block" : "none";
+  document.getElementById("scorecardResult").style.display = state === "result" ? "block" : "none";
+}
+
+function startPolling() {
+  stopPolling();
+  pollHandle = setInterval(async () => {
+    if (!currentSessionId) return;
+    try {
+      const res = await fetch(`${API_BASE}/session/${currentSessionId}`);
+      const data = await res.json();
+      document.getElementById("waitingTurnCounter").textContent = `Turn ${data.turns ? data.turns.length : 0}`;
+      if (data.status === "completed") {
+        stopPolling();
+        const evaluation = data.evaluation || await fetchEvaluationReport();
+        renderScorecard(evaluation);
+        showScorecardState("result");
+      }
+    } catch (e) { }
+  }, 4000);
+}
+
+function stopPolling() { if (pollHandle) { clearInterval(pollHandle); pollHandle = null; } }
+
+// Listen for popup messages
+window.addEventListener("message", (e) => {
+  if (!e.data || typeof e.data !== "object") return;
+  if (e.data.source !== "hiresense-interview") return;
+  if (e.data.type === "completed" && e.data.session_id === currentSessionId) {
+    stopPolling();
+    renderScorecard(e.data.evaluation);
+    showScorecardState("result");
+  }
+});
+
+// Drop zone
 const dropZone = document.getElementById("resumeDropZone");
 const fileInput = document.getElementById("resumeFileInput");
-
 dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
 dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
 dropZone.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dropZone.classList.remove("dragover");
+  e.preventDefault(); dropZone.classList.remove("dragover");
   if (e.dataTransfer.files.length) handleFileSelected(e.dataTransfer.files[0]);
 });
-
-fileInput.addEventListener("change", (e) => {
-  if (e.target.files.length) handleFileSelected(e.target.files[0]);
-});
+fileInput.addEventListener("change", (e) => { if (e.target.files.length) handleFileSelected(e.target.files[0]); });
 
 async function handleFileSelected(file) {
   currentUploadedFile = file;
   document.getElementById("dropTitle").textContent = `Selected: ${file.name}`;
-  
   const formData = new FormData();
   formData.append("resume_file", file);
-
   try {
     const res = await fetch(`${API_BASE}/resume/parse`, { method: "POST", body: formData });
     const data = await res.json();
     if (data.parsed) {
       document.getElementById("parsedResumePreview").style.display = "block";
       document.getElementById("candNameDisplay").textContent = data.parsed.name || "Candidate";
-      
       const cloud = document.getElementById("parsedSkillsCloud");
       cloud.innerHTML = "";
       (data.parsed.skills || []).forEach(skill => {
         const span = document.createElement("span");
-        span.className = "skill-badge";
-        span.textContent = skill;
+        span.className = "skill-badge"; span.textContent = skill;
         cloud.appendChild(span);
       });
     }
-  } catch (err) {
-    console.error("Resume parse error:", err);
-  }
+  } catch (err) { console.error("Resume parse error:", err); }
 }
 
-// Question Playback & Display
-async function displayAndPlayQuestion(questionText, qType = "general") {
-  const avatarRing = document.getElementById("avatarRing");
-  const qBadge = document.getElementById("questionTypeBadge");
-  const qDisplay = document.getElementById("currentQuestionDisplay");
-  const statusText = document.getElementById("interviewStatusText");
-
-  qBadge.textContent = `🎯 ${qType.replace("_", " ").toUpperCase()}`;
-  qDisplay.textContent = questionText;
-  addTranscriptTurn("interviewer", questionText, qType);
-
-  statusText.textContent = "Interviewer speaking...";
-  avatarRing.className = "avatar-ring speaking";
-  startWaveformAnimation();
-
-  try {
-    const audioRes = await fetch(`${API_BASE}/session/${currentSessionId}/question-audio`);
-    if (audioRes.ok) {
-      const blob = await audioRes.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
-      await new Promise(resolve => {
-        audio.onended = resolve;
-        audio.play().catch(resolve);
-      });
-    }
-  } catch (err) {
-    console.warn("TTS playback bypassed:", err);
-  }
-
-  stopWaveformAnimation();
-  avatarRing.className = "avatar-ring";
-  statusText.textContent = "Your turn — Hold mic or type answer";
-}
-
-function addTranscriptTurn(speaker, text, qType = null) {
-  const stream = document.getElementById("transcriptStream");
-  const bubble = document.createElement("div");
-  bubble.className = `speech-bubble ${speaker}`;
-  
-  const label = speaker === "interviewer" 
-    ? `AI Interviewer ${qType ? '• ' + qType.toUpperCase() : ''}` 
-    : "You (Candidate)";
-
-  bubble.innerHTML = `<div class="bubble-speaker">${label}</div><div>${escapeHtml(text)}</div>`;
-  stream.appendChild(bubble);
-  stream.scrollTop = stream.scrollHeight;
-
-  const count = stream.children.length;
-  document.getElementById("turnCounter").textContent = `Turn ${count}`;
-}
-
-async function processCandidateAnswer(answerText) {
-  if (!answerText.trim() || !currentSessionId) return;
-
-  addTranscriptTurn("candidate", answerText);
-  
-  const statusText = document.getElementById("interviewStatusText");
-  const pttBtn = document.getElementById("pttBtn");
-  const manualInput = document.getElementById("manualAnswerInput");
-  const sendBtn = document.getElementById("sendAnswerBtn");
-
-  statusText.textContent = "Evaluating response & preparing next question...";
-  pttBtn.disabled = true;
-  manualInput.disabled = true;
-  sendBtn.disabled = true;
-
-  try {
-    const res = await fetch(`${API_BASE}/session/answer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: currentSessionId, answer_text: answerText })
-    });
-    const data = await res.json();
-
-    if (data.status === "completed") {
-      statusText.textContent = "Interview Completed!";
-      // Speak the closing remark ("we'll let you know...") through the avatar before showing the scorecard
-      await displayAndPlayQuestion(data.message, "closing");
-      statusText.textContent = "Interview Completed!";
-      const scoreLine = data.score_out_of_10 != null
-        ? ` Your score: ${data.score_out_of_10}/10 (${data.hiring_recommendation || "N/A"}).`
-        : "";
-      document.getElementById("currentQuestionDisplay").textContent = "Interview Complete! Generating your scorecard..." + scoreLine;
-      renderScorecard(data.evaluation || await fetchEvaluationReport());
-      document.getElementById("scorecardNavTab").click();
-      return;
-    }
-
-    pttBtn.disabled = false;
-    manualInput.disabled = false;
-    sendBtn.disabled = false;
-    manualInput.value = "";
-
-    await displayAndPlayQuestion(data.question, data.type);
-
-  } catch (err) {
-    statusText.textContent = "Error submitting answer: " + err.message;
-    pttBtn.disabled = false;
-    manualInput.disabled = false;
-    sendBtn.disabled = false;
-  }
-}
-
-function submitTextAnswer() {
-  const input = document.getElementById("manualAnswerInput");
-  const text = input.value.trim();
-  if (text) processCandidateAnswer(text);
-}
-
-document.getElementById("manualAnswerInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") submitTextAnswer();
-});
-
-// Push-to-Talk
-function setupSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return null;
-
-  const rec = new SpeechRecognition();
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.lang = "en-US";
-
-  let finalTranscript = "";
-
-  rec.onresult = (e) => {
-    let interim = "";
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalTranscript += t + " ";
-      else interim += t;
-    }
-    document.getElementById("liveInterimText").textContent = finalTranscript + interim;
-  };
-
-  rec.onend = () => {
-    isRecognizing = false;
-    const ptt = document.getElementById("pttBtn");
-    ptt.classList.remove("recording");
-    document.getElementById("pttLabel").textContent = "Hold Space or Button to Speak";
-    document.getElementById("avatarRing").className = "avatar-ring";
-    stopWaveformAnimation();
-
-    const answer = finalTranscript.trim();
-    finalTranscript = "";
-    document.getElementById("liveInterimText").textContent = "";
-
-    if (answer) processCandidateAnswer(answer);
-  };
-
-  return rec;
-}
-
-const pttBtn = document.getElementById("pttBtn");
-
-function startRecording() {
-  if (!recognition) recognition = setupSpeechRecognition();
-  if (!recognition || isRecognizing) return;
-  isRecognizing = true;
-  pttBtn.classList.add("recording");
-  document.getElementById("pttLabel").textContent = "Recording... Release to submit";
-  document.getElementById("avatarRing").className = "avatar-ring listening";
-  startWaveformAnimation();
-  recognition.start();
-}
-
-function stopRecording() {
-  if (recognition && isRecognizing) recognition.stop();
-}
-
-pttBtn.addEventListener("mousedown", startRecording);
-document.addEventListener("mouseup", stopRecording);
-
-let spacePressed = false;
-document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && !spacePressed && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
-    if (!document.getElementById("tab-interview").classList.contains("active")) return;
-    e.preventDefault();
-    spacePressed = true;
-    startRecording();
-  }
-});
-document.addEventListener("keyup", (e) => {
-  if (e.code === "Space" && spacePressed) {
-    e.preventDefault();
-    spacePressed = false;
-    stopRecording();
-  }
-});
-
-// Render Scorecard
+// Scorecard render
 function renderScorecard(evalData) {
   if (!evalData) return;
-  
   const overall = evalData.overall_score || 0;
   const rec = evalData.hiring_recommendation || "N/A";
-  
+
   document.getElementById("overallScoreNum").textContent = overall;
   document.getElementById("scoreDial").style.setProperty("--score-pct", overall);
-  
+
   const verdictEl = document.getElementById("hiringVerdictBadge");
-  verdictEl.textContent = `Recommendation: ${rec}`;
+  verdictEl.textContent = rec;
   verdictEl.className = `verdict-badge ${rec.replace(/\s+/g, '-')}`;
 
   document.getElementById("executiveSummaryText").textContent = evalData.executive_summary || "Evaluation completed.";
@@ -1610,23 +1051,21 @@ function renderScorecard(evalData) {
     const div = document.createElement("div");
     div.className = "competency-card";
     div.innerHTML = `
-      <div class="comp-title-row">
-        <span>${name}</span>
-        <span style="color: var(--primary);">${score}/10</span>
-      </div>
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" style="width: ${score * 10}%"></div>
-      </div>
+      <div class="comp-title-row"><span>${name}</span><span>${score}/10</span></div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${score * 10}%"></div></div>
       <div class="comp-feedback">${escapeHtml(val.feedback || '')}</div>
     `;
     grid.appendChild(div);
   }
 
+  const checkIcon = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="8.5 12.5 11 15 15.5 9.5"/></svg>`;
+  const dotIcon = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.2" r="0.9" fill="currentColor" stroke="none"/></svg>`;
+
   const sList = document.getElementById("strengthsList");
   sList.innerHTML = "";
   (evalData.key_strengths || []).forEach(s => {
     const li = document.createElement("li");
-    li.textContent = s;
+    li.innerHTML = checkIcon + escapeHtml(s);
     sList.appendChild(li);
   });
 
@@ -1634,7 +1073,7 @@ function renderScorecard(evalData) {
   gList.innerHTML = "";
   (evalData.areas_for_improvement || []).forEach(g => {
     const li = document.createElement("li");
-    li.textContent = g;
+    li.innerHTML = dotIcon + escapeHtml(g);
     gList.appendChild(li);
   });
 
@@ -1653,49 +1092,44 @@ async function fetchEvaluationReport() {
 
 async function finishInterviewEarly() {
   if (!confirm("Conclude the interview and generate the scorecard now?")) return;
+  stopPolling();
   const report = await fetchEvaluationReport();
   renderScorecard(report);
-  document.getElementById("scorecardNavTab").click();
+  showScorecardState("result");
 }
 
 function copyReportText() {
   const summary = document.getElementById("executiveSummaryText").textContent;
   const score = document.getElementById("overallScoreNum").textContent;
   const rec = document.getElementById("hiringVerdictBadge").textContent;
-  navigator.clipboard.writeText(`HireSense AI Evaluation\nScore: ${score}/100\n${rec}\n\nSummary:\n${summary}`);
-  alert("Evaluation summary copied to clipboard!");
+  navigator.clipboard.writeText(`HireSense Evaluation\nOverall Score: ${score}/10\nRecommendation: ${rec}\n\nSummary:\n${summary}`);
+  alert("Evaluation summary copied to clipboard.");
 }
 
 async function loadSessionHistory() {
   const tbody = document.getElementById("historyTableBody");
-  tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Loading sessions...</td></tr>`;
-
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--ink-faint);">Loading sessions…</td></tr>`;
   try {
     const res = await fetch(`${API_BASE}/sessions`);
     const data = await res.json();
     const sessions = data.sessions || [];
-
     if (!sessions.length) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim);">No sessions found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--ink-faint);">No sessions found.</td></tr>`;
       return;
     }
-
     tbody.innerHTML = "";
     sessions.forEach(s => {
       const tr = document.createElement("tr");
-      const scoreBadge = s.overall_score !== null 
-        ? `<span style="font-weight:700; color:var(--accent-green);">${s.overall_score}/100</span>` 
-        : `<span style="color:var(--text-dim);">In Progress</span>`;
-      
-      const recBadge = s.hiring_recommendation 
-        ? `<span class="verdict-badge ${s.hiring_recommendation.replace(/\s+/g, '-')}" style="font-size:0.75rem; padding:3px 10px;">${s.hiring_recommendation}</span>` 
+      const scoreBadge = s.overall_score !== null
+        ? `<span style="font-weight:700; color:var(--ok); font-family:var(--font-mono);">${s.overall_score}/10</span>`
+        : `<span style="color:var(--ink-faint);">In progress</span>`;
+      const recBadge = s.hiring_recommendation
+        ? `<span class="verdict-badge ${s.hiring_recommendation.replace(/\s+/g, '-')}" style="font-size:0.7rem; padding:3px 10px; margin:0;">${s.hiring_recommendation}</span>`
         : `-`;
-
       const dateStr = s.started_at ? new Date(s.started_at).toLocaleDateString() : "-";
-
       tr.innerHTML = `
-        <td style="font-family:monospace; font-size:0.8rem; color:#a78bfa;">${s.session_id.substring(0, 8)}...</td>
-        <td style="font-weight:600;">${escapeHtml(s.candidate_id)}</td>
+        <td style="font-family:var(--font-mono); font-size:0.78rem; color:var(--primary); font-weight:600;">${s.session_id.substring(0, 8)}…</td>
+        <td style="font-weight:600; color:var(--ink);">${escapeHtml(s.candidate_id)}</td>
         <td>${escapeHtml(s.role || 'Role')}</td>
         <td>${dateStr}</td>
         <td>${s.turn_count || 0}</td>
@@ -1709,7 +1143,7 @@ async function loadSessionHistory() {
       tbody.appendChild(tr);
     });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--accent-rose);">Error loading history: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--live);">Error loading history: ${err.message}</td></tr>`;
   }
 }
 
@@ -1719,55 +1153,10 @@ async function viewHistoricalSession(sessionId) {
   const data = await res.json();
   if (data.evaluation) {
     renderScorecard(data.evaluation);
+    showScorecardState("result");
     document.getElementById("scorecardNavTab").click();
   } else {
     alert("No evaluation report generated for this session yet.");
-  }
-}
-
-// Waveform Animation
-const canvas = document.getElementById("waveformCanvas");
-const ctx = canvas.getContext("2d");
-
-function resizeCanvas() {
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-}
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-
-function startWaveformAnimation() {
-  let step = 0;
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const bars = 28;
-    const barWidth = canvas.width / bars - 4;
-    
-    for (let i = 0; i < bars; i++) {
-      const height = Math.abs(Math.sin((step + i) * 0.25)) * (canvas.height * 0.7) + 6;
-      const x = i * (barWidth + 4);
-      const y = (canvas.height - height) / 2;
-      
-      const grad = ctx.createLinearGradient(0, y, 0, y + height);
-      grad.addColorStop(0, "#8b5cf6");
-      grad.addColorStop(1, "#06b6d4");
-      
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect(x, y, barWidth, height, 4);
-      ctx.fill();
-    }
-    step += 0.8;
-    waveAnimationId = requestAnimationFrame(draw);
-  }
-  if (!waveAnimationId) draw();
-}
-
-function stopWaveformAnimation() {
-  if (waveAnimationId) {
-    cancelAnimationFrame(waveAnimationId);
-    waveAnimationId = null;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -1776,8 +1165,10 @@ function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// Initial Load
+// Initial initialization
+initTheme();
 loadStoredCandidatesAndJobs();
+showScorecardState("empty");
 </script>
 
 </body>

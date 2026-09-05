@@ -338,6 +338,27 @@ def submit_answer(req: AnswerRequest):
         elif turn["speaker"] == "interviewer":
             break
 
+    # Count total interviewer questions asked so far (excluding closing remarks)
+    interviewer_questions = [t for t in session["turns"] if t["speaker"] == "interviewer" and t.get("question_type") != "closing"]
+    if len(interviewer_questions) >= 10:
+        # Reached exactly 10 questions -> Conclude interview automatically
+        db_update_session_status(req.session_id, session["plan_index"], status="completed")
+        db_log_turn(req.session_id, "interviewer", CLOSING_REMARK, "closing", None)
+        session = db_get_session(req.session_id)
+        try:
+            evaluation = evaluate_interview(session)
+            db_save_evaluation(req.session_id, evaluation)
+        except Exception as e:
+            evaluation = {"error": str(e)}
+        return {
+            "session_id": req.session_id,
+            "status": "completed",
+            "message": CLOSING_REMARK,
+            "score_out_of_10": evaluation.get("overall_score"),
+            "hiring_recommendation": evaluation.get("hiring_recommendation"),
+            "evaluation": evaluation
+        }
+
     if verdict["follow_up"] and recent_follow_ups < 2:
         next_q = {
             "text": verdict["follow_up_question"],
@@ -381,7 +402,14 @@ def submit_answer(req: AnswerRequest):
         next_q["type"],
         next_q.get("topic_tag")
     )
-    return {"session_id": req.session_id, "question": next_q["text"], "type": next_q["type"]}
+    current_q_num = len(interviewer_questions) + 1
+    return {
+        "session_id": req.session_id,
+        "question": next_q["text"],
+        "type": next_q["type"],
+        "question_number": current_q_num,
+        "total_questions": 10
+    }
 
 
 # -----------------------------------------------------------------------------

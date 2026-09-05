@@ -1,32 +1,92 @@
 {
   "DSA": [
-    "What is the time complexity of searching in a balanced binary search tree, and why?",
-    "Explain the difference between a stack and a queue with a real-world example.",
-    "How would you detect a cycle in a linked list?",
-    "When would you prefer a hash map over an array for lookups, and what's the trade-off?"
+    "What is the time and space complexity of searching in a balanced binary search tree, and what causes it to degrade to O(N)?",
+    "Explain the difference between a stack and a queue with a real-world software engineering example.",
+    "How would you detect a cycle in a singly linked list using Floyd's algorithm, and why does the fast and slow pointer approach work?",
+    "When would you prefer a hash map over a balanced tree for lookups, and how do hash maps handle hash collisions?",
+    "Explain the concept of Dynamic Programming and how memoization differs from tabulation.",
+    "How does Breadth-First Search (BFS) differ from Depth-First Search (DFS), and which data structure does each use?",
+    "Explain how a Min-Heap or Priority Queue works internally, and what is the time complexity to insert and extract the minimum element?",
+    "How would you find the kth largest element in an unsorted array efficiently without sorting the entire array?",
+    "Explain the Sliding Window technique with an example problem like finding the maximum sum subarray of size K.",
+    "What is the difference between QuickSort and MergeSort in terms of worst-case time complexity, space complexity, and stability?",
+    "How does binary search work on a sorted rotated array?",
+    "Explain the concept of a Trie data structure and where it is typically used in real applications like autocomplete."
   ],
   "OS": [
-    "What is the difference between a process and a thread?",
-    "Explain what a deadlock is and one way to prevent it.",
-    "What is virtual memory and why is it needed?",
-    "Walk me through what happens during a context switch."
+    "What is the difference between a process and a thread, and how do they share memory and system resources?",
+    "Explain what a deadlock is, the four Coffman conditions required for a deadlock to occur, and how to prevent it.",
+    "What is virtual memory, how does paging work, and what is a page fault?",
+    "Walk me through what happens inside the CPU and operating system during a context switch.",
+    "Explain the difference between a mutex and a semaphore, and give an example of a race condition.",
+    "What is the difference between preemptive and non-preemptive CPU scheduling, such as Round Robin versus FCFS?",
+    "How do system calls bridge the gap between user space and kernel space in an operating system?",
+    "What is the difference between synchronous and asynchronous I/O, and what is I/O multiplexing like epoll?",
+    "Explain the difference between memory fragmentation (internal vs external) and how operating systems handle it.",
+    "What is thrashing in operating systems, and how does the working set model help prevent it?"
   ],
   "Computer Networks": [
-    "Explain the difference between TCP and UDP, and when you'd use each.",
-    "What happens when you type a URL into a browser and hit enter?",
-    "What is the purpose of DNS?",
-    "Explain the three-way handshake in TCP."
+    "Explain the difference between TCP and UDP in terms of reliability, connection state, and header overhead.",
+    "Walk me through the complete step-by-step process of what happens under the hood when a user types a URL into a browser and presses Enter.",
+    "What is the purpose of the Domain Name System (DNS), and how does recursive DNS resolution work?",
+    "Explain the TCP three-way handshake for establishing a connection and the four-way handshake for termination.",
+    "What is the difference between HTTP/1.1, HTTP/2, and HTTP/3 (QUIC)?",
+    "How does HTTPS work, and what happens during the SSL/TLS cryptographic handshake?",
+    "What is the difference between a Forward Proxy, a Reverse Proxy, and a Content Delivery Network (CDN)?",
+    "Explain the difference between WebSockets, Long Polling, and Server-Sent Events (SSE) for real-time communication.",
+    "What is the difference between IPv4 and IPv6, and why is Network Address Translation (NAT) used?",
+    "Explain how subnets and subnet masks work in routing IP packets."
   ],
   "DBMS": [
-    "What is database normalization and why is it useful?",
-    "Explain the difference between a primary key and a foreign key.",
-    "What is an index and how does it speed up queries?",
-    "What is the difference between SQL and NoSQL databases?"
+    "Explain the ACID properties in relational database transactions with a banking transfer example.",
+    "What is a database index, how does a B-Tree or B+ Tree index structure speed up queries, and what is the trade-off of having too many indexes?",
+    "What is database normalization, and what are the differences between 1NF, 2NF, and 3NF?",
+    "What is the difference between SQL (relational) and NoSQL (document/key-value) databases, and when would you choose one over the other?",
+    "Explain transaction isolation levels (Read Uncommitted, Read Committed, Repeatable Read, Serializable) and the phenomena like Dirty Reads and Phantom Reads.",
+    "What is the difference between an INNER JOIN, LEFT OUTER JOIN, and FULL OUTER JOIN?",
+    "Explain database sharding versus database replication (leader-follower), and how they improve scalability and availability.",
+    "What is the N+1 query problem in Object-Relational Mapping (ORM) and how do you resolve it?",
+    "What is the difference between clustered and non-clustered indexes in SQL databases?",
+    "How does a Write-Ahead Log (WAL) ensure durability and crash recovery in modern databases?"
+  ],
+  "System Design": [
+    "Explain the CAP theorem and the trade-offs between Consistency, Availability, and Partition Tolerance.",
+    "What caching strategies exist (e.g., Cache-Aside, Write-Through, Write-Back), and how do you handle cache invalidation?",
+    "How do load balancers distribute incoming traffic, and what are common load balancing algorithms like Round Robin, Least Connections, and Consistent Hashing?",
+    "What is the difference between a Monolithic architecture and a Microservices architecture, and what challenges arise with distributed microservices?",
+    "How do message queues like Kafka or RabbitMQ help decouple services and handle asynchronous background workloads?",
+    "How would you design a distributed rate limiter to protect an API from abuse?"
+  ],
+  "Backend": [
+    "What are the core architectural principles of a RESTful API, and how does idempotency apply to HTTP methods like GET, POST, PUT, and DELETE?",
+    "Explain the difference between session-based authentication with cookies and token-based authentication with JWT.",
+    "How do asynchronous runtimes (like Python asyncio, Node.js event loop, or Go goroutines) handle thousands of concurrent I/O operations with a single thread?",
+    "What is database connection pooling, and why is creating a new database connection per HTTP request problematic?",
+    "How do you design an API endpoint to support pagination, filtering, and sorting securely without SQL injection?"
+  ],
+  "Frontend": [
+    "Explain the difference between the real DOM and the Virtual DOM, and how reconciliation/diffing algorithms optimize rendering.",
+    "What is the difference between Server-Side Rendering (SSR), Client-Side Rendering (CSR), and Static Site Generation (SSG)?",
+    "Explain event bubbling, event capturing, and event delegation in the browser DOM.",
+    "What are Web Vitals (LCP, FID/INP, CLS) and how do you optimize frontend bundle sizes and rendering performance?",
+    "Explain the differences between Cookies, LocalStorage, SessionStorage, and IndexedDB in terms of storage limit, security, and expiry."
+  ],
+  "Machine Learning": [
+    "What is the difference between overfitting and underfitting, and what regularization techniques (L1, L2, Dropout) help prevent overfitting?",
+    "Explain the Bias-Variance tradeoff in machine learning models.",
+    "What is the difference between Precision, Recall, and F1-Score, and when is Recall more critical than Accuracy (e.g. medical diagnosis, fraud)?",
+    "How does the Self-Attention mechanism work in Transformer neural network architectures?",
+    "What is the difference between supervised learning, unsupervised learning, and reinforcement learning?",
+    "Explain how Vector Embeddings and Vector Databases (like Pinecone, FAISS, Milvus) enable semantic search in LLM applications."
   ],
   "HR": [
-    "Tell me about a time you faced a conflict while working in a team. What was the situation, and how did you handle it?",
-    "Describe a time you failed at something or made a mistake. What happened, and what did you learn from it?",
-    "Tell me about a situation where you had to make a decision under pressure or with limited information. Walk me through your thought process.",
-    "Describe a time you had to convince someone — a teammate, professor, or manager — to see things your way. How did that go?"
+    "Tell me about a time you faced a technical or interpersonal conflict while working in a team. What was the situation, and how did you resolve it?",
+    "Describe a significant project where something went wrong or you made a technical mistake. What happened, how did you fix it, and what did you learn?",
+    "Tell me about a situation where you had to learn a new technology or solve a complex problem under tight deadline pressure. Walk me through your approach.",
+    "Describe a time you had to persuade a teammate, lead, or stakeholder to adopt an approach they initially disagreed with. What was your communication strategy?",
+    "Tell me about a time you received critical or constructive feedback on your code or performance. How did you process it and what changes did you make?",
+    "Describe a project you are most proud of. What role did you play, what was the most difficult challenge, and what was the impact?",
+    "Tell me about a time you had to deal with ambiguous, incomplete, or rapidly changing requirements. How did you proceed?",
+    "Where do you see your technical skills evolving over the next two to three years, and what domain or architectural areas excite you most?"
   ]
 }

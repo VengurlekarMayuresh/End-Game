@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HireSense — Interview Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* -------------------------------------------------------------
+     THEME DESIGN TOKENS
+     Light Mode: White (0 0% 100%), Dark Gray (222.2 84% 4.9%), Primary Indigo (221.2 83.2% 53.3%), Light Gray (210 40% 96.1%)
+     Dark Mode: Dark Gray (222.2 84% 4.9%), White (210 40% 98%), Primary Light Indigo (217.2 91.2% 59.8%), Darker Gray (217.2 32.6% 17.5%)
+  ------------------------------------------------------------- */
+  :root, [data-theme="light"] {
+    --bg: #ffffff;                       /* hsl(0, 0%, 100%) */
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f8fafc;
+    --bg-well: #f1f5f9;                  /* hsl(210, 40%, 96.1%) */
+    --line: rgba(2, 8, 23, 0.09);
+    --line-strong: rgba(2, 8, 23, 0.18);
+    --ink: #020817;                      /* hsl(222.2, 84%, 4.9%) */
+    --ink-dim: #334155;
+    --ink-faint: #64748b;
+    
+    --primary: #2563eb;                  /* hsl(221.2, 83.2%, 53.3%) */
+    --primary-soft: rgba(37, 99, 235, 0.1);
+    --primary-line: rgba(37, 99, 235, 0.35);
+    --primary-fg: #ffffff;
+    
+    --secondary: #f1f5f9;                /* hsl(210, 40%, 96.1%) */
+    --secondary-fg: #0f172a;
+    --muted: #f1f5f9;                    /* hsl(210, 40%, 96.1%) */
+    --accent: #f1f5f9;                   /* hsl(210, 40%, 96.1%) */
+    
+    --teal: #0d9488;
+    --teal-soft: rgba(13, 148, 136, 0.1);
+    --live: #ef4444;
+    --live-soft: rgba(239, 68, 68, 0.1);
+    --ok: #16a34a;
+    --ok-soft: rgba(22, 163, 74, 0.1);
+    
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  [data-theme="dark"] {
+    --bg: #020817;                       /* hsl(222.2, 84%, 4.9%) */
+    --bg-elev: #0b1329;
+    --bg-elev-2: #0f172a;
+    --bg-well: #1e293b;                  /* hsl(217.2, 32.6%, 17.5%) */
+    --line: rgba(248, 250, 252, 0.09);
+    --line-strong: rgba(248, 250, 252, 0.18);
+    --ink: #f8fafc;                      /* hsl(210, 40%, 98%) */
+    --ink-dim: #94a3b8;
+    --ink-faint: #64748b;
+    
+    --primary: #3b82f6;                  /* hsl(217.2, 91.2%, 59.8%) */
+    --primary-soft: rgba(59, 130, 246, 0.16);
+    --primary-line: rgba(59, 130, 246, 0.45);
+    --primary-fg: #ffffff;
+    
+    --secondary: #1e293b;                /* hsl(217.2, 32.6%, 17.5%) */
+    --secondary-fg: #f8fafc;
+    --muted: #1e293b;                    /* hsl(217.2, 32.6%, 17.5%) */
+    --accent: #1e293b;                   /* hsl(217.2, 32.6%, 17.5%) */
+    
+    --teal: #2dd4bf;
+    --teal-soft: rgba(45, 212, 191, 0.14);
+    --live: #f87171;
+    --live-soft: rgba(248, 113, 113, 0.14);
+    --ok: #4ade80;
+    --ok-soft: rgba(74, 222, 128, 0.14);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; width: 100%; }
+
+  body {
+    font-family: var(--font-body);
+    background:
+      radial-gradient(1000px 600px at 50% -5%, var(--primary-soft), transparent 70%),
+      var(--bg);
+    color: var(--ink);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  svg.icon {
+    width: 16px; height: 16px; stroke: currentColor; fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    vertical-align: -3px; flex-shrink: 0;
+  }
+
+  /* -------- Top Bar -------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+  .topbar .who { font-size: 0.85rem; color: var(--ink-faint); }
+  .topbar .who b { color: var(--ink); font-weight: 600; }
+  
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+  .rec-indicator {
+    display: flex; align-items: center; gap: 6px; font-family: var(--font-mono);
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint);
+  }
+  .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+  .rec-dot.live { background: var(--live); box-shadow: 0 0 8px var(--live); animation: blink 1.1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  .theme-toggle-btn {
+    background: var(--bg-well); border: 1px solid var(--line); color: var(--ink);
+    padding: 6px 12px; border-radius: 999px; font-family: var(--font-body); font-size: 0.78rem;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;
+  }
+  .theme-toggle-btn:hover { border-color: var(--primary-line); color: var(--primary); }
+
+  .btn-outline {
+    background: var(--bg-well); border: 1px solid var(--line); color: var(--ink);
+    padding: 7px 14px; border-radius: 10px; font-weight: 600; font-size: 0.82rem;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;
+  }
+  .btn-outline:hover { border-color: var(--primary-line); color: var(--primary); }
+
+  /* -------- Entry Screen -------- */
+  #entryScreen {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 30px;
+  }
+  
+  .entry-avatar-badge {
+    width: 90px; height: 90px; border-radius: 50%; border: 2px solid var(--primary-line);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+    background: radial-gradient(circle at 35% 30%, var(--primary-soft), transparent 65%);
+    box-shadow: 0 0 24px var(--primary-soft);
+  }
+  .entry-avatar-badge svg { width: 44px; height: 44px; stroke: var(--primary); }
+
+  #entryScreen h1 { font-family: var(--font-display); font-size: 1.8rem; font-weight: 600; margin-bottom: 10px; color: var(--ink); }
+  #entryScreen p { color: var(--ink-dim); font-size: 0.96rem; max-width: 480px; line-height: 1.6; margin-bottom: 26px; }
+  .entry-note { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); margin-top: 18px; max-width: 400px; }
+
+  .btn-primary {
+    background: var(--primary); color: var(--primary-fg); border: none; padding: 14px 38px;
+    border-radius: 12px; font-family: var(--font-body); font-size: 0.98rem; font-weight: 700;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: all 0.2s ease;
+    box-shadow: 0 8px 24px var(--primary-soft);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 28px var(--primary-soft); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* -------- Interview Stage -------- */
+  #stage {
+    flex: 1; display: none; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: 20px 24px 24px; overflow-y: auto; position: relative;
+  }
+
+  .stage-main-area {
+    display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 760px;
+    margin: auto 0;
+  }
+
+  /* -------------------------------------------------------------
+     CENTRAL AI RECRUITER AVATAR
+  ------------------------------------------------------------- */
+  .avatar-stage-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 24px; position: relative;
+  }
+
+  .avatar-visual-box {
+    position: relative; width: 170px; height: 170px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Aperture Blade Ring */
+  .blade-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  
+  /* Avatar Core Sphere */
+  .avatar-core-circle {
+    width: 86px; height: 86px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #93c5fd, var(--primary) 55%, #1d4ed8 100%);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset, 0 8px 30px var(--primary-soft);
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+  }
+
+  .avatar-core-circle svg {
+    width: 40px; height: 40px; stroke: #ffffff;
+    transition: transform 0.3s ease;
+  }
+
+  /* State-based animations for avatar */
+  .avatar-visual-box.speaking .avatar-core-circle {
+    animation: avatar-talk 0.5s ease-in-out infinite;
+    box-shadow: 0 0 35px var(--primary);
+  }
+  .avatar-visual-box.listening .avatar-core-circle {
+    animation: avatar-listen 1.5s ease-in-out infinite;
+    background: radial-gradient(circle at 35% 30%, #a7f3d0, var(--teal) 55%, #0f766e 100%);
+    box-shadow: 0 0 35px var(--teal);
+  }
+  .avatar-visual-box.thinking .avatar-core-circle {
+    animation: avatar-think 1.4s linear infinite;
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
+  }
+
+  @keyframes avatar-talk { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.09); } }
+  @keyframes avatar-listen { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.05); } }
+  @keyframes avatar-think { 0%{ transform: rotate(0deg) scale(1); } 50%{ transform: rotate(180deg) scale(0.96); } 100%{ transform: rotate(360deg) scale(1); } }
+
+  .avatar-status-pill {
+    margin-top: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 14px;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
+  .avatar-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .avatar-status-dot.speaking { background: var(--primary); animation: blink 0.8s infinite; }
+  .avatar-status-dot.listening { background: var(--live); animation: blink 0.8s infinite; }
+  .avatar-status-dot.thinking { background: #f59e0b; }
+
+  /* -------------------------------------------------------------
+     BOTTOM FLOATING HUD: QUESTION & CANDIDATE RESPONSE
+  ------------------------------------------------------------- */
+  .bottom-cards-container {
+    width: 100%; max-width: 760px;
+    display: flex; flex-direction: column; gap: 14px;
+    margin-top: 8px;
+  }
+
+  /* Question Card */
+  .question-card {
+    width: 100%; background: var(--bg-elev); border: 1px solid var(--line);
+    border-radius: 18px; padding: 22px 26px; text-align: left;
+    box-shadow: 0 8px 26px rgba(0,0,0,0.06);
+    position: relative; overflow: hidden;
+  }
+  .question-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--teal), var(--primary));
+  }
+
+  .q-meta-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .q-badge {
+    font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--primary); font-weight: 700;
+  }
+  .speaking-indicator {
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--ink-faint);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .speaking-indicator-bars { display: flex; align-items: center; gap: 2px; height: 10px; }
+  .s-bar { width: 2.5px; height: 100%; background: var(--primary); border-radius: 1px; animation: soundBar 0.6s ease infinite alternate; }
+  .s-bar:nth-child(2) { animation-delay: 0.15s; }
+  .s-bar:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes soundBar { 0%{height:2px} 100%{height:10px} }
+
+  .question-text {
+    font-family: var(--font-display);
+    font-size: 1.25rem; font-weight: 500; line-height: 1.5;
+    color: var(--ink);
+  }
+
+  /* Candidate Live Spoken Answer Card */
+  .candidate-answer-card {
+    width: 100%; background: var(--primary-soft); border: 1.5px solid var(--primary-line);
+    border-radius: 16px; padding: 16px 22px; text-align: left;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+
+  .candidate-header-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+  }
+  .candidate-label-left {
+    display: flex; align-items: center; gap: 8px; font-family: var(--font-mono);
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--primary); font-weight: 700;
+  }
+  .live-pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: blink 1s infinite; }
+  .pause-note { font-family: var(--font-mono); font-size: 0.7rem; color: var(--ink-faint); }
+
+  .candidate-live-text {
+    font-size: 0.98rem; font-weight: 500; line-height: 1.55; color: var(--ink);
+    min-height: 22px; word-break: break-word;
+  }
+
+  /* Footer Note */
+  .stage-footer {
+    width: 100%; max-width: 760px; display: flex; align-items: center; justify-content: space-between;
+    padding-top: 14px; margin-top: auto; flex-shrink: 0;
+  }
+  .stage-footer-note { font-size: 0.75rem; color: var(--ink-faint); font-family: var(--font-mono); }
+
+  /* -------- Completion Screen -------- */
+  #doneScreen {
+    flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 30px;
+  }
+  #doneScreen .mark {
+    width: 84px; height: 84px; border-radius: 50%; border: 2px solid rgba(22, 163, 74, 0.4);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+    background: radial-gradient(circle at 35% 30%, var(--ok-soft), transparent 65%);
+  }
+  #doneScreen .mark svg { width: 38px; height: 38px; stroke: var(--ok); }
+  #doneScreen h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 600; margin-bottom: 8px; color: var(--ink); }
+  #doneScreen p { color: var(--ink-dim); font-size: 0.96rem; max-width: 400px; line-height: 1.6; margin-bottom: 24px; }
+  #doneCountdown { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ink-faint); margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="who">Interviewing <b id="topbarCandidate">—</b> · <span id="topbarRole">—</span></div>
+  <div class="topbar-right">
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">
+      <svg class="icon theme-icon-sun" viewBox="0 0 24 24" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="icon theme-icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <div class="rec-indicator"><div class="rec-dot" id="recDot"></div><span id="recLabel">Idle</span></div>
+    <button class="btn-outline" style="color:var(--live);" onclick="endInterviewNow()">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polygon points="10 8.5 16 12 10 15.5 10 8.5"/></svg>
+      End interview
+    </button>
+  </div>
+</div>
+
+<!-- ENTRY SCREEN -->
+<div id="entryScreen">
+  <div class="entry-avatar-badge">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M4 20c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+  </div>
+  <h1 id="entryHeadline">Ready for your interview?</h1>
+  <p id="entrySub">This is an automated live AI interview. The interviewer will ask questions aloud — just speak your answer naturally. When you finish speaking and pause for 10 seconds, your answer automatically submits.</p>
+  <button class="btn-primary" id="beginBtn" onclick="beginInterview()">
+    <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--primary-fg);"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+    Begin interview
+  </button>
+  <div class="entry-note" id="entryNote">Clicking begin will connect the avatar and request microphone access.</div>
+</div>
+
+<!-- INTERVIEW STAGE -->
+<div id="stage">
+  <div class="stage-main-area">
+
+    <!-- Central AI Avatar -->
+    <div class="avatar-stage-wrap">
+      <div class="avatar-visual-box" id="avatarVisualBox">
+        <svg class="blade-ring" id="bladeRing" viewBox="0 0 180 180"></svg>
+        <div class="avatar-core-circle">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="4.2"/>
+            <path d="M4 20c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/>
+          </svg>
+        </div>
+      </div>
+      <div class="avatar-status-pill">
+        <div class="avatar-status-dot" id="avatarStatusDot"></div>
+        <span id="avatarStatusText">AI Senior Recruiter</span>
+      </div>
+    </div>
+
+    <!-- Bottom Container: Question & Candidate Response -->
+    <div class="bottom-cards-container">
+      
+      <!-- Active Question Card -->
+      <div class="question-card">
+        <div class="q-meta-row">
+          <span class="q-badge" id="questionTypeBadge">QUESTION</span>
+          <div class="speaking-indicator" id="speakingIndicator" style="display: none;">
+            <div class="speaking-indicator-bars">
+              <div class="s-bar"></div><div class="s-bar"></div><div class="s-bar"></div>
+            </div>
+            <span>Interviewer speaking…</span>
+          </div>
+        </div>
+        <div class="question-text" id="questionText">Welcome — connecting to interview session…</div>
+      </div>
+
+      <!-- Candidate Live Spoken Answer Card -->
+      <div class="candidate-answer-card" id="candidateAnswerCard" style="display: none;">
+        <div class="candidate-header-row">
+          <div class="candidate-label-left">
+            <div class="live-pulse-dot"></div>
+            <span>Your Answer</span>
+          </div>
+          <span class="pause-note">Auto-submits after 10s pause</span>
+        </div>
+        <div class="candidate-live-text" id="captionText">Listening…</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="stage-footer">
+    <span class="stage-footer-note" id="voiceSupportNote">Speech active · Auto-submits on 10s pause</span>
+  </div>
+</div>
+
+<!-- COMPLETION SCREEN -->
+<div id="doneScreen">
+  <div class="mark">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5"/><polyline points="8.5 12.5 11 15 15.5 9.5"/></svg>
+  </div>
+  <h1>Interview complete</h1>
+  <p id="doneSummary">Thank you — your responses have been recorded. Your comprehensive scorecard is now ready in the main HireSense window.</p>
+  <button class="btn-outline" onclick="window.close()">Close window</button>
+  <div id="doneCountdown"></div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const API_BASE = params.get("api") || "http://127.0.0.1:8000";
+const sessionId = params.get("session");
+let candidateName = params.get("candidate") || "";
+let role = params.get("role") || "";
+
+// ---- Theme setup ----
+function initTheme() {
+  const urlTheme = params.get("theme");
+  const saved = urlTheme || localStorage.getItem("hiresense_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", saved);
+  updateThemeIcons(saved);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("hiresense_theme", next);
+  updateThemeIcons(next);
+}
+
+function updateThemeIcons(theme) {
+  const isDark = theme === "dark";
+  const sunIcon = document.querySelector(".theme-icon-sun");
+  const moonIcon = document.querySelector(".theme-icon-moon");
+  if (sunIcon && moonIcon) {
+    sunIcon.style.display = isDark ? "block" : "none";
+    moonIcon.style.display = isDark ? "none" : "block";
+  }
+}
+initTheme();
+
+document.getElementById("topbarCandidate").textContent = candidateName || "Candidate";
+document.getElementById("topbarRole").textContent = role || "Role";
+document.getElementById("entryHeadline").textContent = candidateName ? `Ready, ${candidateName.split(" ")[0]}?` : "Ready for your interview?";
+
+if (!sessionId) {
+  document.getElementById("entrySub").textContent = "No interview session was provided to this window.";
+  document.getElementById("beginBtn").disabled = true;
+}
+
+// ---- Build the aperture blade ring (12 blades) ----
+const bladeCount = 12;
+const bladeRing = document.getElementById("bladeRing");
+for (let i = 0; i < bladeCount; i++) {
+  const angle = (360 / bladeCount) * i;
+  const blade = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  blade.setAttribute("x", 90 - 3.5);
+  blade.setAttribute("y", 6);
+  blade.setAttribute("width", 7);
+  blade.setAttribute("height", 24);
+  blade.setAttribute("rx", 3.5);
+  blade.setAttribute("fill", "var(--primary)");
+  blade.setAttribute("opacity", "0.35");
+  blade.setAttribute("transform", `rotate(${angle} 90 90)`);
+  blade.dataset.baseOpacity = "0.35";
+  blade.dataset.index = i;
+  bladeRing.appendChild(blade);
+}
+const blades = Array.from(bladeRing.querySelectorAll("rect"));
+
+let audioCtx = null, analyser = null, micStream = null, freqData = null;
+let vizRAF = null;
+let currentMode = "idle"; // idle | speaking | thinking | listening
+let recognition = null;
+let isRecognizing = false;
+let accumulatedAnswer = "";
+let interimAnswer = "";
+
+// 10-Second Silent Auto-Submit Timer
+const PAUSE_DURATION_MS = 10000;
+let pauseTimeoutHandle = null;
+
+function setMode(mode) {
+  currentMode = mode;
+  const avatarBox = document.getElementById("avatarVisualBox");
+  const avatarDot = document.getElementById("avatarStatusDot");
+  const avatarText = document.getElementById("avatarStatusText");
+  const recDot = document.getElementById("recDot");
+  const recLabel = document.getElementById("recLabel");
+  const speakingInd = document.getElementById("speakingIndicator");
+
+  avatarBox.className = "avatar-visual-box " + mode;
+  avatarDot.className = "avatar-status-dot " + mode;
+
+  const labels = {
+    idle: "AI Senior Recruiter",
+    speaking: "Interviewer speaking…",
+    thinking: "AI evaluating response…",
+    listening: "Listening to your answer…"
+  };
+  avatarText.textContent = labels[mode] || "AI Senior Recruiter";
+
+  recDot.className = "rec-dot" + (mode === "listening" ? " live" : "");
+  recLabel.textContent = mode === "listening" ? "Listening" : (mode === "speaking" ? "AI speaking" : "Idle");
+
+  if (mode === "speaking") {
+    speakingInd.style.display = "flex";
+  } else {
+    speakingInd.style.display = "none";
+  }
+
+  stopViz();
+  if (mode === "speaking") animateTalking();
+  if (mode === "listening") animateListening();
+}
+
+function stopViz() {
+  if (vizRAF) { cancelAnimationFrame(vizRAF); vizRAF = null; }
+  blades.forEach(b => { b.setAttribute("opacity", 0.35); b.setAttribute("height", 24); });
+}
+
+function animateTalking() {
+  let t = 0;
+  function frame() {
+    t += 0.22;
+    blades.forEach((b, i) => {
+      const amp = Math.abs(Math.sin(t + i * 0.7));
+      b.setAttribute("opacity", 0.35 + amp * 0.55);
+      b.setAttribute("height", 20 + amp * 16);
+    });
+    vizRAF = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+function animateListening() {
+  function frame() {
+    if (analyser && freqData) {
+      analyser.getByteFrequencyData(freqData);
+      const bucket = Math.floor(freqData.length / bladeCount);
+      blades.forEach((b, i) => {
+        const v = freqData[i * bucket] / 255;
+        b.setAttribute("opacity", 0.35 + v * 0.6);
+        b.setAttribute("height", 20 + v * 20);
+      });
+    }
+    vizRAF = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+async function beginInterview() {
+  document.getElementById("beginBtn").disabled = true;
+  document.getElementById("beginBtn").textContent = "Connecting…";
+
+  // Unlock speech synthesis
+  try {
+    const unlock = new SpeechSynthesisUtterance(" ");
+    unlock.volume = 0;
+    speechSynthesis.speak(unlock);
+  } catch (e) {}
+
+  // Request mic access
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser);
+    document.getElementById("voiceSupportNote").textContent = "Speech active · Auto-submits on 10s pause";
+  } catch (e) {
+    document.getElementById("voiceSupportNote").textContent = "No mic access detected.";
+  }
+
+  document.getElementById("entryScreen").style.display = "none";
+  document.getElementById("stage").style.display = "flex";
+
+  setupSpeechRecognition();
+  await loadSessionAndProceed();
+}
+
+async function loadSessionAndProceed() {
+  try {
+    const res = await fetch(`${API_BASE}/session/${sessionId}`);
+    const data = await res.json();
+    if (!candidateName && data.candidate_id) candidateName = data.candidate_id;
+    if (!role && data.job_description) role = data.job_description.role || data.job_description.title || "";
+    document.getElementById("topbarCandidate").textContent = candidateName || "Candidate";
+    document.getElementById("topbarRole").textContent = role || "Role";
+
+    if (data.status === "completed") {
+      const evaluation = data.evaluation || (await (await fetch(`${API_BASE}/session/${sessionId}/report`)).json()).evaluation;
+      showDone(evaluation, "This session was already completed.");
+      return;
+    }
+
+    const turns = data.turns || [];
+    const interviewerTurns = turns.filter(t => t.speaker === "interviewer" && t.question_type !== "closing");
+    const lastInterviewerTurn = [...interviewerTurns].pop();
+    if (lastInterviewerTurn) {
+      await presentQuestion(lastInterviewerTurn.text, lastInterviewerTurn.question_type || "question", interviewerTurns.length, 10);
+    }
+  } catch (err) {
+    document.getElementById("questionText").textContent = "Could not reach the backend.";
+  }
+}
+
+function speak(text) {
+  return new Promise((resolve) => {
+    if (!("speechSynthesis" in window)) { resolve(); return; }
+    speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+    const voices = speechSynthesis.getVoices();
+    const preferred = voices.find(v => /en-(US|GB|IN)/i.test(v.lang) && /female|Samantha|Google UK English Female|Victoria|Zira/i.test(v.name)) || voices.find(v => /en/i.test(v.lang));
+    if (preferred) utter.voice = preferred;
+    utter.onend = resolve;
+    utter.onerror = resolve;
+    speechSynthesis.speak(utter);
+  });
+}
+
+async function presentQuestion(text, qType, qNum, totalQ) {
+  cancelPauseTimer();
+  accumulatedAnswer = "";
+  interimAnswer = "";
+  const badgeText = (qNum && totalQ) 
+    ? `QUESTION ${qNum} OF ${totalQ} · ${(qType || "QUESTION").replace(/_/g, " ").toUpperCase()}`
+    : (qType || "QUESTION").replace(/_/g, " ").toUpperCase();
+  document.getElementById("questionTypeBadge").textContent = badgeText;
+  document.getElementById("questionText").textContent = text;
+  
+  const ansCard = document.getElementById("candidateAnswerCard");
+  const caption = document.getElementById("captionText");
+  ansCard.style.display = "none";
+  caption.textContent = "";
+
+  setMode("speaking");
+  if (recognition && isRecognizing) {
+    try { recognition.stop(); } catch(e) {}
+  }
+
+  await speak(text);
+  startContinuousListening();
+}
+
+// Continuous Voice Recognition with 10s Silent Pause Auto-Submit
+function setupSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById("voiceSupportNote").textContent = "Speech recognition unsupported in this browser.";
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  recognition.onresult = (e) => {
+    interimAnswer = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        accumulatedAnswer += t + " ";
+      } else {
+        interimAnswer += t;
+      }
+    }
+    const currentCombined = (accumulatedAnswer + interimAnswer).trim();
+    const ansCard = document.getElementById("candidateAnswerCard");
+    const caption = document.getElementById("captionText");
+
+    if (currentCombined.length > 0) {
+      ansCard.style.display = "block";
+      caption.textContent = currentCombined;
+      // Candidate actively speaking: reset pause timer
+      cancelPauseTimer();
+      startSilentPauseTimer();
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== "no-speech") console.warn("Speech notice:", e.error);
+  };
+
+  recognition.onend = () => {
+    isRecognizing = false;
+    if (currentMode === "listening") {
+      try {
+        recognition.start();
+        isRecognizing = true;
+      } catch (e) {}
+    }
+  };
+}
+
+function startContinuousListening() {
+  if (currentMode === "thinking") return;
+  setMode("listening");
+  cancelPauseTimer();
+
+  if (recognition && !isRecognizing) {
+    try {
+      recognition.start();
+      isRecognizing = true;
+    } catch (e) {}
+  }
+}
+
+function startSilentPauseTimer() {
+  cancelPauseTimer();
+  const totalCombined = (accumulatedAnswer + interimAnswer).trim();
+  if (!totalCombined) return;
+
+  pauseTimeoutHandle = setTimeout(() => {
+    forceSubmitSpokenAnswer();
+  }, PAUSE_DURATION_MS);
+}
+
+function cancelPauseTimer() {
+  if (pauseTimeoutHandle) {
+    clearTimeout(pauseTimeoutHandle);
+    pauseTimeoutHandle = null;
+  }
+}
+
+function forceSubmitSpokenAnswer() {
+  cancelPauseTimer();
+  const text = (accumulatedAnswer + interimAnswer).trim();
+  if (!text) return;
+  submitAnswer(text);
+}
+
+async function submitAnswer(answerText) {
+  cancelPauseTimer();
+  if (recognition && isRecognizing) {
+    try { recognition.stop(); } catch(e) {}
+  }
+
+  setMode("thinking");
+
+  try {
+    const res = await fetch(`${API_BASE}/session/answer`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, answer_text: answerText })
+    });
+    const data = await res.json();
+
+    if (data.status === "completed") {
+      setMode("speaking");
+      document.getElementById("questionTypeBadge").textContent = "INTERVIEW CONCLUDED";
+      document.getElementById("questionText").textContent = data.message;
+      await speak(data.message);
+      showDone(data.evaluation, "We will review your interview responses and let you know the next steps soon.");
+      return;
+    }
+
+    await presentQuestion(data.question, data.type, data.question_number, data.total_questions || 10);
+  } catch (err) {
+    document.getElementById("questionText").textContent = "Error submitting answer. Resuming…";
+    startContinuousListening();
+  }
+}
+
+async function endInterviewNow() {
+  if (!confirm("Conclude the interview and generate the scorecard?")) return;
+  cancelPauseTimer();
+  try {
+    const res = await fetch(`${API_BASE}/session/${sessionId}/report`);
+    const data = await res.json();
+    showDone(data.evaluation, "Interview ended early.");
+  } catch (e) {
+    showDone(null, "Could not generate the report.");
+  }
+}
+
+function showDone(evaluation, note) {
+  cancelPauseTimer();
+  cleanupMedia();
+  document.getElementById("stage").style.display = "none";
+  document.getElementById("doneScreen").style.display = "flex";
+  if (note) document.getElementById("doneSummary").textContent = note;
+
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({ source: "hiresense-interview", type: "completed", session_id: sessionId, evaluation }, "*");
+  }
+
+  let secs = 8;
+  const countdownEl = document.getElementById("doneCountdown");
+  countdownEl.textContent = `Closing automatically in ${secs}s…`;
+  const timer = setInterval(() => {
+    secs -= 1;
+    if (secs <= 0) { clearInterval(timer); window.close(); }
+    else countdownEl.textContent = `Closing automatically in ${secs}s…`;
+  }, 1000);
+}
+
+function cleanupMedia() {
+  stopViz();
+  cancelPauseTimer();
+  if (recognition) { try { recognition.stop(); } catch (e) {} }
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  if (audioCtx) { try { audioCtx.close(); } catch (e) {} }
+}
+
+window.addEventListener("beforeunload", () => {
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({ source: "hiresense-interview", type: "completed", session_id: sessionId }, "*");
+  }
+  cleanupMedia();
+});
+</script>
+
+</body>
+</html>
