@@ -1148,10 +1148,16 @@ const CodingTestInterface = () => {
             </div>
           </div>
 
-          <div className="pt-4 flex justify-center border-t border-border/50">
+          <div className="pt-4 flex flex-col gap-3 justify-center border-t border-border/50">
+            <button
+              onClick={() => navigate('/student/interview')}
+              className="w-full px-8 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+            >
+              <Sparkles size={18} /> Start AI Voice Interview
+            </button>
             <button 
               onClick={() => navigate('/student/tests')} 
-              className="px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/90 transition-all flex items-center gap-2 shadow-sm"
+              className="w-full px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/90 transition-all flex items-center justify-center gap-2 shadow-sm"
             >
               Back to Assessments
             </button>

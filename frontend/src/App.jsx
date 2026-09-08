@@ -38,6 +38,7 @@ import TestForm from './pages/recruiter/TestForm'
 import TestResults from './pages/recruiter/TestResults'
 import StudentTests from './pages/student/StudentTests'
 import TestInterface from './pages/student/TestInterface'
+import AIInterview from './pages/student/AIInterview'
 
 // Coding Assessment Pages
 import CodingAssessmentsList from './pages/recruiter/CodingAssessmentsList'
@@ -93,6 +94,7 @@ function App() {
             <Route path="certifications" element={<Certifications />} />
             <Route path="documents" element={<Documents />} />
             <Route path="tests" element={<StudentTests />} />
+            <Route path="interview" element={<AIInterview />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="tests/:id/attempt" element={<TestInterface />} />

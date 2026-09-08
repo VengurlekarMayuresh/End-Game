@@ -359,9 +359,17 @@ const ResumeAptitudeTestInterface = () => {
           </div>
         </div>
 
-        <button onClick={() => navigate('/student/tests')} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm">
-          Return to Student Dashboard
-        </button>
+        <div className="space-y-3 pt-2">
+          <button
+            onClick={() => navigate('/student/interview')}
+            className="w-full px-6 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <Sparkles size={18} /> Start AI Voice Interview
+          </button>
+          <button onClick={() => navigate('/student/tests')} className="w-full px-6 py-2.5 bg-secondary text-secondary-foreground rounded-xl font-semibold text-sm hover:bg-secondary/90 transition-all">
+            Return to Student Dashboard
+          </button>
+        </div>
       </div>
     );
   }
