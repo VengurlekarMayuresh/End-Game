@@ -432,12 +432,20 @@ const StudentTests = () => {
                             <span>Score: {att.score?.toFixed(1) || 0} / {att.maxScore || 15} ({att.percentage?.toFixed(1) || 0}%)</span>
                           </div>
                         </div>
-                        <Link
-                          to={`/recruiter/resume-aptitude/${att.id}/results`}
-                          className="w-full sm:w-auto px-5 py-2.5 bg-primary/10 text-primary font-bold text-sm rounded-xl hover:bg-primary/20 transition-all text-center shrink-0 flex items-center justify-center gap-1.5"
-                        >
-                          <Award size={14} /> View Attempt Breakdown
-                        </Link>
+                        <div className="flex items-center gap-2 flex-wrap shrink-0">
+                          <Link
+                            to="/student/interview"
+                            className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all text-center flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <Terminal size={13} /> Start AI Interview
+                          </Link>
+                          <Link
+                            to={`/recruiter/resume-aptitude/${att.id}/results`}
+                            className="w-full sm:w-auto px-4 py-2.5 bg-primary/10 text-primary font-bold text-xs rounded-xl hover:bg-primary/20 transition-all text-center flex items-center justify-center gap-1.5"
+                          >
+                            <Award size={13} /> View Breakdown
+                          </Link>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -477,13 +485,13 @@ const StudentTests = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 shrink-0 text-sm">
+                        <div className="flex items-center gap-3 shrink-0 text-sm">
                           <div className="text-right">
                             <p className="font-bold text-base">{att.score} marks</p>
                             <p className="text-xs text-muted-foreground">{att.percentage.toFixed(1)}%</p>
                           </div>
 
-                          <div className="font-bold text-xs shrink-0">
+                          <div className="font-bold text-xs shrink-0 flex items-center gap-2">
                             {att.passed ? (
                               <span className="flex items-center gap-1 px-3 py-1 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
                                 <CheckCircle2 size={13} /> Pass
@@ -493,6 +501,12 @@ const StudentTests = () => {
                                 <XCircle size={13} /> Fail
                               </span>
                             )}
+                            <Link
+                              to="/student/interview"
+                              className="px-3 py-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all flex items-center gap-1 shadow-sm"
+                            >
+                              Start AI Interview ↗
+                            </Link>
                           </div>
                         </div>
                       </div>
