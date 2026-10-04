@@ -1,88 +1,123 @@
+let DatabaseSync;
+try {
+  DatabaseSync = require('node:sqlite').DatabaseSync;
+} catch (e) {
+  DatabaseSync = null;
+}
 const { spawn } = require('child_process');
 
 /**
  * Execute student SQL query against a hidden SQLite in-memory database initialized with referenceSchemaSql.
- * Compares candidate query output rows with reference query output rows.
+ * Uses Node's built-in SQLite engine (node:sqlite) for instant in-process execution with python fallback.
  * @param {string} studentQuery - The SQL query submitted by the candidate
  * @param {string} referenceSchemaSql - DDL / DML to setup hidden reference tables and sample data
  * @param {string} referenceQuery - Ground truth SQL query to compare against
- * @returns {Promise<Object>} { success, isCorrect, actualOutput, expectedOutput, error }
+ * @returns {Promise<Object>} { success, isCorrect, actualOutput, expectedOutput, error, rowCount }
  */
 function executeSqlInSandbox(studentQuery, referenceSchemaSql, referenceQuery) {
-  return new Promise((resolve) => {
-    if (!studentQuery || typeof studentQuery !== 'string' || !studentQuery.trim()) {
-      return resolve({
+  if (!studentQuery || typeof studentQuery !== 'string' || !studentQuery.trim()) {
+    return Promise.resolve({
+      success: false,
+      isCorrect: false,
+      error: 'Empty SQL query submitted.',
+      actualOutput: [],
+      expectedOutput: [],
+      rowCount: 0
+    });
+  }
+
+  // Primary execution: Node.js built-in SQLite (instant, zero process overhead)
+  if (DatabaseSync) {
+    try {
+      const db = new DatabaseSync(':memory:');
+      if (referenceSchemaSql && referenceSchemaSql.trim()) {
+        db.exec(referenceSchemaSql);
+      }
+      
+      const cleanStudentQ = studentQuery.trim().replace(/;+$/, '');
+      const studentRows = db.prepare(cleanStudentQ).all();
+
+      let refRows = [];
+      if (referenceQuery && referenceQuery.trim()) {
+        const cleanRefQ = referenceQuery.trim().replace(/;+$/, '');
+        refRows = db.prepare(cleanRefQ).all();
+      }
+
+      const normRow = (r) => {
+        const obj = {};
+        for (const k of Object.keys(r)) {
+          const v = r[k];
+          obj[k.toLowerCase()] = typeof v === 'number' ? Math.round(v * 100) / 100 : v;
+        }
+        return obj;
+      };
+
+      const normStudent = studentRows.map(normRow);
+      const normRef = refRows.map(normRow);
+
+      let isCorrect = JSON.stringify(normStudent) === JSON.stringify(normRef);
+      if (!isCorrect && normStudent.length === normRef.length && normRef.length > 0) {
+        const s1 = [...normStudent].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+        const s2 = [...normRef].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+        isCorrect = JSON.stringify(s1) === JSON.stringify(s2);
+      } else if (!referenceQuery || !referenceQuery.trim()) {
+        isCorrect = studentRows.length > 0;
+      }
+
+      return Promise.resolve({
+        success: true,
+        isCorrect,
+        actualOutput: studentRows,
+        expectedOutput: refRows,
+        rowCount: studentRows.length
+      });
+    } catch (err) {
+      return Promise.resolve({
         success: false,
         isCorrect: false,
-        error: 'Empty SQL query submitted.',
+        error: err.message,
         actualOutput: [],
-        expectedOutput: []
+        expectedOutput: [],
+        rowCount: 0
       });
     }
+  }
 
-    // Escape quotes and backslashes for python script string injection safely
+  // Fallback: Python sqlite3
+  return new Promise((resolve) => {
     const cleanSchema = (referenceSchemaSql || '').replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"');
     const cleanStudent = studentQuery.replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"');
     const cleanRef = (referenceQuery || '').replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"');
 
     const pyScript = `
 import sqlite3, json, sys
-
 schema = """${cleanSchema}"""
 student_q = """${cleanStudent}"""
 ref_q = """${cleanRef}"""
-
 try:
     conn = sqlite3.connect(':memory:')
     cursor = conn.cursor()
     if schema.strip():
         cursor.executescript(schema)
-    
-    # Run candidate query
     cursor.execute(student_q)
     student_rows = [list(r) for r in cursor.fetchall()]
-    
     ref_rows = []
     if ref_q.strip():
         cursor.execute(ref_q)
         ref_rows = [list(r) for r in cursor.fetchall()]
-        
-    # Compare result sets (checking exact rows or sorted rows)
     is_correct = False
     if ref_q.strip():
-        # Normalizing string representations of floats/ints/strings
-        def norm_val(v):
-            if isinstance(v, float):
-                return round(v, 2)
-            return v
-        
+        def norm_val(v): return round(v, 2) if isinstance(v, float) else v
         norm_student = [[norm_val(x) for x in row] for row in student_rows]
         norm_ref = [[norm_val(x) for x in row] for row in ref_rows]
-        
         is_correct = (norm_student == norm_ref)
-        if not is_correct:
-            try:
-                is_correct = (sorted(norm_student) == sorted(norm_ref))
-            except Exception:
-                pass
-    else:
-        is_correct = len(student_rows) > 0
-        
-    print(json.dumps({
-        "success": True,
-        "isCorrect": is_correct,
-        "actualOutput": student_rows,
-        "expectedOutput": ref_rows,
-        "rowCount": len(student_rows)
-    }))
+        if not is_correct and len(norm_student) == len(norm_ref):
+            try: is_correct = (sorted(norm_student) == sorted(norm_ref))
+            except Exception: pass
+    else: is_correct = len(student_rows) > 0
+    print(json.dumps({"success": True, "isCorrect": is_correct, "actualOutput": student_rows, "expectedOutput": ref_rows, "rowCount": len(student_rows)}))
 except Exception as e:
-    print(json.dumps({
-        "success": False,
-        "isCorrect": False,
-        "error": str(e),
-        "actualOutput": [],
-        "expectedOutput": []
-    }))
+    print(json.dumps({"success": False, "isCorrect": False, "error": str(e), "actualOutput": [], "expectedOutput": [], "rowCount": 0}))
 `;
 
     const py = spawn('python', ['-c', pyScript]);
@@ -100,9 +135,10 @@ except Exception as e:
         resolve({
           success: false,
           isCorrect: false,
-          error: stderr || err.message || 'Failed to execute SQL in sandbox',
+          error: stderr || err.message || 'Failed to execute SQL',
           actualOutput: [],
-          expectedOutput: []
+          expectedOutput: [],
+          rowCount: 0
         });
       }
     });
@@ -111,9 +147,10 @@ except Exception as e:
       resolve({
         success: false,
         isCorrect: false,
-        error: `Sandbox execution error: ${err.message}`,
+        error: `Sandbox error: ${err.message}`,
         actualOutput: [],
-        expectedOutput: []
+        expectedOutput: [],
+        rowCount: 0
       });
     });
   });

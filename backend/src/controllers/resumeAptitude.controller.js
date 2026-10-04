@@ -179,9 +179,9 @@ const startSession = async (req, res, next) => {
           createdAt: startedAt,
           updatedAt: startedAt
         };
-        mockResumeAptitudeAttempts.push(mockAttempt);
+        mockResumeAptitudeAttempts.push(attempt);
         return res.status(201).json({
-          attempt: mockAttempt,
+          attempt,
           remainingSeconds: durationMinutes * 60,
           message: 'Started new 45-minute Resume-Driven Aptitude session (Mock Store)'
         });
@@ -270,7 +270,8 @@ const getSession = async (req, res, next) => {
 const executeSqlSandbox = async (req, res, next) => {
   try {
     const { attemptId } = req.params;
-    const { questionId, sqlQuery } = req.body;
+    const { questionId, sqlQuery, query } = req.body;
+    const finalQuery = sqlQuery || query || '';
 
     let attempt = null;
     try {
@@ -293,7 +294,7 @@ const executeSqlSandbox = async (req, res, next) => {
     }
 
     const sandboxResult = await executeSqlInSandbox(
-      sqlQuery,
+      finalQuery,
       question.referenceSchemaSql,
       question.referenceQuery || question.canonicalAnswer
     );

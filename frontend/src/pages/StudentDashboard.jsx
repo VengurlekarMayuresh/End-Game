@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudentProfile } from '../hooks/useStudent';
-import { CheckCircle2, Circle, Trophy, Star, FileText, Target, Eye, AlertTriangle, Building2, Calendar, ClipboardList } from 'lucide-react';
+import {
+  CheckCircle2, Circle, Trophy, Star, FileText, Target, Eye, AlertTriangle,
+  Building2, Calendar, ClipboardList, Sparkles, Mic, ArrowRight, ShieldCheck,
+  CheckCheck, Bot
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../lib/axios';
 
@@ -9,7 +13,7 @@ const STATUS_BADGES = {
   APPLIED: 'bg-blue-500/10 text-blue-600 border border-blue-500/20',
   REVIEWING: 'bg-purple-500/10 text-purple-600 border border-purple-500/20',
   SHORTLISTED: 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20',
-  INTERVIEW: 'bg-orange-500/10 text-orange-600 border border-orange-500/20',
+  INTERVIEW: 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 font-bold',
   OFFERED: 'bg-green-500/10 text-green-600 border border-green-500/20',
   REJECTED: 'bg-red-500/10 text-red-600 border border-red-500/20',
 };
@@ -74,8 +78,119 @@ const StudentDashboard = () => {
 
   const completionPercentage = Math.round((completedSections / totalSections) * 100);
 
+  // Assigned Interviews Filter
+  const assignedInterviews = applications.filter(app => app.status === 'INTERVIEW' || app.status === 'OFFERED');
+  const latestAssigned = assignedInterviews[0];
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
+      
+      {/* ── ASSIGNED INTERVIEW HERO BANNER (HIGH PRIORITY NOTIFICATION) ── */}
+      {assignedInterviews.length > 0 && (
+        <div className="bg-gradient-to-r from-violet-600/15 via-indigo-600/10 to-primary/15 border-2 border-violet-500/30 p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-lg space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-500/20 text-violet-700 dark:text-violet-300 font-bold text-xs rounded-full border border-violet-500/30">
+                <Sparkles size={14} className="text-violet-500" />
+                <span>🎉 Technical Interview Assigned ({assignedInterviews.length} Active)</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground">
+                You are Invited to the AI Technical Voice Interview!
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-2xl">
+                Congratulations! You have passed all preceding qualification rounds for{' '}
+                <strong className="text-foreground">{latestAssigned?.job?.title || 'Engineering Role'}</strong> at{' '}
+                <strong className="text-foreground">{latestAssigned?.job?.recruiter?.companyName || 'Hiring Company'}</strong>.
+                All previous screening stages are <span className="text-emerald-600 font-bold">COMPLETED</span>.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+              <Link
+                to="/student/interview"
+                className="px-6 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-violet-500/25 flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Mic size={18} /> Launch AI Interview Room
+              </Link>
+              <Link
+                to="/student/profile?tab=interviews"
+                className="px-4 py-3.5 bg-card/80 hover:bg-card border border-border text-foreground font-semibold text-sm rounded-2xl transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>Pipeline Tracker</span>
+                <ArrowRight size={15} />
+              </Link>
+            </div>
+          </div>
+
+          {/* 4-ROUND PROGRESSION CLEARANCE FLOW */}
+          <div className="bg-card/70 backdrop-blur-sm border border-border/80 rounded-2xl p-4 sm:p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+              <ShieldCheck size={15} className="text-emerald-500" />
+              Round Clearance Status & Pipeline Stages
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              
+              {/* Round 1 */}
+              <div className="p-3.5 bg-emerald-500/8 border border-emerald-500/25 rounded-xl flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCheck size={18} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Round 1</span>
+                  <h4 className="text-xs font-bold text-foreground">Resume Screening</h4>
+                  <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Cleared / Completed
+                  </p>
+                </div>
+              </div>
+
+              {/* Round 2 */}
+              <div className="p-3.5 bg-emerald-500/8 border border-emerald-500/25 rounded-xl flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCheck size={18} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Round 2</span>
+                  <h4 className="text-xs font-bold text-foreground">General Aptitude</h4>
+                  <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Cleared / Completed
+                  </p>
+                </div>
+              </div>
+
+              {/* Round 3 */}
+              <div className="p-3.5 bg-emerald-500/8 border border-emerald-500/25 rounded-xl flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCheck size={18} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Round 3</span>
+                  <h4 className="text-xs font-bold text-foreground">Role-Specific Tech</h4>
+                  <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Cleared / Completed
+                  </p>
+                </div>
+              </div>
+
+              {/* Round 4 */}
+              <div className="p-3.5 bg-violet-500/15 border-2 border-violet-500/40 rounded-xl flex items-start gap-3 relative shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
+                  <Mic size={18} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">Round 4 (Final)</span>
+                  <h4 className="text-xs font-bold text-foreground">AI Voice Interview</h4>
+                  <p className="text-[11px] text-violet-600 dark:text-violet-400 font-bold mt-0.5 flex items-center gap-1">
+                    ● Assigned & Active
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Section */}
       <div className="bg-primary/5 border border-primary/20 p-8 rounded-3xl relative overflow-hidden">
         <div className="relative z-10">
@@ -191,17 +306,30 @@ const StudentDashboard = () => {
                           <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
                             <Calendar size={10} /> Applied: {new Date(app.appliedAt).toLocaleDateString()}
                           </p>
+                          {(app.status === 'INTERVIEW' || app.status === 'OFFERED') && (
+                            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 w-fit">
+                              <CheckCheck size={13} />
+                              <span>Prior Rounds 1, 2, 3 Cleared (Completed)</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {app.job?.test && app.job.test.status === 'PUBLISHED' && (
+                        {app.status === 'INTERVIEW' ? (
+                          <Link
+                            to="/student/interview"
+                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                          >
+                            <Mic size={13} /> Enter Interview Room
+                          </Link>
+                        ) : app.job?.test && app.job.test.status === 'PUBLISHED' && (
                           <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 text-[10px] font-bold rounded">
                             <ClipboardList size={10} /> Has Test
                           </span>
                         )}
                         <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${statusCls}`}>
-                          {app.status}
+                          {app.status === 'INTERVIEW' ? 'INTERVIEW ASSIGNED' : app.status}
                         </span>
                       </div>
                     </div>

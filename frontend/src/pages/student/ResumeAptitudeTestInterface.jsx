@@ -168,6 +168,28 @@ const ResumeAptitudeTestInterface = () => {
     await saveAnswerToServer(q, studentAnswer);
   };
 
+  // SQL Sandbox execution
+  const handleRunSqlSandbox = async (qId) => {
+    if (!sqlDraft.trim()) return;
+    setExecutingSql(true);
+    setSqlExecResult(null);
+    try {
+      const { data } = await api.post(`/student/resume-aptitude/session/${attempt.id}/execute-sql`, {
+        questionId: qId,
+        query: sqlDraft
+      });
+      setSqlExecResult(data);
+    } catch (err) {
+      setSqlExecResult({
+        success: false,
+        isCorrect: false,
+        error: err.response?.data?.message || err.message || 'SQL execution failed'
+      });
+    } finally {
+      setExecutingSql(false);
+    }
+  };
+
   // DSA Code: autosave draft to server (without running)
   const handleCodeChange = (q, value) => {
     setCodeMap(prev => ({ ...prev, [q.id]: value }));
@@ -271,22 +293,6 @@ const ResumeAptitudeTestInterface = () => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handleRunSqlSandbox = async (qId) => {
-    setExecutingSql(true);
-    setSqlExecResult(null);
-    try {
-      const { data } = await api.post(`/student/resume-aptitude/session/${attempt?.id}/execute-sql`, {
-        questionId: qId,
-        sqlQuery: sqlDraft
-      });
-      setSqlExecResult(data);
-    } catch (err) {
-      setSqlExecResult({ success: false, error: err.response?.data?.message || 'SQL execution failed' });
-    } finally {
-      setExecutingSql(false);
-    }
   };
 
   const handleFinishTest = async () => {
@@ -524,6 +530,20 @@ const ResumeAptitudeTestInterface = () => {
                   Level {currentQ.level} {currentQ.level === 1 ? '· Basic' : currentQ.level === 2 ? '· Intermediate' : '· Advanced'}
                 </span>
               )}
+              {currentQ.difficulty && (
+                <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1 ${
+                  currentQ.difficulty === 'EASY'
+                    ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30'
+                    : currentQ.difficulty === 'MEDIUM'
+                    ? 'bg-amber-500/15 text-amber-600 border border-amber-500/30'
+                    : 'bg-rose-500/15 text-rose-600 border border-rose-500/30'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    currentQ.difficulty === 'EASY' ? 'bg-emerald-500' : currentQ.difficulty === 'MEDIUM' ? 'bg-amber-500' : 'bg-rose-500'
+                  }`} />
+                  {currentQ.difficulty}
+                </span>
+              )}
             </div>
             <span className="text-xs text-muted-foreground font-medium">Marks: {currentQ.marks}</span>
           </div>
@@ -633,22 +653,111 @@ const ResumeAptitudeTestInterface = () => {
             </div>
 
           ) : currentQ.category === 'SQL' ? (
-            /* SQL Sandbox */
-            <div className="space-y-4">
+            /* SQL Sandbox with Interactive Schema Table & Results Grid */
+            <div className="space-y-5">
+              {/* Database Schema & Sample Data Tables */}
+              {currentQ.tableSchema && currentQ.tableSchema.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Database size={16} className="text-blue-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Database Schema & Sample Table Records
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      (Write your query referencing these table structures)
+                    </span>
+                  </div>
+
+                  <div className="grid gap-4">
+                    {currentQ.tableSchema.map((tbl, tIdx) => (
+                      <div key={tIdx} className="bg-muted/20 border border-border rounded-xl p-4 space-y-3 shadow-sm">
+                        <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/60">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold bg-blue-500/10 text-blue-600 px-2.5 py-1 rounded-md border border-blue-500/20">
+                              TABLE: {tbl.tableName}
+                            </span>
+                            {tbl.description && (
+                              <span className="text-xs text-muted-foreground italic">({tbl.description})</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground font-sans">Click to insert:</span>
+                            {tbl.columns.map((col, cIdx) => (
+                              <button
+                                key={cIdx}
+                                type="button"
+                                onClick={() => {
+                                  setSqlDraft(prev => (prev ? `${prev} ${col.name}` : col.name));
+                                }}
+                                title={`Click to insert column "${col.name}" into query`}
+                                className="text-[11px] font-mono px-2 py-0.5 bg-background hover:bg-primary/10 hover:border-primary/40 border border-border rounded text-foreground transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                              >
+                                <b>{col.name}</b> <span className="text-muted-foreground text-[10px]">{col.type}</span>
+                                {col.isPrimary && <span className="text-amber-500 font-bold" title="Primary Key">[PK]</span>}
+                                {col.isForeign && <span className="text-blue-500 font-bold" title="Foreign Key">[FK]</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Sample Rows Table */}
+                        {tbl.sampleData && tbl.sampleData.length > 0 && (
+                          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-inner">
+                            <table className="w-full text-xs font-mono text-left border-collapse">
+                              <thead>
+                                <tr className="bg-muted/50 border-b border-border text-muted-foreground text-[11px]">
+                                  {tbl.columns.map((c, i) => (
+                                    <th key={i} className="px-3 py-1.5 font-bold uppercase">{c.name}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/40">
+                                {tbl.sampleData.map((row, rIdx) => (
+                                  <tr key={rIdx} className="hover:bg-muted/20 transition-colors">
+                                    {tbl.columns.map((c, cIdx) => (
+                                      <td key={cIdx} className="px-3 py-1.5 text-foreground">
+                                        {row[c.name] === null || row[c.name] === undefined ? (
+                                          <span className="text-muted-foreground italic">NULL</span>
+                                        ) : (
+                                          String(row[c.name])
+                                        )}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SQL Query Editor */}
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    SQL Query Input (Sandbox Execution Engine)
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    <Terminal size={14} className="text-primary" /> SQL Query Input
+                    <span className="text-[10px] text-muted-foreground font-normal">(Press Ctrl+Enter to Run)</span>
                   </label>
                   <SaveStatusBadge qId={currentQ.id} />
                 </div>
                 <textarea
-                  rows={5}
+                  rows={6}
                   value={sqlDraft}
                   onChange={e => handleSqlDraftChange(currentQ, e.target.value)}
+                  onKeyDown={e => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      handleRunSqlSandbox(currentQ.id);
+                    }
+                  }}
                   onBlur={() => handleSubmitAnswer(currentQ)}
                   placeholder="SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department..."
-                  className="w-full p-3 font-mono text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full p-3 font-mono text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 leading-relaxed"
+                  spellCheck={false}
                 />
               </div>
 
@@ -656,34 +765,59 @@ const ResumeAptitudeTestInterface = () => {
                 <button
                   onClick={() => handleRunSqlSandbox(currentQ.id)}
                   disabled={executingSql || !sqlDraft.trim()}
-                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
                 >
-                  <Play size={14} /> {executingSql ? 'Executing Sandbox...' : 'Run Draft Query'}
+                  <Play size={14} /> {executingSql ? 'Executing Sandbox...' : 'Run Query in Sandbox'}
                 </button>
                 <button
                   onClick={() => handleSubmitAnswer(currentQ)}
                   disabled={submittingQ === currentQ.id || !sqlDraft.trim()}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
                 >
-                  <Send size={14} /> {submittingQ === currentQ.id ? 'Saving...' : 'Save Answer'}
+                  <Send size={14} /> {submittingQ === currentQ.id ? 'Saving...' : 'Save Query Answer'}
                 </button>
               </div>
 
+              {/* Query Output Result Sandbox */}
               {sqlExecResult && (
-                <div className={`p-4 rounded-xl border text-xs space-y-2 ${sqlExecResult.isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
-                  <p className="font-bold flex items-center gap-1.5">
+                <div className={`p-4 rounded-xl border text-xs space-y-3 ${sqlExecResult.isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                  <p className="font-bold flex items-center gap-1.5 text-sm">
                     {sqlExecResult.isCorrect
-                      ? <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 size={16} /> Output Matches Reference!</span>
-                      : <span className="text-destructive flex items-center gap-1"><AlertTriangle size={16} /> Output Mismatch or Error</span>
+                      ? <span className="text-emerald-600 flex items-center gap-1.5"><CheckCircle2 size={16} /> Query Passed! Output Matches Reference</span>
+                      : <span className="text-destructive flex items-center gap-1.5"><AlertTriangle size={16} /> Output Mismatch or Syntax Error</span>
                     }
                   </p>
-                  {sqlExecResult.error
-                    ? <p className="font-mono text-destructive">{sqlExecResult.error}</p>
-                    : <div>
-                        <p className="text-muted-foreground font-semibold mb-1">Returned Rows ({sqlExecResult.rowCount}):</p>
-                        <pre className="font-mono bg-background p-2.5 rounded-lg overflow-x-auto">{JSON.stringify(sqlExecResult.actualOutput, null, 2)}</pre>
-                      </div>
-                  }
+                  {sqlExecResult.error ? (
+                    <p className="font-mono text-destructive bg-background p-3 rounded-lg border border-destructive/20">{sqlExecResult.error}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground font-semibold">Execution Output ({sqlExecResult.rowCount} rows returned):</p>
+                      {Array.isArray(sqlExecResult.actualOutput) && sqlExecResult.actualOutput.length > 0 ? (
+                        <div className="overflow-x-auto rounded-lg border border-border bg-background shadow-inner">
+                          <table className="w-full text-xs font-mono text-left border-collapse">
+                            <thead>
+                              <tr className="bg-muted/50 border-b border-border text-muted-foreground">
+                                {Object.keys(sqlExecResult.actualOutput[0]).map((k, i) => (
+                                  <th key={i} className="px-3 py-1.5 font-bold uppercase">{k}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/40">
+                              {sqlExecResult.actualOutput.map((row, rIdx) => (
+                                <tr key={rIdx} className="hover:bg-muted/20">
+                                  {Object.values(row).map((val, vIdx) => (
+                                    <td key={vIdx} className="px-3 py-1.5 text-foreground">{String(val)}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground italic">Query returned 0 rows.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

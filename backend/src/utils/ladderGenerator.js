@@ -1,10 +1,194 @@
 /**
  * Project/JD Theoretical Ladder Generator & Escalation Engine
- * Generates ~7 questions across 2-3 topics escalating from Level 1 (Basic) to Level 3 (Advanced)
- * Pre-validates canonical answers and synonyms for instant deterministic matching.
+ * Escalates from Level 1 (Basic/General) -> Level 2 (Applied Scenario) -> Level 3 (Difficult Internals/Trade-offs).
+ * Tailored dynamically to candidate resume tech stack & matched JD skills.
  */
 
 const PREDEFINED_LADDERS = {
+  react: [
+    {
+      level: 1,
+      statement: 'In React, what in-memory representation of the real DOM is used to compute efficient UI updates before batching changes to the browser?',
+      canonicalAnswer: 'Virtual DOM',
+      acceptedSynonyms: ['VDOM', 'Virtual Dom', 'vdom', 'Virtual Document Object Model'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which built-in React hook is used to persist mutable values across re-renders without triggering a component re-render when mutated?',
+      canonicalAnswer: 'useRef',
+      acceptedSynonyms: ['useRef hook', 'ref', 'use-ref'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'Which internal React 18 reconciliation architecture enables interruptible rendering and concurrent scheduling using fiber nodes?',
+      canonicalAnswer: 'React Fiber',
+      acceptedSynonyms: ['Fiber', 'Fiber Architecture', 'React Fiber reconciler', 'Concurrent Mode'],
+      marks: 2.0
+    }
+  ],
+  'node.js': [
+    {
+      level: 1,
+      statement: 'What single-threaded core loop in Node.js orchestrates asynchronous non-blocking I/O callbacks across phases like timers and poll?',
+      canonicalAnswer: 'Event Loop',
+      acceptedSynonyms: ['event loop', 'Event-Loop', 'libuv event loop'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which Node.js mechanism or module allows streaming large gigabyte files chunk-by-chunk without overwhelming memory allocation?',
+      canonicalAnswer: 'Streams',
+      acceptedSynonyms: ['Stream', 'Node Streams', 'Readable Stream', 'fs.createReadStream', 'Piping'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'Which native C library provides Node.js with its multi-threaded asynchronous thread pool and platform abstraction layer for I/O operations?',
+      canonicalAnswer: 'libuv',
+      acceptedSynonyms: ['libuv library', 'Libuv'],
+      marks: 2.0
+    }
+  ],
+  python: [
+    {
+      level: 1,
+      statement: 'What mechanism in CPython restricts thread execution such that only one native thread executes Python bytecode at a time?',
+      canonicalAnswer: 'GIL',
+      acceptedSynonyms: ['Global Interpreter Lock', 'gil', 'Global interpreter lock'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which Python keyword is used inside a function to produce an iterator that yields values one at a time on demand rather than storing them in memory?',
+      canonicalAnswer: 'yield',
+      acceptedSynonyms: ['yield keyword', 'Generator', 'yield statement'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'In Python\'s memory manager, which built-in module detects and collects reference cycles that cannot be freed by pure reference counting?',
+      canonicalAnswer: 'gc',
+      acceptedSynonyms: ['gc module', 'Garbage Collector', 'Cycle Detector', 'gc.collect'],
+      marks: 2.0
+    }
+  ],
+  java: [
+    {
+      level: 1,
+      statement: 'What is the primary JVM component responsible for automatically reclaiming dynamically allocated heap memory that is no longer referenced?',
+      canonicalAnswer: 'Garbage Collector',
+      acceptedSynonyms: ['GC', 'Garbage Collection', 'garbage collector'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which Java interface in java.util.concurrent represents an asynchronous computation result that supports non-blocking functional composition?',
+      canonicalAnswer: 'CompletableFuture',
+      acceptedSynonyms: ['Future', 'Completable Future', 'Future interface'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'Which Java keyword guarantees that reads and writes of a variable happen directly in main memory, preventing thread-caching inconsistencies?',
+      canonicalAnswer: 'volatile',
+      acceptedSynonyms: ['volatile keyword', 'Volatile'],
+      marks: 2.0
+    }
+  ],
+  docker: [
+    {
+      level: 1,
+      statement: 'What is the lightweight, standalone, executable software package containing all code, runtime, and system libraries needed to run an application?',
+      canonicalAnswer: 'Container Image',
+      acceptedSynonyms: ['Docker Image', 'Image', 'Docker image'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which Dockerfile optimization pattern compiles binaries in an initial build container and copies only artifacts into a minimal runtime image?',
+      canonicalAnswer: 'Multi-stage Build',
+      acceptedSynonyms: ['Multi stage build', 'Multistage build', 'Multi-stage'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'Which Linux kernel feature does Docker utilize to isolate process trees, network interfaces, and mount points between containers?',
+      canonicalAnswer: 'Namespaces',
+      acceptedSynonyms: ['Linux Namespaces', 'namespace', 'cgroups and namespaces'],
+      marks: 2.0
+    }
+  ],
+  mongodb: [
+    {
+      level: 1,
+      statement: 'What binary-encoded JSON-like format does MongoDB use internally to store documents and represent data types?',
+      canonicalAnswer: 'BSON',
+      acceptedSynonyms: ['Binary JSON', 'bson'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which multi-stage data processing framework in MongoDB transforms documents through stages like $match, $group, and $project?',
+      canonicalAnswer: 'Aggregation Pipeline',
+      acceptedSynonyms: ['Aggregation', 'Pipeline', 'Aggregate', 'Aggregation pipeline'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'Which special capped collection in MongoDB replica sets records all write operations to support data replication across secondary members?',
+      canonicalAnswer: 'oplog',
+      acceptedSynonyms: ['Oplog', 'Operations Log', 'oplog.rs', 'Operation log'],
+      marks: 2.0
+    }
+  ],
+  sql: [
+    {
+      level: 1,
+      statement: 'What relational constraint ensures each row in a database table has a non-null, uniquely identifiable column value?',
+      canonicalAnswer: 'Primary Key',
+      acceptedSynonyms: ['PK', 'primary key', 'Primary key constraint'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which SQL operator or clause combines the result sets of two SELECT queries, automatically removing duplicate rows?',
+      canonicalAnswer: 'UNION',
+      acceptedSynonyms: ['union', 'UNION operator'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'What relational database logging mechanism writes transaction changes sequentially to persistent storage before committing them to data files?',
+      canonicalAnswer: 'WAL',
+      acceptedSynonyms: ['Write-Ahead Logging', 'Write Ahead Log', 'Write Ahead Logging', 'wal'],
+      marks: 2.0
+    }
+  ],
+  aws: [
+    {
+      level: 1,
+      statement: 'Which core AWS service provides highly scalable object storage with 99.999999999% (11 9s) durability for storing images, documents, and backups?',
+      canonicalAnswer: 'S3',
+      acceptedSynonyms: ['Amazon S3', 'Simple Storage Service', 's3'],
+      marks: 1.0
+    },
+    {
+      level: 2,
+      statement: 'Which AWS security mechanism grants temporary, fine-grained access credentials to applications and EC2 instances without embedding long-term API keys?',
+      canonicalAnswer: 'IAM Role',
+      acceptedSynonyms: ['IAM Roles', 'IAM', 'Instance Profile', 'Role'],
+      marks: 1.5
+    },
+    {
+      level: 3,
+      statement: 'In distributed cloud networks, which technique connects two Virtual Private Clouds (VPCs) directly using private IP addresses as if they were in the same network?',
+      canonicalAnswer: 'VPC Peering',
+      acceptedSynonyms: ['Vpc peering', 'VPC Peering Connection', 'Transit Gateway'],
+      marks: 2.0
+    }
+  ],
   rag: [
     {
       level: 1,
@@ -51,29 +235,6 @@ const PREDEFINED_LADDERS = {
       marks: 2.0
     }
   ],
-  'vector database': [
-    {
-      level: 1,
-      statement: 'Which distance metric measures the angle between two vector embeddings regardless of magnitude?',
-      canonicalAnswer: 'Cosine Similarity',
-      acceptedSynonyms: ['Cosine', 'Cosine distance', 'Cosine angle'],
-      marks: 1.0
-    },
-    {
-      level: 2,
-      statement: 'Which indexing algorithm organizes high-dimensional vectors into a hierarchical graph for fast approximate nearest neighbor search?',
-      canonicalAnswer: 'HNSW',
-      acceptedSynonyms: ['Hierarchical Navigable Small World', 'HNSW Graph', 'HNSW Index'],
-      marks: 1.5
-    },
-    {
-      level: 3,
-      statement: 'Which vector compression method reduces memory footprint by dividing vectors into sub-vectors and quantizing centroid codes?',
-      canonicalAnswer: 'Product Quantization',
-      acceptedSynonyms: ['PQ', 'Quantization', 'Scalar Quantization'],
-      marks: 2.0
-    }
-  ],
   caching: [
     {
       level: 1,
@@ -97,26 +258,26 @@ const PREDEFINED_LADDERS = {
       marks: 2.0
     }
   ],
-  postgresql: [
+  'system design': [
     {
       level: 1,
-      statement: 'Which default transaction isolation level in PostgreSQL prevents dirty reads?',
-      canonicalAnswer: 'Read Committed',
-      acceptedSynonyms: ['Read committed', 'READ_COMMITTED', 'Read Committed Isolation'],
+      statement: 'What hardware/software device sits between clients and servers to distribute incoming network traffic across a healthy server pool?',
+      canonicalAnswer: 'Load Balancer',
+      acceptedSynonyms: ['load balancer', 'LB', 'Reverse Proxy', 'Application Load Balancer'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which concurrency control mechanism allows PostgreSQL readers to not block writers and writers to not block readers?',
-      canonicalAnswer: 'MVCC',
-      acceptedSynonyms: ['Multi-Version Concurrency Control', 'Multiversion Concurrency Control', 'mvcc'],
+      statement: 'Which hashing algorithm assigns both cache nodes and data keys to a circular ring to minimize key remapping when nodes are added or removed?',
+      canonicalAnswer: 'Consistent Hashing',
+      acceptedSynonyms: ['consistent hashing', 'Hash Ring', 'Consistent hash ring'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which PostgreSQL index type is specifically designed for indexing JSONB keys and array containment operators?',
-      canonicalAnswer: 'GIN Index',
-      acceptedSynonyms: ['GIN', 'Generalized Inverted Index', 'GIN Indexing'],
+      statement: 'Which distributed consensus algorithm is designed to be easier to understand than Paxos and is used by etcd and Consul for leader election and log replication?',
+      canonicalAnswer: 'Raft',
+      acceptedSynonyms: ['Raft Consensus', 'raft', 'Raft Algorithm'],
       marks: 2.0
     }
   ]
@@ -124,22 +285,45 @@ const PREDEFINED_LADDERS = {
 
 /**
  * Generate up to 3 topic ladders producing exactly 8 questions total.
- * Distribution: 3 questions from topic 1, 3 from topic 2, 2 from topic 3 (or adjusted).
- * This ensures: 2 DSA_CODE + 3 SQL + 2 Core CS + 8 Ladder = 15 total questions.
+ * Distribution: 3 questions from topic 1, 3 from topic 2, 2 from topic 3.
+ * Total: 2 DSA_CODE + 3 SQL + 2 Core CS + 8 Ladder = 15 total questions.
  */
 function generateProjectLadder(coreTopics = []) {
-  const topicsToUse = coreTopics.length > 0 ? coreTopics.slice(0, 3) : ['rag', 'microservices', 'caching'];
+  // Normalize and map core topics from resume
+  const mappedTopics = coreTopics.map(t => {
+    const k = (t || '').toLowerCase().trim();
+    if (k.includes('react') || k.includes('frontend')) return 'react';
+    if (k.includes('node') || k.includes('express')) return 'node.js';
+    if (k.includes('python') || k.includes('django') || k.includes('fastapi')) return 'python';
+    if (k.includes('java') || k.includes('spring')) return 'java';
+    if (k.includes('docker') || k.includes('kubernetes') || k.includes('container')) return 'docker';
+    if (k.includes('mongo') || k.includes('nosql')) return 'mongodb';
+    if (k.includes('sql') || k.includes('postgres') || k.includes('mysql')) return 'sql';
+    if (k.includes('aws') || k.includes('cloud')) return 'aws';
+    if (k.includes('rag') || k.includes('llm') || k.includes('retrieval')) return 'rag';
+    if (k.includes('microservice')) return 'microservices';
+    if (k.includes('cache') || k.includes('redis')) return 'caching';
+    if (k.includes('system') || k.includes('design') || k.includes('architecture')) return 'system design';
+    return k;
+  });
+
+  const uniqueTopics = [...new Set(mappedTopics)].filter(Boolean);
+  const defaults = ['react', 'node.js', 'sql', 'system design'];
+  defaults.forEach(d => {
+    if (!uniqueTopics.includes(d)) uniqueTopics.push(d);
+  });
+
+  const topicsToUse = uniqueTopics.slice(0, 3);
   const allQuestions = [];
 
   topicsToUse.forEach((topicKey) => {
-    const key = (topicKey || '').toLowerCase();
-    const ladder = PREDEFINED_LADDERS[key] || generateGenericLadder(topicKey);
+    const ladder = PREDEFINED_LADDERS[topicKey] || generateGenericLadder(topicKey);
 
     ladder.forEach(item => {
       allQuestions.push({
-        id: `ladder-${key}-${item.level}`,
+        id: `ladder-${topicKey}-${item.level}`,
         category: 'PROJECT_LADDER',
-        topic: topicKey,
+        topic: topicKey.toUpperCase(),
         level: item.level, // 1 (Basic), 2 (Intermediate), 3 (Advanced)
         statement: item.statement,
         canonicalAnswer: item.canonicalAnswer,
@@ -153,15 +337,12 @@ function generateProjectLadder(coreTopics = []) {
   return allQuestions.slice(0, 8); // Exactly 8 ladder questions
 }
 
-/**
- * Dynamic fallback generator for any technology keyword
- */
 function generateGenericLadder(topicName) {
   const name = (topicName || 'System Architecture').toUpperCase();
   return [
     {
       level: 1,
-      statement: `What primary architectural goal or core benefit does ${name} provide in software engineering?`,
+      statement: `What primary architectural goal or core benefit does ${name} provide in modern software engineering?`,
       canonicalAnswer: 'Scalability',
       acceptedSynonyms: ['Modularity', 'Performance', 'Maintainability', 'High Availability', 'Fault Tolerance'],
       marks: 1.0
@@ -175,7 +356,7 @@ function generateGenericLadder(topicName) {
     },
     {
       level: 3,
-      statement: `What critical trade-off or bottleneck must be managed when scaling ${name} under heavy load?`,
+      statement: `What critical trade-off or bottleneck must be managed when scaling ${name} under heavy production traffic?`,
       canonicalAnswer: 'Latency',
       acceptedSynonyms: ['Throughput', 'Network Latency', 'Memory Consumption', 'Data Consistency', 'Lock Contention'],
       marks: 2.0
@@ -183,13 +364,6 @@ function generateGenericLadder(topicName) {
   ];
 }
 
-/**
- * Ladder Escalation Engine:
- * Updates ladder state based on candidate's answer correctness.
- * - Correct answer on Level 1 -> unlocks Level 2 for that topic.
- * - Correct answer on Level 2 -> unlocks Level 3 for that topic.
- * - Incorrect answer -> stops topic ladder progression with no penalty.
- */
 function updateLadderState(currentLadderState, topic, level, isCorrect) {
   const state = { ...currentLadderState };
   if (!state[topic]) {
@@ -206,7 +380,6 @@ function updateLadderState(currentLadderState, topic, level, isCorrect) {
       }
     }
   } else {
-    // Incorrect answer -> stop that topic ladder with no penalty
     topicState.stopped = true;
   }
 
