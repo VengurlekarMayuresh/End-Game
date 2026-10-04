@@ -1,0 +1,12 @@
+{
+  "name": "hiresense-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HireSense AI - Intelligent Recruitment, Assessment, and Interview Platform",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start:interview": "cd interview-module && npm start",
+    "dev:interview": "cd interview-module && node server.js"
+  }
+}

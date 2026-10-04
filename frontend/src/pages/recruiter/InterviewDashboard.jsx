@@ -4,7 +4,7 @@ import api from '../../lib/axios';
 import { getImageUrl } from '../../lib/utils';
 import {
   MessageSquare, Search, CheckCircle2, UserCircle, Briefcase,
-  Award, Clock, CheckSquare, XCircle, Send, Star
+  Award, Clock, CheckSquare, XCircle, Send, Star, ExternalLink, Sparkles, ArrowUpRight
 } from 'lucide-react';
 
 const InterviewDashboard = () => {
@@ -73,6 +73,17 @@ const InterviewDashboard = () => {
           <p className="text-muted-foreground text-sm mt-1">
             Manage candidates who passed Role-Specific Aptitude and have advanced to Group Discussion / Final Interview (Modules 14-15).
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href="http://localhost:3000/intake.html"
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
+          >
+            <Sparkles size={14} /> Open AI Interview Suite (Port 3000) <ArrowUpRight size={14} />
+          </a>
         </div>
       </div>
 
@@ -162,6 +173,15 @@ const InterviewDashboard = () => {
                     <span className={`text-xs px-3 py-1 rounded-full font-bold ${app.status === 'OFFERED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
                       {app.status === 'OFFERED' ? 'OFFER EXTENDED' : 'INTERVIEW STAGE'}
                     </span>
+
+                    <a
+                      href="http://localhost:3000/intake.html"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3.5 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1"
+                    >
+                      <Sparkles size={13} className="text-primary" /> Conduct Interview
+                    </a>
 
                     {app.status !== 'OFFERED' ? (
                       <button
