@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../config/prisma');
 const { verifyGoogleToken } = require('../utils/googleAuth');
 const { generateAccessToken, generateRefreshToken, verifyToken } = require('../utils/jwt');
 const env = require('../config/env');
 
-const prisma = new PrismaClient();
 
 const setRefreshTokenCookie = (res, token) => {
   res.cookie('refreshToken', token, {

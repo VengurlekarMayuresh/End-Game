@@ -100,6 +100,8 @@ export const useProctoring = (attemptId, stage, onWarning) => {
               let friendlyMessage = 'Please remain focused on the assessment.';
               if (evt.type === 'LOOKING_AWAY') {
                 friendlyMessage = 'Unusual gaze activity detected. Please look at the screen.';
+              } else if (evt.type === 'PUPIL_GAZE_AWAY') {
+                friendlyMessage = 'You are looking away from the screen';
               } else if (evt.type === 'NO_FACE') {
                 friendlyMessage = 'No face detected. Please ensure you stay in front of the camera.';
               } else if (evt.type === 'MULTIPLE_FACES') {

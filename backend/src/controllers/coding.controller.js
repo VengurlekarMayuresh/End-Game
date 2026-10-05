@@ -1,6 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 const { runCode } = require('../utils/codeExecutor');
+
 const { hasMailerConfig, sendMail, buildDecisionEmail } = require('../utils/mailer');
 const proctoringCtrl = require('./proctoring.controller');
 
