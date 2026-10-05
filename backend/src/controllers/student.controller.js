@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../config/prisma');
 const path = require('path');
 const fs = require('fs');
-const prisma = new PrismaClient();
+
 
 // Save file to local uploads directory
 const saveFileLocally = (file) => {

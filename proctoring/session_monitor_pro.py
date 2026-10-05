@@ -44,14 +44,15 @@ except Exception:
 
 TARGET_OBJECTS = {"cell phone", "laptop", "book"}
 
-DIR_PERSON_SS = "D:\\Sem7\\Final_year_proj\\Proj\\End-Game\\proctoring\\person_screenshots"
-DIR_OBJ_SS = "D:\\Sem7\\Final_year_proj\\Proj\\End-Game\\proctoring\\obj_screenshots"
+DIR_PERSON_SS = "C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\person_screenshots"
+DIR_OBJ_SS = "C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\obj_screenshots"
 
 # =====================================================================
 # Aggregation Engine Configuration
 # =====================================================================
 BASE_WEIGHTS = {
     "LOOKING_AWAY": 5,
+    "PUPIL_GAZE_AWAY": 7,
     "NO_FACE": 12,
     "TAB_SWITCH": 8,
     "MULTIPLE_FACES": 15,
@@ -60,6 +61,7 @@ BASE_WEIGHTS = {
 
 MAX_CATEGORY_SCORE = {
     "LOOKING_AWAY": 20,
+    "PUPIL_GAZE_AWAY": 25,
     "NO_FACE": 25,
     "MULTIPLE_FACES": 35,
     "OBJECT": 30,
@@ -68,10 +70,23 @@ MAX_CATEGORY_SCORE = {
 
 PERSISTENCE_THRESHOLDS = {
     "LOOKING_AWAY": 2.0,
+    "PUPIL_GAZE_AWAY": 1.5,
     "NO_FACE": 2.0,
     "MULTIPLE_FACES": 1.5,
     "OBJECT": 1.0,
 }
+
+HEAD_YAW_THRESHOLD = 0.35
+PUPIL_AWAY_DURATION = 1.5
+PUPIL_ALERT_COOLDOWN = 3.0
+PUPIL_BINARY_THRESHOLD = 45
+PUPIL_MIN_CONTOUR_AREA = 8
+PUPIL_MAX_CONTOUR_AREA_RATIO = 0.45
+PUPIL_LEFT_RATIO = 0.38
+PUPIL_RIGHT_RATIO = 0.62
+PUPIL_UP_RATIO = 0.38
+PUPIL_HEAD_CENTER_THRESHOLD = 0.22
+SHOW_GAZE_DEBUG = True
 
 # =====================================================================
 # Helpers
@@ -94,6 +109,7 @@ def format_time(seconds):
 
 def get_duration_factor(event_type, duration):
     if event_type == "TAB_SWITCH": return 1.0
+    if event_type == "PUPIL_GAZE_AWAY" and duration >= PUPIL_AWAY_DURATION: return 1.0
     if duration < 2.0: return 0.0
     if duration <= 5.0: return 1.0
     if duration <= 10.0: return 1.5
@@ -110,6 +126,106 @@ def generate_session_id():
     ts = datetime.now().strftime("%Y%m%d")
     rand_str = ''.join(random.choices(string.digits, k=5))
     return f"SES-{ts}-{rand_str}"
+
+def eye_on_mask(mask, side_points):
+    points = np.array(side_points, dtype=np.int32)
+    cv2.fillConvexPoly(mask, points, 255)
+    return mask
+
+def process_thresh(gray_eye):
+    _, thresh = cv2.threshold(gray_eye, PUPIL_BINARY_THRESHOLD, 255, cv2.THRESH_BINARY_INV)
+    thresh = cv2.erode(thresh, None, iterations=1)
+    thresh = cv2.dilate(thresh, None, iterations=2)
+    thresh = cv2.medianBlur(thresh, 3)
+    return thresh
+
+def contouring(thresh):
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area >= PUPIL_MIN_CONTOUR_AREA and area <= thresh.size * PUPIL_MAX_CONTOUR_AREA_RATIO:
+            return contour
+    return None
+
+def find_eyeball_position(contour, eye_rect):
+    if contour is None:
+        return None
+    moments = cv2.moments(contour)
+    if moments["m00"] == 0:
+        return None
+    cx = int(moments["m10"] / moments["m00"])
+    cy = int(moments["m01"] / moments["m00"])
+    x, y, width, height = eye_rect
+    if width <= 0 or height <= 0:
+        return None
+    return {
+        "center": (x + cx, y + cy),
+        "relative": (cx / width, cy / height),
+    }
+
+def print_eye_pos(relative_pos):
+    if relative_pos is None:
+        return "UNKNOWN"
+    rel_x, rel_y = relative_pos
+    if rel_y < PUPIL_UP_RATIO:
+        return "UP"
+    if rel_x < PUPIL_LEFT_RATIO:
+        return "LEFT"
+    if rel_x > PUPIL_RIGHT_RATIO:
+        return "RIGHT"
+    return "CENTER"
+
+def detect_eye_direction(gray, lm, eye_indices, frame_width, frame_height):
+    eye_points = [
+        (int(lm[idx].x * frame_width), int(lm[idx].y * frame_height))
+        for idx in eye_indices
+    ]
+    if len(eye_points) < 4:
+        return None
+
+    x, y, width, height = cv2.boundingRect(np.array(eye_points, dtype=np.int32))
+    if width < 8 or height < 4:
+        return None
+
+    margin = 3
+    x1 = max(0, x - margin)
+    y1 = max(0, y - margin)
+    x2 = min(frame_width, x + width + margin)
+    y2 = min(frame_height, y + height + margin)
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    local_points = [(px - x1, py - y1) for px, py in eye_points]
+    mask = np.zeros((y2 - y1, x2 - x1), dtype=np.uint8)
+    eye_on_mask(mask, local_points)
+
+    eye_region = cv2.bitwise_and(gray[y1:y2, x1:x2], gray[y1:y2, x1:x2], mask=mask)
+    thresh = process_thresh(eye_region)
+    thresh = cv2.bitwise_and(thresh, thresh, mask=mask)
+    contour = contouring(thresh)
+    pupil = find_eyeball_position(contour, (x1, y1, x2 - x1, y2 - y1))
+    if pupil is None:
+        return None
+
+    direction = print_eye_pos(pupil["relative"])
+    return {
+        "direction": direction,
+        "center": pupil["center"],
+        "relative": pupil["relative"],
+    }
+
+def detect_pupil_gaze(gray, lm, frame_width, frame_height):
+    # Six-point eye contours from MediaPipe Face Mesh.
+    left_eye = detect_eye_direction(gray, lm, [33, 160, 158, 133, 153, 144], frame_width, frame_height)
+    right_eye = detect_eye_direction(gray, lm, [362, 385, 387, 263, 373, 380], frame_width, frame_height)
+    if not left_eye or not right_eye:
+        return "UNKNOWN", []
+    if left_eye["direction"] != right_eye["direction"]:
+        return "UNKNOWN", [left_eye, right_eye]
+    return left_eye["direction"], [left_eye, right_eye]
 
 # =====================================================================
 # Face Tracker (Internal Use Only)
@@ -250,7 +366,7 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 # Main Monitor
 # =====================================================================
 class SessionMonitorPro:
-    def __init__(self, camera_index=0, log_file="D:\\Sem7\\Final_year_proj\\Proj\\End-Game\\proctoring\\session_log.csv"):
+    def __init__(self, camera_index=0, log_file="C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\session_log.csv"):
         self.camera_index = camera_index
         self.log_file = log_file
         self.events = []
@@ -287,6 +403,13 @@ class SessionMonitorPro:
         
         self.current_absence_duration = 0.0
         self.current_look_away_duration = 0.0
+        self.pupil_direction = "CENTER"
+        self.pupil_away_start_time = None
+        self.pupil_alert_triggered = False
+        self.last_pupil_alert_time = 0.0
+        self.pupil_alert_visible_until = 0.0
+        self.last_pupil_points = []
+        self.pupil_unknown_start_time = None
         
         # Monitoring Quality Metrics
         self.frames_received = 0
@@ -344,7 +467,7 @@ class SessionMonitorPro:
         if duration >= threshold:
             self.register_event(state_name, duration, state["max_conf"])
 
-    def register_event(self, event_type, duration, confidence):
+    def register_event(self, event_type, duration, confidence, metadata=""):
         self.event_counts[event_type] += 1
         count = self.event_counts[event_type]
         
@@ -374,6 +497,8 @@ class SessionMonitorPro:
         })
         
         msg = f"EVENT: {event_type} | Dur: {duration:.1f}s | Conf: {confidence*100:.0f}% | +{event_score:.1f} pts"
+        if metadata:
+            msg += f" | {metadata}"
         self.log_event(msg, "bad")
 
         if server_state.server_mode:
@@ -383,7 +508,7 @@ class SessionMonitorPro:
                 "confidence": confidence,
                 "timestamp": datetime.now().isoformat(),
                 "severity": "CRITICAL" if event_type in ["MULTIPLE_FACES", "OBJECT"] else "WARNING",
-                "metadata": ""
+                "metadata": metadata
             }
             with server_state.lock:
                 server_state.events_queue.append(event_obj)
@@ -422,6 +547,39 @@ class SessionMonitorPro:
             }
             with server_state.lock:
                 server_state.events_queue.append(event_obj)
+
+    def update_pupil_gaze_state(self, gaze_direction, now):
+        self.pupil_direction = gaze_direction
+        if gaze_direction != "UNKNOWN":
+            self.pupil_unknown_start_time = None
+
+        if gaze_direction in ["LEFT", "RIGHT", "UP"]:
+            if self.pupil_away_start_time is None:
+                self.pupil_away_start_time = now
+
+            away_duration = now - self.pupil_away_start_time
+            cooldown_elapsed = now - self.last_pupil_alert_time >= PUPIL_ALERT_COOLDOWN
+            if away_duration >= PUPIL_AWAY_DURATION and not self.pupil_alert_triggered and cooldown_elapsed:
+                self.pupil_alert_triggered = True
+                self.last_pupil_alert_time = now
+                self.pupil_alert_visible_until = now + PUPIL_ALERT_COOLDOWN
+                self.register_event(
+                    "PUPIL_GAZE_AWAY",
+                    away_duration,
+                    0.90,
+                    metadata=f"You are looking away from the screen. Gaze: {gaze_direction}"
+                )
+        elif gaze_direction == "CENTER":
+            self.pupil_away_start_time = None
+            self.pupil_alert_triggered = False
+        else:
+            # UNKNOWN is usually a blink, glare, or missed contour. Tolerate a
+            # brief miss, then reset so unreliable frames cannot create alerts.
+            if self.pupil_unknown_start_time is None:
+                self.pupil_unknown_start_time = now
+            elif now - self.pupil_unknown_start_time > 0.4:
+                self.pupil_away_start_time = None
+                self.pupil_alert_triggered = False
 
     # ------------------------------------------------------------------
     # Threads & Drawing
@@ -500,7 +658,27 @@ class SessionMonitorPro:
             cv2.putText(frame, "WARNING: PLEASE LOOK AT THE SCREEN!", (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (255, 255, 255), 2, cv2.LINE_AA)
             banner_offset = 55
 
-        # 2. Object detection warning banner
+        # 2. Pupil-gaze warning banner
+        show_pupil_banner = (
+            self.pupil_away_start_time is not None
+            and now - self.pupil_away_start_time >= PUPIL_AWAY_DURATION
+        ) or now < self.pupil_alert_visible_until
+        if show_pupil_banner:
+            overlay = frame.copy()
+            y_start = banner_offset
+            y_end = banner_offset + 55
+            cv2.rectangle(overlay, (0, y_start), (w, y_end), (0, 0, 220), -1)
+            alpha = 0.85 if int(now * 2.0) % 2 == 0 else 0.60
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+            cv2.putText(frame, "WARNING: You are looking away from the screen", (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.78, (255, 255, 255), 2, cv2.LINE_AA)
+            banner_offset += 55
+
+        if SHOW_GAZE_DEBUG:
+            cv2.putText(frame, f"Gaze: {self.pupil_direction}", (20, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (30, 255, 255), 2, cv2.LINE_AA)
+            for point in self.last_pupil_points:
+                cv2.circle(frame, point, 3, (0, 255, 255), -1, cv2.LINE_AA)
+
+        # 3. Object detection warning banner
         if now - self.obj_flag_time < 4.0:
             alpha = max(0.0, 1.0 - (now - self.obj_flag_time) / 4.0)
             overlay = frame.copy()
@@ -601,6 +779,7 @@ class SessionMonitorPro:
                 self.current_frame = cv2.flip(frame, 1)
                 h, w = self.current_frame.shape[:2]
                 rgb = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2RGB)
+                gray = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2GRAY)
 
                 # 1. Face Detection
                 det_result = self.face_detector.process(rgb)
@@ -615,7 +794,7 @@ class SessionMonitorPro:
                 self.update_state("NO_FACE", face_count == 0, 0.95)
                 self.update_state("MULTIPLE_FACES", face_count > 1, high_conf_faces[1].score[0] if face_count > 1 else 0.9)
 
-                # 2. Face Mesh & Yaw
+                # 2. Face Mesh, Head Yaw & Independent Pupil Gaze
                 if face_count == 1 and (now - self.last_mesh_time) >= self.mesh_interval:
                     self.last_mesh_time = now
                     mesh_result = self.face_mesh.process(rgb)
@@ -625,11 +804,24 @@ class SessionMonitorPro:
                         mid_x = (lm[33].x + lm[263].x) / 2 * w
                         span = abs(lm[263].x - lm[33].x) * w
                         yaw = (nose_x - mid_x) / span if span > 1 else 0.0
-                        self.update_state("LOOKING_AWAY", abs(yaw) > 0.35, 0.85)
+                        head_away = abs(yaw) > HEAD_YAW_THRESHOLD
+                        self.update_state("LOOKING_AWAY", head_away, 0.85)
+
+                        if abs(yaw) <= PUPIL_HEAD_CENTER_THRESHOLD:
+                            gaze_direction, pupil_data = detect_pupil_gaze(gray, lm, w, h)
+                            self.last_pupil_points = [item["center"] for item in pupil_data if item.get("center")]
+                            self.update_pupil_gaze_state(gaze_direction, now)
+                        else:
+                            self.last_pupil_points = []
+                            self.update_pupil_gaze_state("UNKNOWN", now)
                     else:
                         self.update_state("LOOKING_AWAY", False)
+                        self.last_pupil_points = []
+                        self.update_pupil_gaze_state("UNKNOWN", now)
                 elif face_count != 1:
                     self.update_state("LOOKING_AWAY", False)
+                    self.last_pupil_points = []
+                    self.update_pupil_gaze_state("UNKNOWN", now)
 
                 # 3. Time Stats (Strict separation of Camera vs No Face)
                 if face_count == 0:
@@ -765,6 +957,7 @@ class SessionMonitorPro:
         event_name_map = {
             "TAB_SWITCH": "Tab Switch",
             "LOOKING_AWAY": "Looking Away",
+            "PUPIL_GAZE_AWAY": "Pupil Gaze Away",
             "NO_FACE": "Candidate Absent",
             "MULTIPLE_FACES": "Multiple Faces",
             "OBJECT": "Objects Detected"
@@ -784,7 +977,8 @@ class SessionMonitorPro:
         
         cat_name_map = {
             "TAB_SWITCH": "Browser Activity",
-            "LOOKING_AWAY": "Eye/Gaze",
+            "LOOKING_AWAY": "Head Movement",
+            "PUPIL_GAZE_AWAY": "Pupil Gaze",
             "NO_FACE": "Candidate Presence",
             "MULTIPLE_FACES": "Multiple Faces",
             "OBJECT": "Object Detection"
@@ -871,7 +1065,7 @@ if __name__ == "__main__":
             print("\nShutting down Proctoring Companion Server...")
             sys.exit(0)
     else:
-        monitor = SessionMonitorPro(camera_index=0, log_file="D:\\Sem7\\Final_year_proj\\Proj\\End-Game\\proctoring\\session_log.csv")
+        monitor = SessionMonitorPro(camera_index=0, log_file="C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\session_log.csv")
         try:
             monitor.run()
         except KeyboardInterrupt:

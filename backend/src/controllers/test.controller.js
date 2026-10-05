@@ -1,6 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 const { hasMailerConfig, sendMail, buildDecisionEmail } = require('../utils/mailer');
+
 const proctoringCtrl = require('./proctoring.controller');
 
 // Helper to shuffle array (Fisher-Yates)

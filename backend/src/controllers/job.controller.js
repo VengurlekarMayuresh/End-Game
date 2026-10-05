@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
+
 const { analyzeJobDescription } = require('../utils/jobAnalysis');
 const { calculateMatchScore } = require('../utils/candidateMatching');
 
