@@ -94,10 +94,26 @@ function gradePrompt(s, cur, answer) {
 }
 function genPrompt(s, next, g) {
   const asked = s.turns.map(t => ({ level: t.level, topic: t.sub, question: t.question })), avoid = recent[next.sub] || [];
-  return `Write the next question for a spoken technical interview.\nCANDIDATE: ${profile(s.cand)}\nALREADY ASKED IN THIS INTERVIEW (never repeat or paraphrase): ${JSON.stringify(asked)}\nRECENTLY ASKED TO OTHER CANDIDATES on this subtopic (use a clearly different scenario and wording): ${JSON.stringify(avoid)}\n` +
-  `Where it fits, tie the question to the job's required skills or to one of the candidate's real projects (without quoting the resume).\nKind: ${next.kind}. Category: ${next.cat}. Subtopic: ${next.sub}. Difficulty level ${next.level}/5 (${LV[next.level - 1]}: ${LD[next.level - 1]}).\n` +
-  (next.kind === 'follow' ? `This is a follow-up on the same topic. Previous question: ${JSON.stringify(s.cur.question)}. Candidate said: ${JSON.stringify(g.answer)}. Grading: score ${g.score}/10, missing ${JSON.stringify(g.missing)}. If the answer was weak or wrong, ask a simpler clarifying question about the fundamentals they missed; if strong, probe one deeper edge case, trade-off or failure mode. Refer to what they actually said.\n` : 'Open a fresh topic with a standalone question.\n') +
-  `One or two spoken sentences, no code blocks, no preamble. Use an unusual scenario or angle (variety seed ${crypto.randomBytes(3).toString('hex')}).\nJSON: {"question":"..."}`;
+  const isWarmup = next.level === 1 || s.turns.length === 0;
+
+  const difficultyInstruction = isWarmup
+    ? `CRITICAL DIFFICULTY INSTRUCTION (Level 1 Warm-up): This question MUST be EXTREMELY EASY, SIMPLE, and BASIC. Ask a straightforward definition or simple introductory concept about ${next.sub}. Do NOT ask about performance trade-offs, complex edge cases, system design, internal algorithms, or tricky scenarios. Ensure ANY candidate with basic knowledge can easily and confidently answer it in 1-2 simple sentences.`
+    : `Difficulty level ${next.level}/5 (${LV[next.level - 1]}: ${LD[next.level - 1]}).`;
+
+  return `Write the next question for a spoken technical interview.\n` +
+  `CANDIDATE PROFILE: ${profile(s.cand)}\n` +
+  `JOB TITLE: ${s.cand.job ? s.cand.job.title : (s.cand.role || 'Developer')}\n` +
+  `ALREADY ASKED IN THIS INTERVIEW: ${JSON.stringify(asked)}\n` +
+  `Topic: ${next.sub} (Category: ${next.cat})\n` +
+  `${difficultyInstruction}\n` +
+  (next.kind === 'follow'
+    ? `This is a follow-up. Previous question: ${JSON.stringify(s.cur.question)}. Candidate answer: ${JSON.stringify(g.answer)}. If candidate struggled, ask a simpler fundamental question. Refer directly to their statement.\n`
+    : `Ask a standalone, clear question on ${next.sub}.\n`) +
+  `STRICT FORMATTING & CONTENT RULES:\n` +
+  `- Do NOT ask numeric calculations, manual math, or quantitative solving questions (candidates answer verbally out loud).\n` +
+  `- For SQL or coding questions, only ask short, 1-line queries or high-level logic. NEVER ask for long, complex, nested SQL queries or code blocks.\n` +
+  `- Keep the question to 1 short, simple spoken sentence. No preamble, no multi-part setups. Make it clear and effortless to answer verbally.\n` +
+  `JSON: {"question":"..."}`;
 }
 const grade = async (s, cur, answer) => {
   try {
@@ -120,25 +136,43 @@ const grade = async (s, cur, answer) => {
   }
 };
 const genQ = async (s, next, g) => {
+  const previouslyAsked = (s.turns || []).map(t => t.question).concat(s.cur && s.cur.question ? [s.cur.question] : []);
   try {
     const q = (await llm('gen', genPrompt(s, next, g), j => typeof j.question === 'string' && j.question.length > 10)).question;
-    return q;
+    if (q && !previouslyAsked.includes(q)) return q;
   } catch (err) {
     console.warn('[genQ fallback]', err.message);
-    const templates = [
-      `Could you explain how ${next.sub} works in ${next.cat}, and describe a realistic scenario where you would choose this approach?`,
-      `In the context of ${next.cat}, what are the primary performance trade-offs and common pitfalls with ${next.sub}?`,
-      `How does ${next.sub} handle scale, edge cases, and failure modes when used in production?`,
-      `Can you compare ${next.sub} with standard alternatives in ${next.cat} and explain when one is preferable?`
-    ];
-    return templates[Math.floor(Math.random() * templates.length)];
   }
+
+  const templates = (next.kind === 'follow') ? [
+    `Could you elaborate on how you handled challenges or errors with ${next.sub}?`,
+    `What is one practical scenario where you prefer using ${next.sub}?`,
+    `How do you typically test or verify your implementation when using ${next.sub}?`,
+    `Can you describe the biggest benefit and one limitation you encountered with ${next.sub}?`
+  ] : [
+    `Could you give a brief overview of how you work with ${next.sub} in your projects?`,
+    `In the context of ${next.cat}, what is the basic core concept behind ${next.sub}?`,
+    `Can you share a simple example from your experience where you used ${next.sub}?`,
+    `How would you explain the fundamental idea of ${next.sub} to a peer?`
+  ];
+
+  const fresh = templates.filter(t => !previouslyAsked.includes(t));
+  const pool = fresh.length > 0 ? fresh : templates;
+  return pool[Math.floor(Math.random() * pool.length)];
 };
 
 /* ---------- adaptive logic (server-side so candidates cannot tamper with it) ---------- */
 function chooseTopic(st) {
-  const pool = TAX.map(t => [t[0], t[1], 0]).concat(st.skills.map(k => [skillCat(k), k + ' in real-world use', 1])).filter(t => !st.used[t[1]]);
-  const recentCats = st.cats.slice(-2), fresh = pool.filter(t => !recentCats.includes(t[0])), wantSkill = st.mainDone % 3 === 2;
+  const candSkills = (st.skills || []).map(k => [skillCat(k), k, 1]).filter(t => !st.used[t[1]]);
+  const generalPool = TAX.map(t => [t[0], t[1], 0]).filter(t => !st.used[t[1]]);
+  
+  // Always start with candidate's actual resume/JD skills first!
+  if (st.mainDone === 0 && candSkills.length > 0) {
+    return candSkills[Math.floor(Math.random() * candSkills.length)];
+  }
+
+  const pool = candSkills.length ? candSkills.concat(generalPool) : generalPool;
+  const recentCats = st.cats.slice(-2), fresh = pool.filter(t => !recentCats.includes(t[0])), wantSkill = st.mainDone % 2 === 0;
   const pref = fresh.filter(t => !!t[2] === wantSkill), from = pref.length ? pref : (fresh.length ? fresh : pool);
   return from[Math.floor(Math.random() * from.length)];
 }
