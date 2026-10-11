@@ -433,15 +433,12 @@ const StudentTests = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap shrink-0">
-                          <Link
-                            to="/student/interview"
-                            className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all text-center flex items-center justify-center gap-1.5 shadow-sm"
-                          >
-                            <Terminal size={13} /> Start AI Interview
-                          </Link>
+                          <span className="w-full sm:w-auto px-4 py-2 bg-emerald-500/10 text-emerald-600 font-bold text-xs rounded-xl border border-emerald-500/20 text-center flex items-center justify-center gap-1.5">
+                            <CheckCircle2 size={13} /> Assessment Completed (Under Review)
+                          </span>
                           <Link
                             to={`/recruiter/resume-aptitude/${att.id}/results`}
-                            className="w-full sm:w-auto px-4 py-2.5 bg-primary/10 text-primary font-bold text-xs rounded-xl hover:bg-primary/20 transition-all text-center flex items-center justify-center gap-1.5"
+                            className="w-full sm:w-auto px-4 py-2 bg-primary/10 text-primary font-bold text-xs rounded-xl hover:bg-primary/20 transition-all text-center flex items-center justify-center gap-1.5"
                           >
                             <Award size={13} /> View Breakdown
                           </Link>
@@ -501,12 +498,6 @@ const StudentTests = () => {
                                 <XCircle size={13} /> Fail
                               </span>
                             )}
-                            <Link
-                              to="/student/interview"
-                              className="px-3 py-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all flex items-center gap-1 shadow-sm"
-                            >
-                              Start AI Interview ↗
-                            </Link>
                           </div>
                         </div>
                       </div>

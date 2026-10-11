@@ -1101,7 +1101,7 @@ if __name__ == "__main__":
             print("\nShutting down Proctoring Companion Server...")
             sys.exit(0)
     else:
-        monitor = SessionMonitorPro(camera_index=0, log_file="C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\session_log.csv")
+        monitor = SessionMonitorPro(camera_index=0, log_file=os.path.join(BASE_DIR, "session_log.csv"))
         try:
             monitor.run()
         except KeyboardInterrupt:

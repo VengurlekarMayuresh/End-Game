@@ -1195,18 +1195,17 @@ const CodingTestInterface = () => {
             </div>
           </div>
 
-          <div className="pt-4 flex flex-col gap-3 justify-center border-t border-border/50">
-            <button
-              onClick={() => navigate('/student/interview')}
-              className="w-full px-8 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-            >
-              <Sparkles size={18} /> Start AI Voice Interview
-            </button>
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 text-xs text-foreground leading-relaxed text-left space-y-1">
+            <p className="font-bold text-primary">Results Will Be Declared Soon</p>
+            <p className="text-muted-foreground">Your coding solutions have been submitted. Once the recruiter evaluates candidate benchmarks and assigns the technical interview round, it will be unlocked on your dashboard.</p>
+          </div>
+
+          <div className="pt-2 flex flex-col gap-3 justify-center">
             <button 
-              onClick={() => navigate('/student/tests')} 
-              className="w-full px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/90 transition-all flex items-center justify-center gap-2 shadow-sm"
+              onClick={() => navigate('/student/dashboard')} 
+              className="w-full px-8 py-3.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
-              Back to Assessments
+              Return to Student Dashboard
             </button>
           </div>
         </div>

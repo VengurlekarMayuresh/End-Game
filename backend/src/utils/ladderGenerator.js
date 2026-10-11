@@ -316,28 +316,41 @@ function generateProjectLadder(coreTopics = []) {
     if (!uniqueTopics.includes(d)) uniqueTopics.push(d);
   });
 
-  const topicsToUse = uniqueTopics.slice(0, 3);
-  const allQuestions = [];
+  const topicsToUse = uniqueTopics.slice(0, 4);
+  const l1Questions = [];
+  const l2Questions = [];
+  const l3Questions = [];
 
   topicsToUse.forEach((topicKey) => {
     const ladder = PREDEFINED_LADDERS[topicKey] || generateGenericLadder(topicKey);
 
     ladder.forEach(item => {
-      allQuestions.push({
+      const q = {
         id: `ladder-${topicKey}-${item.level}`,
         category: 'PROJECT_LADDER',
         topic: topicKey.toUpperCase(),
-        level: item.level, // 1 (Foundational), 2 (Practical), 3 (Applied Best Practice)
+        level: item.level,
+        difficulty: item.level === 1 ? 'EASY' : item.level === 2 ? 'MEDIUM' : 'HARD',
         statement: item.statement,
         canonicalAnswer: item.canonicalAnswer,
         acceptedSynonyms: item.acceptedSynonyms,
         marks: item.marks,
         status: item.level === 1 ? 'UNLOCKED' : 'LOCKED'
-      });
+      };
+      if (item.level === 1) l1Questions.push(q);
+      else if (item.level === 2) l2Questions.push(q);
+      else if (item.level === 3) l3Questions.push(q);
     });
   });
 
-  return allQuestions.slice(0, 8); // Exactly 8 ladder questions
+  // Exactly 4 Simple (Level 1), 2 Medium (Level 2), 2 Hard (Level 3) = 8 questions
+  const selectedLadder = [
+    ...l1Questions.slice(0, 4),
+    ...l2Questions.slice(0, 2),
+    ...l3Questions.slice(0, 2)
+  ];
+
+  return selectedLadder.slice(0, 8);
 }
 
 function generateGenericLadder(topicName) {

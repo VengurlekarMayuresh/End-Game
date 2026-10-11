@@ -183,23 +183,27 @@ REQUIRED JSON FORMAT (Must match exact keys):
   try {
     const rawResult = await callLlm(prompt, 0.4);
     if (rawResult && Array.isArray(rawResult.projectLadders) && rawResult.projectLadders.length >= 2) {
-      // Assemble structured ladder questions
-      const formattedLadderQuestions = [];
-      rawResult.projectLadders.slice(0, 3).forEach((ladder, lIdx) => {
+      // Assemble structured ladder questions partitioned by difficulty
+      const l1 = [];
+      const l2 = [];
+      const l3 = [];
+
+      rawResult.projectLadders.slice(0, 4).forEach((ladder, lIdx) => {
         const topicName = (ladder.topic || `Project ${lIdx + 1}`).trim();
         const topicSlug = topicName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);
 
         [
-          { item: ladder.level1, level: 1, marks: 1.0 },
-          { item: ladder.level2, level: 2, marks: 1.5 },
-          { item: ladder.level3, level: 3, marks: 2.0 }
-        ].forEach(({ item, level, marks }) => {
+          { item: ladder.level1, level: 1, difficulty: 'EASY', marks: 1.0, list: l1 },
+          { item: ladder.level2, level: 2, difficulty: 'MEDIUM', marks: 1.5, list: l2 },
+          { item: ladder.level3, level: 3, difficulty: 'HARD', marks: 2.0, list: l3 }
+        ].forEach(({ item, level, difficulty, marks, list }) => {
           if (item && item.statement && item.canonicalAnswer) {
-            formattedLadderQuestions.push({
+            list.push({
               id: `ladder-dyn-${topicSlug}-${level}-${crypto.randomBytes(2).toString('hex')}`,
               category: 'PROJECT_LADDER',
               topic: topicName.toUpperCase(),
               level,
+              difficulty,
               statement: item.statement,
               canonicalAnswer: item.canonicalAnswer,
               acceptedSynonyms: Array.isArray(item.acceptedSynonyms) ? item.acceptedSynonyms : [item.canonicalAnswer],
@@ -209,6 +213,13 @@ REQUIRED JSON FORMAT (Must match exact keys):
           }
         });
       });
+
+      // Exactly 4 Simple (Level 1), 2 Medium (Level 2), 2 Hard (Level 3) = 8 questions
+      const formattedLadderQuestions = [
+        ...l1.slice(0, 4),
+        ...l2.slice(0, 2),
+        ...l3.slice(0, 2)
+      ];
 
       // Format core CS questions
       const formattedCoreCs = (rawResult.coreCsQuestions || []).slice(0, 2).map((q, idx) => ({
@@ -224,10 +235,12 @@ REQUIRED JSON FORMAT (Must match exact keys):
         status: 'UNLOCKED'
       }));
 
-      return {
-        ladderQuestions: formattedLadderQuestions.slice(0, 8),
-        coreCsQuestions: formattedCoreCs
-      };
+      if (formattedLadderQuestions.length >= 8) {
+        return {
+          ladderQuestions: formattedLadderQuestions.slice(0, 8),
+          coreCsQuestions: formattedCoreCs
+        };
+      }
     }
   } catch (err) {
     console.warn('[llmAssessmentGenerator] LLM synthesis failed or timed out, generating tailored fallback:', err.message);
@@ -247,50 +260,119 @@ function buildTailoredProjectLadderFallback(candidate, job) {
     { title: 'Full Stack Distributed System', techStack: 'JavaScript, Python, Docker' }
   ];
 
-  const ladderQuestions = [];
-  const coreCsQuestions = [];
+  const p1 = projects[0] || { title: 'Web Application & API Service' };
+  const p2 = projects[1] || { title: 'Database & Data Storage Engine' };
+  const p3 = projects[2] || { title: 'Full Stack Distributed System' };
 
-  projects.slice(0, 3).forEach((proj, pIdx) => {
-    const pTitle = proj.title.trim();
-    const pTopic = pTitle.toUpperCase();
-    const pSlug = pTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);
-
-    ladderQuestions.push({
-      id: `ladder-dyn-${pSlug}-1-${crypto.randomBytes(2).toString('hex')}`,
+  // 4 Simple (Level 1)
+  const l1Questions = [
+    {
+      id: `ladder-dyn-${p1.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-1-a-${crypto.randomBytes(2).toString('hex')}`,
       category: 'PROJECT_LADDER',
-      topic: pTopic,
+      topic: p1.title.toUpperCase(),
       level: 1,
-      statement: `In your project "${pTitle}", what architectural pattern or protocol was primarily used to handle communication between the client interface and backend services?`,
+      difficulty: 'EASY',
+      statement: `In your project "${p1.title}", what standard protocol or architectural pattern is primarily used for client-server communication?`,
       canonicalAnswer: 'REST API',
       acceptedSynonyms: ['REST', 'HTTP', 'RESTful API', 'JSON', 'API', 'WebSocket'],
       marks: 1.0,
       status: 'UNLOCKED'
-    });
-
-    ladderQuestions.push({
-      id: `ladder-dyn-${pSlug}-2-${crypto.randomBytes(2).toString('hex')}`,
+    },
+    {
+      id: `ladder-dyn-${p1.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-1-b-${crypto.randomBytes(2).toString('hex')}`,
       category: 'PROJECT_LADDER',
-      topic: pTopic,
+      topic: p1.title.toUpperCase(),
+      level: 1,
+      difficulty: 'EASY',
+      statement: `In "${p1.title}", what standard data format is most commonly used for serializing request and response payloads?`,
+      canonicalAnswer: 'JSON',
+      acceptedSynonyms: ['JavaScript Object Notation', 'json payload', 'JSON format'],
+      marks: 1.0,
+      status: 'UNLOCKED'
+    },
+    {
+      id: `ladder-dyn-${p2.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-1-${crypto.randomBytes(2).toString('hex')}`,
+      category: 'PROJECT_LADDER',
+      topic: p2.title.toUpperCase(),
+      level: 1,
+      difficulty: 'EASY',
+      statement: `In "${p2.title}", what type of database query command is used to read or fetch records from a table?`,
+      canonicalAnswer: 'SELECT',
+      acceptedSynonyms: ['SELECT query', 'GET', 'READ', 'select *'],
+      marks: 1.0,
+      status: 'UNLOCKED'
+    },
+    {
+      id: `ladder-dyn-${p3.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-1-${crypto.randomBytes(2).toString('hex')}`,
+      category: 'PROJECT_LADDER',
+      topic: p3.title.toUpperCase(),
+      level: 1,
+      difficulty: 'EASY',
+      statement: `In version control for "${p3.title}", which command is used to record staged snapshots of your code repository?`,
+      canonicalAnswer: 'git commit',
+      acceptedSynonyms: ['commit', 'git-commit', 'commit command'],
+      marks: 1.0,
+      status: 'UNLOCKED'
+    }
+  ];
+
+  // 2 Medium (Level 2)
+  const l2Questions = [
+    {
+      id: `ladder-dyn-${p1.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-2-${crypto.randomBytes(2).toString('hex')}`,
+      category: 'PROJECT_LADDER',
+      topic: p1.title.toUpperCase(),
       level: 2,
-      statement: `In "${pTitle}", what standard technique or token format is commonly employed to authenticate and securely transmit user identity in HTTP request headers?`,
+      difficulty: 'MEDIUM',
+      statement: `In "${p1.title}", what compact token standard is commonly used to transmit user authentication claims in HTTP headers?`,
       canonicalAnswer: 'JWT',
       acceptedSynonyms: ['JSON Web Token', 'Bearer Token', 'Token', 'JWT token', 'OAuth'],
       marks: 1.5,
       status: 'LOCKED'
-    });
-
-    ladderQuestions.push({
-      id: `ladder-dyn-${pSlug}-3-${crypto.randomBytes(2).toString('hex')}`,
+    },
+    {
+      id: `ladder-dyn-${p2.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-2-${crypto.randomBytes(2).toString('hex')}`,
       category: 'PROJECT_LADDER',
-      topic: pTopic,
+      topic: p2.title.toUpperCase(),
+      level: 2,
+      difficulty: 'MEDIUM',
+      statement: `In "${p2.title}", what database feature speeds up row lookups on frequently queried columns?`,
+      canonicalAnswer: 'Index',
+      acceptedSynonyms: ['Indexing', 'B-Tree Index', 'Database Index', 'Indices'],
+      marks: 1.5,
+      status: 'LOCKED'
+    }
+  ];
+
+  // 2 Hard (Level 3)
+  const l3Questions = [
+    {
+      id: `ladder-dyn-${p1.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-3-${crypto.randomBytes(2).toString('hex')}`,
+      category: 'PROJECT_LADDER',
+      topic: p1.title.toUpperCase(),
       level: 3,
-      statement: `For scaling "${pTitle}" under heavy traffic, what in-memory data store is most frequently implemented to cache queries and reduce database load?`,
+      difficulty: 'HARD',
+      statement: `To scale "${p1.title}" under high traffic, what in-memory data store is commonly placed before the primary database for fast caching?`,
       canonicalAnswer: 'Redis',
       acceptedSynonyms: ['Memcached', 'In-memory Cache', 'Cache', 'Redis Cache'],
       marks: 2.0,
       status: 'LOCKED'
-    });
-  });
+    },
+    {
+      id: `ladder-dyn-${p2.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15)}-3-${crypto.randomBytes(2).toString('hex')}`,
+      category: 'PROJECT_LADDER',
+      topic: p2.title.toUpperCase(),
+      level: 3,
+      difficulty: 'HARD',
+      statement: `To prevent API abuse and server overload in "${p2.title}", what middleware strategy limits the maximum number of requests allowed per client window?`,
+      canonicalAnswer: 'Rate Limiting',
+      acceptedSynonyms: ['Rate Limiter', 'Throttling', 'Rate Limit', 'Throttle'],
+      marks: 2.0,
+      status: 'LOCKED'
+    }
+  ];
+
+  const ladderQuestions = [...l1Questions, ...l2Questions, ...l3Questions];
 
   coreCsQuestions.push(
     {

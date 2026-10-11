@@ -1092,18 +1092,12 @@ const TestInterface = () => {
             <p>The recruiting team will review all submissions and set the qualifying threshold. You will receive an <strong>email notification</strong> once the results are declared — with full details on whether you have been shortlisted for the next round.</p>
           </div>
 
-          <div className="space-y-3 pt-2">
+          <div className="pt-2">
             <button
-              onClick={() => navigate('/student/interview')}
-              className="w-full px-8 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+              onClick={() => navigate('/student/dashboard')}
+              className="w-full px-8 py-3.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-sm cursor-pointer"
             >
-              <Sparkles size={18} /> Start AI Voice Interview
-            </button>
-            <button
-              onClick={() => navigate('/student/tests')}
-              className="w-full px-8 py-3 bg-secondary text-secondary-foreground font-bold text-sm rounded-xl hover:bg-secondary/90 transition-all shadow-sm"
-            >
-              Back to Tests
+              Return to Student Dashboard
             </button>
           </div>
         </div>
