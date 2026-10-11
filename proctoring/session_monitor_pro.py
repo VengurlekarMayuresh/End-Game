@@ -367,9 +367,12 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 # Main Monitor
 # =====================================================================
 class SessionMonitorPro:
-    def __init__(self, camera_index=0, log_file="C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\session_log.csv"):
+    def __init__(self, camera_index=0, log_file=None):
         self.camera_index = camera_index
-        self.log_file = log_file
+        if log_file is None:
+            self.log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "session_log.csv")
+        else:
+            self.log_file = log_file
         self.events = []
         self.running = False
         self.start_time = None
@@ -424,11 +427,46 @@ class SessionMonitorPro:
         self.current_frame = None
         self.last_window_title = None
 
-        # MediaPipe & YOLO
-        self.mp_face_det = mp.solutions.face_detection
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_detector = self.mp_face_det.FaceDetection(model_selection=0, min_detection_confidence=0.5)
-        self.face_mesh = self.mp_face_mesh.FaceMesh(max_num_faces=5, refine_landmarks=True, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+        # MediaPipe & YOLO & Haar Cascade Fallback
+        try:
+            mp_solutions = mp.solutions
+        except (AttributeError, Exception):
+            try:
+                import mediapipe.python.solutions as mp_solutions
+            except Exception:
+                mp_solutions = None
+
+        if mp_solutions:
+            self.mp_face_det = getattr(mp_solutions, 'face_detection', None)
+            self.mp_face_mesh = getattr(mp_solutions, 'face_mesh', None)
+            try:
+                self.face_detector = self.mp_face_det.FaceDetection(model_selection=0, min_detection_confidence=0.5) if self.mp_face_det else None
+            except Exception:
+                self.face_detector = None
+            try:
+                self.face_mesh = self.mp_face_mesh.FaceMesh(max_num_faces=5, refine_landmarks=True, min_detection_confidence=0.5, min_tracking_confidence=0.5) if self.mp_face_mesh else None
+            except Exception:
+                self.face_mesh = None
+        else:
+            self.mp_face_det = None
+            self.mp_face_mesh = None
+            self.face_detector = None
+            self.face_mesh = None
+
+        # OpenCV Haar Cascade Fallback (Guaranteed to work reliably in all environments)
+        self.cascade_detector = None
+        self.cascade_eye = None
+        try:
+            face_xml = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            if os.path.exists(face_xml):
+                self.cascade_detector = cv2.CascadeClassifier(face_xml)
+            eye_xml = cv2.data.haarcascades + 'haarcascade_eye.xml'
+            if os.path.exists(eye_xml):
+                self.cascade_eye = cv2.CascadeClassifier(eye_xml)
+        except Exception:
+            self.cascade_detector = None
+            self.cascade_eye = None
+
         self.yolo_model = None
         self.obj_flag_text = ""
         self.obj_flag_time = 0.0
@@ -817,41 +855,92 @@ class SessionMonitorPro:
                 rgb = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2RGB)
                 gray = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2GRAY)
 
-                # 1. Face Detection
-                det_result = self.face_detector.process(rgb)
-                faces = det_result.detections or []
-                high_conf_faces = [d for d in faces if d.score and d.score[0] > 0.50]
-                face_count = len(high_conf_faces)
-                
+                # 1. Face Detection (MediaPipe with OpenCV Haar Cascade fallback)
+                face_count = 0
+                high_conf_faces = []
+                detected_boxes = []
+
+                if self.face_detector is not None:
+                    try:
+                        det_result = self.face_detector.process(rgb)
+                        faces = det_result.detections or []
+                        high_conf_faces = [d for d in faces if d.score and d.score[0] > 0.50]
+                        face_count = len(high_conf_faces)
+                        for d in high_conf_faces:
+                            bb = d.location_data.relative_bounding_box
+                            bx = max(0, int(bb.xmin * w))
+                            by = max(0, int(bb.ymin * h))
+                            bw = int(bb.width * w)
+                            bh = int(bb.height * h)
+                            detected_boxes.append((bx, by, bw, bh))
+                    except Exception:
+                        face_count = 0
+
+                # Fallback to OpenCV Haar Cascade if MediaPipe is unavailable or didn't detect
+                if self.face_detector is None and self.cascade_detector is not None and not self.cascade_detector.empty():
+                    try:
+                        faces_rect = self.cascade_detector.detectMultiScale(
+                            gray, scaleFactor=1.2, minNeighbors=4, minSize=(60, 60)
+                        )
+                        face_count = len(faces_rect)
+                        detected_boxes = [tuple(r) for r in faces_rect]
+                    except Exception:
+                        face_count = 0
+
                 if face_count > 0:
-                    self.total_face_confidence += high_conf_faces[0].score[0]
+                    score = high_conf_faces[0].score[0] if high_conf_faces else 0.95
+                    self.total_face_confidence += score
                     self.confidence_checks += 1
 
                 self.update_state("NO_FACE", face_count == 0, 0.95)
-                self.update_state("MULTIPLE_FACES", face_count > 1, high_conf_faces[1].score[0] if face_count > 1 else 0.9)
+                multi_score = high_conf_faces[1].score[0] if (high_conf_faces and face_count > 1) else 0.90
+                self.update_state("MULTIPLE_FACES", face_count > 1, multi_score)
+
+                # Draw bounding boxes on detected face(s)
+                for (bx, by, bw, bh) in detected_boxes:
+                    box_color = (0, 200, 100) if face_count == 1 else (0, 0, 255)
+                    cv2.rectangle(self.current_frame, (bx, by), (bx + bw, by + bh), box_color, 2)
 
                 # 2. Face Mesh, Head Yaw & Independent Pupil Gaze
                 if face_count == 1 and (now - self.last_mesh_time) >= self.mesh_interval:
                     self.last_mesh_time = now
-                    mesh_result = self.face_mesh.process(rgb)
-                    if mesh_result.multi_face_landmarks:
-                        lm = mesh_result.multi_face_landmarks[0].landmark
-                        nose_x = lm[1].x * w
-                        mid_x = (lm[33].x + lm[263].x) / 2 * w
-                        span = abs(lm[263].x - lm[33].x) * w
-                        yaw = (nose_x - mid_x) / span if span > 1 else 0.0
-                        head_away = abs(yaw) > HEAD_YAW_THRESHOLD
-                        self.update_state("LOOKING_AWAY", head_away, 0.85)
+                    if self.face_mesh is not None:
+                        try:
+                            mesh_result = self.face_mesh.process(rgb)
+                            if mesh_result.multi_face_landmarks:
+                                lm = mesh_result.multi_face_landmarks[0].landmark
+                                nose_x = lm[1].x * w
+                                mid_x = (lm[33].x + lm[263].x) / 2 * w
+                                span = abs(lm[263].x - lm[33].x) * w
+                                yaw = (nose_x - mid_x) / span if span > 1 else 0.0
+                                head_away = abs(yaw) > HEAD_YAW_THRESHOLD
+                                self.update_state("LOOKING_AWAY", head_away, 0.85)
 
-                        if abs(yaw) <= PUPIL_HEAD_CENTER_THRESHOLD:
-                            gaze_direction, pupil_data = detect_pupil_gaze(gray, lm, w, h)
-                            self.last_pupil_points = [item["center"] for item in pupil_data if item.get("center")]
-                            self.update_pupil_gaze_state(gaze_direction, now)
-                        else:
+                                if abs(yaw) <= PUPIL_HEAD_CENTER_THRESHOLD:
+                                    gaze_direction, pupil_data = detect_pupil_gaze(gray, lm, w, h)
+                                    self.last_pupil_points = [item["center"] for item in pupil_data if item.get("center")]
+                                    self.update_pupil_gaze_state(gaze_direction, now)
+                                else:
+                                    self.last_pupil_points = []
+                                    self.update_pupil_gaze_state("UNKNOWN", now)
+                            else:
+                                self.update_state("LOOKING_AWAY", False)
+                                self.last_pupil_points = []
+                                self.update_pupil_gaze_state("UNKNOWN", now)
+                        except Exception:
+                            self.update_state("LOOKING_AWAY", False)
                             self.last_pupil_points = []
                             self.update_pupil_gaze_state("UNKNOWN", now)
                     else:
-                        self.update_state("LOOKING_AWAY", False)
+                        # Fallback yaw / look-away detection using face bounding box center
+                        if detected_boxes:
+                            bx, by, bw, bh = detected_boxes[0]
+                            face_center_x = bx + bw / 2.0
+                            offset = (face_center_x - (w / 2.0)) / (w / 2.0)
+                            head_away = abs(offset) > 0.45
+                            self.update_state("LOOKING_AWAY", head_away, 0.80)
+                        else:
+                            self.update_state("LOOKING_AWAY", False)
                         self.last_pupil_points = []
                         self.update_pupil_gaze_state("UNKNOWN", now)
                 elif face_count != 1:

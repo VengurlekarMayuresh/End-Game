@@ -1,28 +1,86 @@
 # HireSense AI - Architecture & Setup
 
-## Authentication & User Management (Module 1)
+## Overview
 
-This repository forms the foundation of HireSense AI. Module 1 handles the core authentication, role-based access control, and user onboarding flows.
+HireSense AI is an intelligent recruitment, automated candidate evaluation, and adaptive technical assessment platform. It includes:
+- **Core Full-Stack Platform** (`frontend/` & `backend/`)
+- **Conversational AI Voice & Video Interview Suite** (`interview-module/`)
+- **Live AI Camera Proctoring Companion** (`proctoring/`)
 
-### Architectural Decisions
+---
+
+## Service Startup Commands
+
+### 1. AI Voice & Video Interview Module (Port 3000)
+The Interview Module powers adaptive real-time conversational voice interviews, resume intake analysis, and automated candidate grading.
+
+**From Root Directory:**
+```bash
+npm run dev:interview
+# OR
+npm run start:interview
+```
+
+**Or directly inside the module directory:**
+```bash
+# Option A (Standard module):
+cd interview-module
+npm start
+# OR
+node server.js
+
+# Option B (Final_Interview_Module):
+cd Final_Interview_Module
+npm start
+# (Note: Use 'npm start' which executes through 'interview-platform')
+```
+> The interview module runs on **http://localhost:3000**.  
+> Test connectivity via health check: `http://localhost:3000/api/health`.
+
+---
+
+### 2. Full-Stack Web Application
+
+#### Backend API (Port 5000)
+```bash
+cd backend
+npm run dev
+```
+> Runs the Express/Prisma API server on **http://localhost:5000**.
+
+#### Frontend UI (Port 5173)
+```bash
+cd frontend
+npm run dev
+```
+> Runs the Vite/React application on **http://localhost:5173**.
+
+---
+
+### 3. Live AI Proctoring Companion (Port 8765)
+The proctoring service tracks candidate presence, head yaw, pupil gaze direction, multiple faces, and prohibited devices (mobile phones/laptops).
+
+```bash
+cd proctoring
+python session_monitor_pro.py --server
+```
+> Runs the local proctoring companion HTTP service on **http://localhost:8765**.
+
+---
+
+## Architectural Decisions
 
 1. **Google Identity Services (GIS) Exclusively for Users**: 
-   - **Why**: As requested, students and recruiters authenticate exclusively via Google. This eliminates the need for managing passwords, reduces security risks, and simplifies the login flow. We use `@react-oauth/google` on the frontend to get the JWT, and `google-auth-library` on the backend to rigorously verify the token signature directly with Google's servers.
+   - Students and recruiters authenticate via Google OAuth. Tokens are verified server-side using `google-auth-library`.
 
 2. **Isolated Admin Authentication**:
-   - **Why**: Admins bypass OAuth and use traditional Email/Password authentication. This is intentional to ensure platform administrators can always access the system even if third-party OAuth providers experience downtime. Admins are stored in a completely isolated `Admin` table rather than mixing them with standard users.
+   - Admins use dedicated Email/Password credentials and an isolated `Admin` database model.
 
 3. **Multi-Stage Onboarding & The `PENDING` State**:
-   - **Why**: When a user logs in via Google for the very first time, we don't know if they are a Student or a Recruiter. We create their `User` record with a `PENDING` status. The frontend's `<ProtectedRoute>` intercepts `PENDING` users and forces them into the Onboarding flow (`/onboarding/role`). Only after they complete their respective profile forms is their status upgraded to `ACTIVE` and their role locked in.
+   - First-time OAuth logins start in `PENDING` status. The `<ProtectedRoute>` redirects them to `/onboarding/role` until their profile details are saved.
 
 4. **JWT Rotation & HTTP-Only Cookies**:
-   - **Why**: Storing long-lived JWTs in localStorage is a severe XSS security risk. We issue a short-lived (15m) Access Token (kept in memory/localStorage for immediate API authorization) and a long-lived (7d) Refresh Token stored in a secure, `HttpOnly`, `SameSite=strict` cookie. The frontend Axios interceptor automatically catches `401 Unauthorized` responses and silently calls the `/api/auth/refresh` endpoint to get a new Access Token without interrupting the user's experience.
+   - Short-lived Access Tokens (15m) paired with secure `HttpOnly` Refresh Tokens (7d) prevent XSS exposure.
 
-5. **Prisma & Supabase**:
-   - **Why**: The schema defines `User`, `Student`, and `Recruiter` in a normalized 1-to-1 relationship. This keeps the `User` table extremely lightweight (strictly for auth/routing) while the heavy, role-specific data is kept in the `Student` and `Recruiter` tables.
-
-## Getting Started
-
-1. Set your `GOOGLE_CLIENT_ID` in both `.env` files.
-2. Set your Supabase `DATABASE_URL` in `backend/.env`.
-3. Run `npm run dev` in both the `frontend` and `backend` directories.
+5. **Prisma & Normalized Data Models**:
+   - Relational schemas partition `User`, `Student`, `Recruiter`, `JobApplication`, and test attempts with cascade rules and data integrity.
