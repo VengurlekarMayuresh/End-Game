@@ -42,10 +42,11 @@ try:
 except Exception:
     pass
 
-TARGET_OBJECTS = {"cell phone", "laptop", "book"}
+TARGET_OBJECTS = {"cell phone", "laptop"}
 
-DIR_PERSON_SS = "C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\person_screenshots"
-DIR_OBJ_SS = "C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\obj_screenshots"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DIR_PERSON_SS = os.path.join(BASE_DIR, "person_screenshots")
+DIR_OBJ_SS = os.path.join(BASE_DIR, "obj_screenshots")
 
 # =====================================================================
 # Aggregation Engine Configuration
@@ -453,6 +454,8 @@ class SessionMonitorPro:
                 state["active"] = True
                 state["start_time"] = time.time()
                 state["max_conf"] = confidence
+                if state_name in ["MULTIPLE_FACES", "OBJECT"] and self.current_frame is not None:
+                    state["screenshot_frame"] = self.current_frame.copy()
             else:
                 state["max_conf"] = max(state["max_conf"], confidence)
         else:
@@ -465,9 +468,15 @@ class SessionMonitorPro:
         duration = time.time() - state["start_time"]
         threshold = PERSISTENCE_THRESHOLDS.get(state_name, 1.0)
         if duration >= threshold:
-            self.register_event(state_name, duration, state["max_conf"])
+            self.register_event(
+                state_name,
+                duration,
+                state["max_conf"],
+                screenshot_frame=state.get("screenshot_frame")
+            )
+        state["screenshot_frame"] = None
 
-    def register_event(self, event_type, duration, confidence, metadata=""):
+    def register_event(self, event_type, duration, confidence, metadata="", screenshot_frame=None):
         self.event_counts[event_type] += 1
         count = self.event_counts[event_type]
         
@@ -513,11 +522,14 @@ class SessionMonitorPro:
             with server_state.lock:
                 server_state.events_queue.append(event_obj)
         
-        if self.current_frame is not None and event_type in ["MULTIPLE_FACES", "OBJECT"]:
+        frame_to_save = screenshot_frame if screenshot_frame is not None else self.current_frame
+        if frame_to_save is not None and event_type in ["MULTIPLE_FACES", "OBJECT"]:
             folder = DIR_PERSON_SS if event_type == "MULTIPLE_FACES" else DIR_OBJ_SS
-            if not os.path.exists(folder): os.makedirs(folder)
+            os.makedirs(folder, exist_ok=True)
             ts_str = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-            cv2.imwrite(f"{folder}/{event_type}_{ts_str}.jpg", self.current_frame)
+            screenshot_path = os.path.join(folder, f"{event_type}_{ts_str}.jpg")
+            if not cv2.imwrite(screenshot_path, frame_to_save):
+                self.log_event(f"Failed to save screenshot: {screenshot_path}", "error")
             if event_type == "OBJECT":
                 self.obj_flag_text = f"FLAG: OBJECT DETECTED ({confidence*100:.0f}%)"
                 self.obj_flag_time = time.time()
@@ -671,6 +683,30 @@ class SessionMonitorPro:
             alpha = 0.85 if int(now * 2.0) % 2 == 0 else 0.60
             cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
             cv2.putText(frame, "WARNING: You are looking away from the screen", (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.78, (255, 255, 255), 2, cv2.LINE_AA)
+            banner_offset += 55
+
+        multiple_faces_state = self.active_states.get("MULTIPLE_FACES", {})
+        if (
+            multiple_faces_state.get("active", False)
+            and now - multiple_faces_state.get("start_time", 0)
+            >= PERSISTENCE_THRESHOLDS.get("MULTIPLE_FACES", 1.0)
+        ):
+            overlay = frame.copy()
+            y_start = banner_offset
+            y_end = banner_offset + 55
+            cv2.rectangle(overlay, (0, y_start), (w, y_end), (0, 0, 255), -1)
+            alpha = 0.90 if int(now * 2.0) % 2 == 0 else 0.65
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+            cv2.putText(
+                frame,
+                "ALERT: MULTIPLE PEOPLE DETECTED!",
+                (20, y_start + 38),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.85,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA
+            )
             banner_offset += 55
 
         if SHOW_GAZE_DEBUG:
