@@ -1181,10 +1181,36 @@ const getRecruiterAptitudeOverview = async (req, res, next) => {
       };
     });
 
+    // Fetch all posted jobs for this recruiter
+    let postedJobs = [];
+    try {
+      postedJobs = await prisma.job.findMany({
+        where: { recruiterId: recruiter.id },
+        select: { id: true, title: true, type: true, location: true, status: true },
+        orderBy: { createdAt: 'desc' }
+      });
+    } catch (e) {
+      postedJobs = [];
+    }
+
+    const jobsSummary = postedJobs.map(job => {
+      const jobCandidates = candidatesOverview.filter(c => c.jobId === job.id);
+      return {
+        id: job.id,
+        title: job.title,
+        type: job.type,
+        location: job.location,
+        status: job.status,
+        totalApplicants: jobCandidates.length,
+        completedAttempts: jobCandidates.filter(c => c.attempt?.status === 'COMPLETED' || c.attempt?.status === 'AUTO_SUBMITTED').length
+      };
+    });
+
     return res.json({
       totalCandidates: candidatesOverview.length,
       assignedCount: candidatesOverview.filter(c => c.attempt !== null).length,
       completedCount: candidatesOverview.filter(c => c.attempt?.status === 'COMPLETED' || c.attempt?.status === 'AUTO_SUBMITTED').length,
+      jobs: jobsSummary,
       candidates: candidatesOverview
     });
   } catch (error) {

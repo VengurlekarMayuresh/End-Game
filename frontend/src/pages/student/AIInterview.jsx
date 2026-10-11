@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProctoring } from '../../hooks/useProctoring';
 import axios from 'axios';
 import {
   Mic, MicOff, Volume2, Sparkles, AlertCircle, ArrowLeft, RefreshCw,
-  CheckCircle2, Play, Send, Bot, User, Clock, Award, ShieldCheck,
+  CheckCircle2, Play, Send, Bot, User, Clock, Award, ShieldCheck, ShieldAlert,
   Video, Eye, FileText, ChevronRight, CheckCheck, Loader2, ExternalLink,
   Download, Sparkle, Laptop, Settings, ArrowUpRight
 } from 'lucide-react';
@@ -33,6 +34,35 @@ const AIInterview = () => {
   const [activeFrameUrl, setActiveFrameUrl] = useState(`${INTERVIEW_BASE_URL}/intake.html`);
   const [isLaunching, setIsLaunching] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [proctorWarning, setProctorWarning] = useState('');
+
+  // Python Companion Proctoring (session_monitor_pro.py on port 8765)
+  const effectiveAttemptId = candidateId || (user?.id ? `interview-${user.id}` : 'interview-session-active');
+  const {
+    status: pythonProctorStatus,
+    errorMsg: pythonProctorError,
+    startProctoring,
+    stopProctoring
+  } = useProctoring(
+    effectiveAttemptId,
+    'INTERVIEW',
+    (warningMsg) => {
+      setProctorWarning(warningMsg);
+      setTimeout(() => setProctorWarning(''), 6000);
+    }
+  );
+
+  // Start proctoring when entering EMBEDDED live interview mode
+  useEffect(() => {
+    if (viewMode === 'EMBEDDED') {
+      startProctoring();
+    } else {
+      stopProctoring();
+    }
+    return () => {
+      stopProctoring();
+    };
+  }, [viewMode, effectiveAttemptId]);
 
   // Hardware / Webcam preview
   const videoRef = useRef(null);
@@ -152,6 +182,14 @@ const AIInterview = () => {
               <span className={`w-2 h-2 rounded-full ${serverOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
               {serverOnline ? `AI Engine Online (Port 3000 · ${serverMeta?.gen || 'Active'})` : 'Connecting to AI Engine (Port 3000)...'}
             </span>
+            <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border flex items-center gap-1.5 ${
+              pythonProctorStatus?.isMonitoring
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                : 'bg-primary/10 text-primary border-primary/20'
+            }`}>
+              <ShieldCheck size={12} className={pythonProctorStatus?.isMonitoring ? 'text-emerald-500' : 'text-primary'} />
+              <span>{pythonProctorStatus?.isMonitoring ? 'AI Proctor Active' : 'Proctoring Supported'}</span>
+            </span>
           </div>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
             Conversational AI Technical Evaluation & Voice Room
@@ -196,6 +234,13 @@ const AIInterview = () => {
           </button>
         </div>
       </div>
+
+      {proctorWarning && (
+        <div className="p-3.5 bg-destructive/15 border border-destructive/30 rounded-2xl text-destructive text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+          <ShieldAlert size={16} className="shrink-0" />
+          <span>Proctor Warning: {proctorWarning}</span>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-2xl text-destructive text-sm flex items-center gap-2">

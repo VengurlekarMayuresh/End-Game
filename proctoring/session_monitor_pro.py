@@ -44,8 +44,9 @@ except Exception:
 
 TARGET_OBJECTS = {"cell phone", "laptop", "book"}
 
-DIR_PERSON_SS = "C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\person_screenshots"
-DIR_OBJ_SS = "C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\obj_screenshots"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DIR_PERSON_SS = os.path.join(BASE_DIR, "person_screenshots")
+DIR_OBJ_SS = os.path.join(BASE_DIR, "obj_screenshots")
 
 # =====================================================================
 # Aggregation Engine Configuration
@@ -1065,7 +1066,7 @@ if __name__ == "__main__":
             print("\nShutting down Proctoring Companion Server...")
             sys.exit(0)
     else:
-        monitor = SessionMonitorPro(camera_index=0, log_file="C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\session_log.csv")
+        monitor = SessionMonitorPro(camera_index=0, log_file=os.path.join(BASE_DIR, "session_log.csv"))
         try:
             monitor.run()
         except KeyboardInterrupt:

@@ -45,6 +45,8 @@ const startProctoringSession = async (req, res, next) => {
           throw err;
         }
       }
+    } else if (stage === 'INTERVIEW') {
+      attempt = { id: attemptId, studentId: student.id, status: 'IN_PROGRESS' };
     } else {
       return res.status(400).json({ message: 'Invalid stage' });
     }
@@ -64,6 +66,27 @@ const startProctoringSession = async (req, res, next) => {
     }
 
     try {
+      if (stage === 'INTERVIEW') {
+        // For AI interview rounds, store in memory session tracking
+        let session = mockProctoringSessions.find(s => s.testAttemptId === attemptId || s.id === attemptId);
+        if (session) {
+          return res.json({ session: { ...session, events: mockProctoringEvents.filter(e => e.sessionId === session.id) } });
+        }
+        session = {
+          id: 'proc-interview-' + Date.now(),
+          studentId: student.id,
+          stage: 'INTERVIEW',
+          testAttemptId: attemptId,
+          startedAt: new Date(),
+          completedAt: null,
+          status: 'ACTIVE',
+          riskScore: 0,
+          riskLevel: 'LOW'
+        };
+        mockProctoringSessions.push(session);
+        return res.status(201).json({ session: { ...session, events: [] } });
+      }
+
       // Check if a session already exists for this attempt.
       let session;
       if (stage === 'APTITUDE') {

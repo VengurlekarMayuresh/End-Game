@@ -4,9 +4,11 @@ import api from '../../lib/axios';
 import {
   Clock, AlertTriangle, CheckCircle2, Play, Send, ChevronRight, ChevronLeft,
   Sparkles, Database, Code, Cpu, BookOpen, Layers, Lock, ShieldAlert, Award,
-  Terminal, CheckCheck, XCircle, RotateCcw
+  Terminal, CheckCheck, XCircle, RotateCcw, Camera, ShieldCheck, Video
 } from 'lucide-react';
 import ViolationModal from '../../components/ViolationModal';
+import { useProctoring } from '../../hooks/useProctoring';
+import { useHardwareMonitor } from '../../hooks/useHardwareMonitor';
 
 const MAX_VIOLATIONS = 5;
 
@@ -45,8 +47,58 @@ const ResumeAptitudeTestInterface = () => {
   const [isFullscreen, setIsFullscreen] = useState(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [pasteWarning, setPasteWarning] = useState('');
+  const [proctorWarning, setProctorWarning] = useState(null);
   const [isFinished, setIsFinished] = useState(false);
   const [isSubmittingTest, setIsSubmittingTest] = useState(false);
+
+  const cameraVideoRef = useRef(null);
+  const proctorStartedRef = useRef(false);
+
+  // Companion Python Proctoring Hook (http://localhost:8765)
+  const {
+    status: pythonProctorStatus,
+    errorMsg: pythonProctorError,
+    startProctoring,
+    stopProctoring
+  } = useProctoring(
+    attempt?.id,
+    'APTITUDE',
+    (msg, eventType) => {
+      setPasteWarning(msg);
+      setProctorWarning({ message: msg, type: eventType });
+    }
+  );
+
+  // Camera & Mic Hardware Monitor
+  const {
+    hasPermissions: hardwarePermissions,
+    hardwareError,
+    isHardwareLost,
+    requestPermissions,
+    stream: hardwareStream
+  } = useHardwareMonitor(!isFinished && !loading);
+
+  // Bind hardware webcam stream to video element
+  useEffect(() => {
+    if (cameraVideoRef.current && hardwareStream) {
+      cameraVideoRef.current.srcObject = hardwareStream;
+    }
+  }, [hardwareStream]);
+
+  // Start proctoring companion when session is active
+  useEffect(() => {
+    if (!loading && !isFinished && attempt?.id && !proctorStartedRef.current) {
+      proctorStartedRef.current = true;
+      startProctoring();
+    }
+  }, [loading, isFinished, attempt?.id]);
+
+  // Stop proctoring on finish
+  useEffect(() => {
+    if (isFinished && proctorStartedRef.current) {
+      stopProctoring();
+    }
+  }, [isFinished]);
 
   const enterFullscreen = async () => {
     try {
@@ -420,19 +472,21 @@ const ResumeAptitudeTestInterface = () => {
 
   if (isFinished) {
     return (
-      <div className="max-w-2xl mx-auto bg-card border rounded-2xl p-10 text-center space-y-6 my-10 shadow-lg">
-        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-          <Award size={36} />
+      <div className="max-w-2xl mx-auto bg-card border rounded-2xl p-10 text-center space-y-6 my-10 shadow-lg animate-in fade-in duration-300">
+        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <CheckCircle2 size={36} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold">Role-Specific Aptitude Round Complete!</h2>
-          <p className="text-muted-foreground text-sm mt-1">Your responses have been recorded and graded automatically.</p>
+          <h2 className="text-2xl font-bold text-foreground">Assessment Completed Successfully!</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Your responses have been recorded and securely submitted for evaluation.
+          </p>
         </div>
 
-        <div className="p-4 bg-muted/40 rounded-xl text-left space-y-2 text-sm">
+        <div className="p-4 bg-muted/40 rounded-xl text-left space-y-2 text-sm border border-border/60">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Session Status:</span>
-            <span className="font-semibold text-emerald-600">COMPLETED</span>
+            <span className="font-semibold text-emerald-600">COMPLETED & SUBMITTED</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Round Duration:</span>
@@ -444,18 +498,24 @@ const ResumeAptitudeTestInterface = () => {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Evaluation Status:</span>
-            <span className="font-semibold text-primary">Submitted to Evaluation Engine</span>
+            <span className="font-semibold text-primary">Results Will Be Declared Soon</span>
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl px-5 py-4 text-xs text-foreground leading-relaxed text-left space-y-1.5">
+          <p className="font-bold flex items-center gap-1.5 text-primary">
+            <span>Next Steps:</span>
+          </p>
+          <p className="text-muted-foreground">
+            Results will be declared soon. Once the hiring team reviews your assessment performance and assigns you to the technical interview round, the interview session will be unlocked directly on your dashboard.
+          </p>
+        </div>
+
+        <div className="pt-2">
           <button
-            onClick={() => navigate('/student/interview')}
-            className="w-full px-6 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+            onClick={() => navigate('/student/dashboard')}
+            className="w-full px-6 py-3.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Sparkles size={18} /> Start AI Voice Interview
-          </button>
-          <button onClick={() => navigate('/student/tests')} className="w-full px-6 py-2.5 bg-secondary text-secondary-foreground rounded-xl font-semibold text-sm hover:bg-secondary/90 transition-all">
             Return to Student Dashboard
           </button>
         </div>
@@ -536,7 +596,24 @@ const ResumeAptitudeTestInterface = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold bg-muted/60">
+            <span className={`w-2 h-2 rounded-full ${
+              pythonProctorStatus === 'active' 
+                ? 'bg-green-500 animate-pulse' 
+                : pythonProctorStatus === 'issue'
+                ? 'bg-amber-500 animate-pulse'
+                : 'bg-muted-foreground'
+            }`} />
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {pythonProctorStatus === 'active' 
+                ? 'AI Monitor On' 
+                : pythonProctorStatus === 'issue'
+                ? 'Proctor Standby'
+                : 'Proctoring Ready'}
+            </span>
+          </div>
+
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${isFullscreen ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
             <Lock size={13} />
             <span>{isFullscreen ? 'Fullscreen Active' : 'Windowed'}</span>
@@ -1010,6 +1087,56 @@ const ResumeAptitudeTestInterface = () => {
               className="px-4 py-2 rounded-xl bg-muted text-foreground hover:bg-muted/80 text-xs font-medium flex items-center gap-1 disabled:opacity-40"
             >
               Next Question <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Camera Proctoring Picture-in-Picture Feed */}
+      {!loading && !isFinished && (
+        <div className="fixed bottom-5 right-5 z-40 bg-zinc-950/90 border-2 border-primary/40 rounded-2xl p-2 shadow-2xl backdrop-blur-md w-44 md:w-52">
+          <div className="relative aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center">
+            <video
+              ref={cameraVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1] rounded-xl"
+            />
+            <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-emerald-500/40">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">REC</span>
+            </div>
+            {pythonProctorStatus?.isMonitoring && (
+              <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-primary/80 text-[9px] font-mono font-bold text-white">
+                AI PROCTOR
+              </div>
+            )}
+          </div>
+          <div className="mt-1.5 text-center">
+            <p className="text-[10px] font-medium text-zinc-400 flex items-center justify-center gap-1">
+              <ShieldCheck size={11} className="text-primary" /> Camera Proctor Active
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Hardware Lost Reconnect Modal */}
+      {isHardwareLost && !isFinished && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-card border border-destructive/40 max-w-md w-full p-6 rounded-2xl shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 bg-destructive/10 text-destructive rounded-2xl flex items-center justify-center mx-auto">
+              <AlertTriangle size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-destructive">Camera / Mic Disconnected</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Your camera or microphone stream was interrupted. You must keep active camera monitoring to continue your assessment.
+            </p>
+            <button
+              onClick={requestPermissions}
+              className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              Reconnect Hardware Devices
             </button>
           </div>
         </div>
