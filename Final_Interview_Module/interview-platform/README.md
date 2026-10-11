@@ -6,7 +6,10 @@ Flow: **intake page** (job description + resume) -> AI parses and saves to the d
 Requires **Node.js 22.13 or newer** (uses Node's built-in SQLite, so nothing needs compiling — works on Windows without Visual Studio).
 1. `npm install`
 2. `cp .env.example .env` (Windows: `copy .env.example .env`) and paste your Groq key (https://console.groq.com)
-3. `npm start`, then open http://localhost:3000/intake.html  (use localhost or HTTPS — browsers block the mic otherwise)
+3. From the repository root, start the local proctoring companion in a separate terminal: `python proctoring\session_monitor_pro.py --server`
+4. `npm start`, then open http://localhost:3000/intake.html (use localhost or HTTPS — browsers block camera and microphone access otherwise)
+
+The interview room requires camera consent before it can start. It checks that the local proctoring companion is available, then starts camera monitoring with the interview and stops it when the interview ends. The live camera preview and proctoring alerts appear inside the interview page; alerts appear as short-lived notices and the companion does not open a separate camera window. Violation events are recorded in the proctoring session summary, and flagged screenshots are stored locally in the `proctoring` directory.
 
 ## Files
 - `server.js` – interview API, adaptive difficulty, LLM client (OpenAI-compatible), anti-repeat memory

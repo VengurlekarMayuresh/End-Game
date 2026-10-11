@@ -15,6 +15,9 @@ import json
 import cv2
 import numpy as np
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+from pupil import Pupil
 
 # =====================================================================
 # Feature-availability detection
@@ -22,6 +25,7 @@ import mediapipe as mp
 WINDOW_TRACKING = False
 try:
     import pygetwindow as gw
+
     gw.getActiveWindow()
     WINDOW_TRACKING = True
 except Exception:
@@ -31,6 +35,7 @@ AUDIO_AVAILABLE = False
 try:
     import sounddevice as sd
     from faster_whisper import WhisperModel
+
     AUDIO_AVAILABLE = True
 except Exception as e:
     print(f"Audio libraries unavailable. Captioning disabled. Error: {e}")
@@ -38,6 +43,7 @@ except Exception as e:
 YOLO_AVAILABLE = False
 try:
     from ultralytics import YOLO
+
     YOLO_AVAILABLE = True
 except Exception:
     pass
@@ -54,6 +60,8 @@ DIR_OBJ_SS = os.path.join(BASE_DIR, "obj_screenshots")
 BASE_WEIGHTS = {
     "LOOKING_AWAY": 5,
     "PUPIL_GAZE_AWAY": 7,
+    "EYE_LOOKING_LEFT": 8,
+    "EYE_LOOKING_RIGHT": 8,
     "NO_FACE": 12,
     "TAB_SWITCH": 8,
     "MULTIPLE_FACES": 15,
@@ -63,6 +71,8 @@ BASE_WEIGHTS = {
 MAX_CATEGORY_SCORE = {
     "LOOKING_AWAY": 20,
     "PUPIL_GAZE_AWAY": 25,
+    "EYE_LOOKING_LEFT": 25,
+    "EYE_LOOKING_RIGHT": 25,
     "NO_FACE": 25,
     "MULTIPLE_FACES": 35,
     "OBJECT": 30,
@@ -72,14 +82,18 @@ MAX_CATEGORY_SCORE = {
 PERSISTENCE_THRESHOLDS = {
     "LOOKING_AWAY": 2.0,
     "PUPIL_GAZE_AWAY": 1.5,
+    "EYE_LOOKING_LEFT": 10.0,
+    "EYE_LOOKING_RIGHT": 10.0,
     "NO_FACE": 2.0,
     "MULTIPLE_FACES": 1.5,
     "OBJECT": 1.0,
 }
 
+ALERT_CONFIRMATION_SECONDS = 0.35
 HEAD_YAW_THRESHOLD = 0.35
-PUPIL_AWAY_DURATION = 1.5
+PUPIL_AWAY_DURATION = 0.5
 PUPIL_ALERT_COOLDOWN = 3.0
+PUPIL_PERSISTENT_DIRECTION_DURATION = 10.0  # Alert if looking left/right for > 10s
 PUPIL_BINARY_THRESHOLD = 45
 PUPIL_MIN_CONTOUR_AREA = 8
 PUPIL_MAX_CONTOUR_AREA_RATIO = 0.45
@@ -87,7 +101,8 @@ PUPIL_LEFT_RATIO = 0.38
 PUPIL_RIGHT_RATIO = 0.62
 PUPIL_UP_RATIO = 0.38
 PUPIL_HEAD_CENTER_THRESHOLD = 0.22
-SHOW_GAZE_DEBUG = True
+SHOW_GAZE_DEBUG = False
+
 
 # =====================================================================
 # Helpers
@@ -98,7 +113,9 @@ def init_yolo_detector():
         print("  Loading YOLOv8-Nano model...")
         model = YOLO('yolov8n.pt')
         return model
-    except Exception: return None
+    except Exception:
+        return None
+
 
 def format_time(seconds):
     if seconds < 0: seconds = 0
@@ -108,13 +125,19 @@ def format_time(seconds):
     if m > 0: return f"{m}m {s:02d}s"
     return f"{s}s"
 
+
 def get_duration_factor(event_type, duration):
     if event_type == "TAB_SWITCH": return 1.0
+    if event_type in ["EYE_LOOKING_LEFT", "EYE_LOOKING_RIGHT"]:
+        if duration >= 20.0: return 2.0
+        if duration >= 15.0: return 1.5
+        return 1.2
     if event_type == "PUPIL_GAZE_AWAY" and duration >= PUPIL_AWAY_DURATION: return 1.0
     if duration < 2.0: return 0.0
     if duration <= 5.0: return 1.0
     if duration <= 10.0: return 1.5
     return 2.0
+
 
 def get_frequency_factor(count):
     if count == 1: return 1.0
@@ -123,110 +146,94 @@ def get_frequency_factor(count):
     if count <= 5: return 2.2
     return 2.8
 
+
 def generate_session_id():
     ts = datetime.now().strftime("%Y%m%d")
     rand_str = ''.join(random.choices(string.digits, k=5))
     return f"SES-{ts}-{rand_str}"
 
-def eye_on_mask(mask, side_points):
-    points = np.array(side_points, dtype=np.int32)
-    cv2.fillConvexPoly(mask, points, 255)
-    return mask
 
-def process_thresh(gray_eye):
-    _, thresh = cv2.threshold(gray_eye, PUPIL_BINARY_THRESHOLD, 255, cv2.THRESH_BINARY_INV)
-    thresh = cv2.erode(thresh, None, iterations=1)
-    thresh = cv2.dilate(thresh, None, iterations=2)
-    thresh = cv2.medianBlur(thresh, 3)
-    return thresh
+PUPIL_THRESHOLD = 55
+PUPIL_LEFT_THRESHOLD = 0.35
+PUPIL_RIGHT_THRESHOLD = 0.65
+PUPIL_UP_THRESHOLD = 0.35
+PUPIL_DOWN_THRESHOLD = 0.65
 
-def contouring(thresh):
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not contours:
-        return None
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area >= PUPIL_MIN_CONTOUR_AREA and area <= thresh.size * PUPIL_MAX_CONTOUR_AREA_RATIO:
-            return contour
-    return None
 
-def find_eyeball_position(contour, eye_rect):
-    if contour is None:
-        return None
-    moments = cv2.moments(contour)
-    if moments["m00"] == 0:
-        return None
-    cx = int(moments["m10"] / moments["m00"])
-    cy = int(moments["m01"] / moments["m00"])
-    x, y, width, height = eye_rect
-    if width <= 0 or height <= 0:
-        return None
-    return {
-        "center": (x + cx, y + cy),
-        "relative": (cx / width, cy / height),
-    }
+def get_eye_crop(gray_image, lm, eye_points, frame_width, frame_height):
+    points = np.array(
+        [(int(lm[i].x * frame_width), int(lm[i].y * frame_height)) for i in eye_points],
+        dtype=np.int32
+    )
 
-def print_eye_pos(relative_pos):
-    if relative_pos is None:
-        return "UNKNOWN"
-    rel_x, rel_y = relative_pos
-    if rel_y < PUPIL_UP_RATIO:
-        return "UP"
-    if rel_x < PUPIL_LEFT_RATIO:
-        return "LEFT"
-    if rel_x > PUPIL_RIGHT_RATIO:
-        return "RIGHT"
-    return "CENTER"
+    x, y, w, h = cv2.boundingRect(points)
 
-def detect_eye_direction(gray, lm, eye_indices, frame_width, frame_height):
-    eye_points = [
-        (int(lm[idx].x * frame_width), int(lm[idx].y * frame_height))
-        for idx in eye_indices
-    ]
-    if len(eye_points) < 4:
-        return None
+    pad_x = max(int(w * 0.15), 2)
+    pad_y = max(int(h * 0.50), 2)
 
-    x, y, width, height = cv2.boundingRect(np.array(eye_points, dtype=np.int32))
-    if width < 8 or height < 4:
-        return None
+    x1 = max(x - pad_x, 0)
+    y1 = max(y - pad_y, 0)
+    x2 = min(x + w + pad_x, gray_image.shape[1])
+    y2 = min(y + h + pad_y, gray_image.shape[0])
 
-    margin = 3
-    x1 = max(0, x - margin)
-    y1 = max(0, y - margin)
-    x2 = min(frame_width, x + width + margin)
-    y2 = min(frame_height, y + height + margin)
     if x2 <= x1 or y2 <= y1:
-        return None
+        return None, (x1, y1)
 
-    local_points = [(px - x1, py - y1) for px, py in eye_points]
-    mask = np.zeros((y2 - y1, x2 - x1), dtype=np.uint8)
-    eye_on_mask(mask, local_points)
+    eye_crop = gray_image[y1:y2, x1:x2]
+    return eye_crop, (x1, y1)
 
-    eye_region = cv2.bitwise_and(gray[y1:y2, x1:x2], gray[y1:y2, x1:x2], mask=mask)
-    thresh = process_thresh(eye_region)
-    thresh = cv2.bitwise_and(thresh, thresh, mask=mask)
-    contour = contouring(thresh)
-    pupil = find_eyeball_position(contour, (x1, y1, x2 - x1, y2 - y1))
-    if pupil is None:
-        return None
-
-    direction = print_eye_pos(pupil["relative"])
-    return {
-        "direction": direction,
-        "center": pupil["center"],
-        "relative": pupil["relative"],
-    }
 
 def detect_pupil_gaze(gray, lm, frame_width, frame_height):
-    # Six-point eye contours from MediaPipe Face Mesh.
-    left_eye = detect_eye_direction(gray, lm, [33, 160, 158, 133, 153, 144], frame_width, frame_height)
-    right_eye = detect_eye_direction(gray, lm, [362, 385, 387, 263, 373, 380], frame_width, frame_height)
-    if not left_eye or not right_eye:
-        return "UNKNOWN", []
-    if left_eye["direction"] != right_eye["direction"]:
-        return "UNKNOWN", [left_eye, right_eye]
-    return left_eye["direction"], [left_eye, right_eye]
+    left_eye_points = [33, 160, 158, 133, 153, 144]
+    right_eye_points = [362, 385, 387, 263, 373, 380]
+
+    left_eye, left_offset = get_eye_crop(gray, lm, left_eye_points, frame_width, frame_height)
+    right_eye, right_offset = get_eye_crop(gray, lm, right_eye_points, frame_width, frame_height)
+
+    if left_eye is None or right_eye is None:
+        return "UNKNOWN", [], {}
+
+    left_pupil = Pupil(left_eye, PUPIL_THRESHOLD)
+    right_pupil = Pupil(right_eye, PUPIL_THRESHOLD)
+
+    if left_pupil.x is None or left_pupil.y is None or right_pupil.x is None or right_pupil.y is None:
+        return "UNKNOWN", [], {}
+
+    left_x_ratio = left_pupil.x / max(left_eye.shape[1], 1)
+    left_y_ratio = left_pupil.y / max(left_eye.shape[0], 1)
+
+    right_x_ratio = right_pupil.x / max(right_eye.shape[1], 1)
+    right_y_ratio = right_pupil.y / max(right_eye.shape[0], 1)
+
+    # Average horizontal and vertical eye pupil position ratio
+    avg_x_ratio = (left_x_ratio + right_x_ratio) / 2.0
+    avg_y_ratio = (left_y_ratio + right_y_ratio) / 2.0
+
+    # Classify eye movement into LEFT, RIGHT, UP, DOWN, or CENTER
+    if (left_x_ratio < PUPIL_LEFT_THRESHOLD and right_x_ratio < PUPIL_LEFT_THRESHOLD) or avg_x_ratio < 0.38:
+        direction = "LEFT"
+    elif (left_x_ratio > PUPIL_RIGHT_THRESHOLD and right_x_ratio > PUPIL_RIGHT_THRESHOLD) or avg_x_ratio > 0.62:
+        direction = "RIGHT"
+    elif (left_y_ratio < PUPIL_UP_THRESHOLD and right_y_ratio < PUPIL_UP_THRESHOLD) or avg_y_ratio < 0.35:
+        direction = "UP"
+    elif (left_y_ratio > PUPIL_DOWN_THRESHOLD and right_y_ratio > PUPIL_DOWN_THRESHOLD) or avg_y_ratio > 0.65:
+        direction = "DOWN"
+    else:
+        direction = "CENTER"
+
+    pupil_data = [
+        {"center": (left_offset[0] + left_pupil.x, left_offset[1] + left_pupil.y)},
+        {"center": (right_offset[0] + right_pupil.x, right_offset[1] + right_pupil.y)}
+    ]
+
+    metrics = {
+        "avg_x_ratio": avg_x_ratio,
+        "avg_y_ratio": avg_y_ratio,
+        "left_x_ratio": left_x_ratio,
+        "right_x_ratio": right_x_ratio
+    }
+    return direction, pupil_data, metrics
+
 
 # =====================================================================
 # Face Tracker (Internal Use Only)
@@ -262,6 +269,7 @@ class FaceTracker:
             self.tracks[tid]["total_time"] += dt
         return matched_ids, new_ids, []
 
+
 # =====================================================================
 # Server State & HTTP Handler for Web Integration
 # =====================================================================
@@ -275,13 +283,17 @@ class ProctorServerState:
         self.events_queue = []
         self.lock = threading.Lock()
         self.summary_data = None
+        self.preview_frame = None
+        self.monitor = None
         self.server_mode = False
+
 
 server_state = ProctorServerState()
 
+
 class ProctoringHTTPHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        pass # Suppress server logging in console to keep it clean
+        pass  # Suppress server logging in console to keep it clean
 
     def _set_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -294,6 +306,24 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if self.path.split("?", 1)[0] == "/frame":
+            with server_state.lock:
+                frame = server_state.preview_frame
+            if frame is None:
+                self.send_response(503)
+                self._set_cors_headers()
+                self.end_headers()
+                return
+
+            self.send_response(200)
+            self._set_cors_headers()
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Content-Length", str(len(frame)))
+            self.end_headers()
+            self.wfile.write(frame)
+            return
+
         self.send_response(200)
         self._set_cors_headers()
         self.send_header("Content-Type", "application/json")
@@ -301,10 +331,12 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 
         if self.path == "/status":
             with server_state.lock:
+                monitor = server_state.monitor
                 status_info = {
                     "status": "running" if server_state.is_monitoring else "idle",
                     "attemptId": server_state.attempt_id,
-                    "stage": server_state.stage
+                    "stage": server_state.stage,
+                    "activeAlerts": monitor.get_active_alerts() if monitor else []
                 }
             self.wfile.write(json.dumps(status_info).encode("utf-8"))
 
@@ -324,7 +356,7 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
-        
+
         try:
             body = json.loads(post_data)
         except Exception:
@@ -333,22 +365,23 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
         if self.path == "/start":
             attempt_id = body.get("attemptId")
             stage = body.get("stage", "APTITUDE").upper()
-            
+
             with server_state.lock:
                 server_state.attempt_id = attempt_id
                 server_state.stage = stage
                 server_state.events_queue.clear()
                 server_state.summary_data = None
+                server_state.preview_frame = None
                 server_state.start_requested = True
-            
+
             self.wfile.write(json.dumps({"status": "ok", "message": "Proctoring start requested"}).encode("utf-8"))
 
         elif self.path == "/stop":
             with server_state.lock:
                 server_state.stop_requested = True
-            
+
             # Wait for monitoring loop to terminate and set summary_data
-            retries = 50 # 5 seconds
+            retries = 50  # 5 seconds
             while retries > 0:
                 with server_state.lock:
                     if not server_state.is_monitoring:
@@ -358,18 +391,19 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 
             with server_state.lock:
                 summary = server_state.summary_data
-            
+
             self.wfile.write(json.dumps({"status": "ok", "summary": summary}).encode("utf-8"))
         else:
             self.wfile.write(json.dumps({"error": "Not Found"}).encode("utf-8"))
+
 
 # =====================================================================
 # Main Monitor
 # =====================================================================
 class SessionMonitorPro:
-    def __init__(self, camera_index=0, log_file="C:\\Users\\Sanika\\Desktop\\Project\\End-Game\\proctoring\\session_log.csv"):
+    def __init__(self, camera_index=0, log_file=None):
         self.camera_index = camera_index
-        self.log_file = log_file
+        self.log_file = log_file or os.path.join(BASE_DIR, "session_log.csv")
         self.events = []
         self.running = False
         self.start_time = None
@@ -384,14 +418,14 @@ class SessionMonitorPro:
             "MULTIPLE_FACES": {"active": False, "start_time": 0, "max_conf": 0.0},
             "OBJECT": {"active": False, "start_time": 0, "max_conf": 0.0},
         }
-        
+
         # Aggregation metrics
         self.event_counts = defaultdict(int)
         self.category_scores = defaultdict(float)
         self.event_timeline = []
         self.critical_flags = []
         self.event_stats = defaultdict(lambda: {"count": 0, "duration": 0.0})
-        
+
         # Time tracking
         self.total_on_screen_time = 0.0
         self.total_off_screen_time = 0.0  # Candidate Absence (NO_FACE)
@@ -401,9 +435,8 @@ class SessionMonitorPro:
         self.longest_absence = 0.0
         self.longest_look_away = 0.0
         self.longest_multi_face_duration = 0.0
-        
+
         self.current_absence_duration = 0.0
-        self.current_look_away_duration = 0.0
         self.pupil_direction = "CENTER"
         self.pupil_away_start_time = None
         self.pupil_alert_triggered = False
@@ -411,7 +444,26 @@ class SessionMonitorPro:
         self.pupil_alert_visible_until = 0.0
         self.last_pupil_points = []
         self.pupil_unknown_start_time = None
-        
+        self.pupil_alert_text = "WARNING: You are looking away from the screen"
+
+        # Dedicated Eye Movement / Pupil Position Tracker (> 10s alert)
+        self.eye_state = "CENTER"
+        self.eye_left_start_time = None
+        self.eye_right_start_time = None
+        self.eye_left_alert_triggered = False
+        self.eye_right_alert_triggered = False
+        self.eye_left_critical_flagged = False
+        self.eye_right_critical_flagged = False
+        self.total_eye_left_duration = 0.0
+        self.total_eye_right_duration = 0.0
+        self.longest_eye_left_duration = 0.0
+        self.longest_eye_right_duration = 0.0
+        self.current_eye_left_duration = 0.0
+        self.current_eye_right_duration = 0.0
+        self.eye_alert_visible_until = 0.0
+        self.eye_alert_text = ""
+        self.pupil_movement_metrics = {}
+
         # Monitoring Quality Metrics
         self.frames_received = 0
         self.frames_failed = 0
@@ -419,32 +471,100 @@ class SessionMonitorPro:
         self.camera_was_disconnected = False
         self.total_face_confidence = 0.0
         self.confidence_checks = 0
-        
+
         self.face_tracker = FaceTracker()
         self.current_frame = None
         self.last_window_title = None
 
-        # MediaPipe & YOLO
-        self.mp_face_det = mp.solutions.face_detection
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_detector = self.mp_face_det.FaceDetection(model_selection=0, min_detection_confidence=0.5)
-        self.face_mesh = self.mp_face_mesh.FaceMesh(max_num_faces=5, refine_landmarks=True, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+        # MediaPipe Tasks API & YOLO
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Face Detector
+        face_detector_model = os.path.join(base_dir, "blaze_face_short_range.tflite")
+        face_detector_options = vision.FaceDetectorOptions(
+            base_options=python.BaseOptions(model_asset_path=face_detector_model),
+            min_detection_confidence=0.5
+        )
+        self.face_detector = vision.FaceDetector.create_from_options(face_detector_options)
+
+        # Face Landmarker
+        face_landmarker_model = os.path.join(base_dir, "face_landmarker.task")
+        face_landmarker_options = vision.FaceLandmarkerOptions(
+            base_options=python.BaseOptions(model_asset_path=face_landmarker_model),
+            running_mode=vision.RunningMode.IMAGE,
+            num_faces=5,
+            min_face_detection_confidence=0.5,
+            min_face_presence_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+        self.face_mesh = vision.FaceLandmarker.create_from_options(face_landmarker_options)
+
         self.yolo_model = None
+
+        # --- dlib gaze tracker (optional add-on) ---
+        self.dlib_gaze = None
+        try:
+            from gaze_fallback import DlibGazeTracker
+            self.dlib_gaze = DlibGazeTracker()
+            print("  dlib gaze tracker: loaded")
+        except Exception as e:
+            print(f"  dlib gaze tracker: unavailable ({e})")
+
         self.obj_flag_text = ""
         self.obj_flag_time = 0.0
         self.last_mesh_time = 0.0
-        self.mesh_interval = 0.15 
+        self.mesh_interval = 0.15
 
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+
     # Event Engine
     # ------------------------------------------------------------------
+    def get_active_alerts(self):
+        now = time.time()
+        alerts = []
+
+        for event_type in ("LOOKING_AWAY", "NO_FACE", "MULTIPLE_FACES", "OBJECT"):
+            state = self.active_states[event_type]
+            if not state["active"]:
+                continue
+            duration = now - state["start_time"]
+            if duration >= PERSISTENCE_THRESHOLDS.get(event_type, 1.0):
+                alert = {"type": event_type, "duration": duration}
+                if event_type == "OBJECT" and state.get("object_name"):
+                    alert["metadata"] = f"Detected {state['object_name']}"
+                alerts.append(alert)
+
+        if self.pupil_away_start_time is not None:
+            duration = now - self.pupil_away_start_time
+            if duration >= PUPIL_AWAY_DURATION:
+                alerts.append({
+                    "type": "PUPIL_GAZE_AWAY",
+                    "duration": duration,
+                    "direction": self.pupil_direction
+                })
+
+        if self.eye_left_start_time is not None and now - self.eye_left_start_time >= PUPIL_PERSISTENT_DIRECTION_DURATION:
+            alerts.append({
+                "type": "EYE_LOOKING_LEFT",
+                "duration": now - self.eye_left_start_time,
+                "direction": "LEFT"
+            })
+        if self.eye_right_start_time is not None and now - self.eye_right_start_time >= PUPIL_PERSISTENT_DIRECTION_DURATION:
+            alerts.append({
+                "type": "EYE_LOOKING_RIGHT",
+                "duration": now - self.eye_right_start_time,
+                "direction": "RIGHT"
+            })
+
+        return alerts
+
     def log_event(self, message, level="info"):
         ts = datetime.now().strftime("%H:%M:%S")
         self.events.append((ts, level.upper(), message))
 
     def update_state(self, state_name, is_detected, confidence=0.9):
         state = self.active_states[state_name]
-        
+
         # Cross-event Correlation
         if state_name == "NO_FACE" and is_detected and self.active_states["LOOKING_AWAY"]["active"]:
             self.finalize_state("LOOKING_AWAY")
@@ -454,10 +574,24 @@ class SessionMonitorPro:
                 state["active"] = True
                 state["start_time"] = time.time()
                 state["max_conf"] = confidence
+                state["alert_emitted"] = False
                 if state_name in ["MULTIPLE_FACES", "OBJECT"] and self.current_frame is not None:
                     state["screenshot_frame"] = self.current_frame.copy()
             else:
                 state["max_conf"] = max(state["max_conf"], confidence)
+            duration = time.time() - state["start_time"]
+            if (
+                state_name in ["LOOKING_AWAY", "NO_FACE", "MULTIPLE_FACES", "OBJECT"]
+                and duration >= ALERT_CONFIRMATION_SECONDS
+                and not state.get("alert_emitted", False)
+            ):
+                metadata = (
+                    f"Detected {state['object_name']}"
+                    if state_name == "OBJECT" and state.get("object_name")
+                    else ""
+                )
+                self.emit_proctor_alert(state_name, duration, state["max_conf"], metadata)
+                state["alert_emitted"] = True
         else:
             if state["active"]:
                 state["active"] = False
@@ -467,29 +601,51 @@ class SessionMonitorPro:
         state = self.active_states[state_name]
         duration = time.time() - state["start_time"]
         threshold = PERSISTENCE_THRESHOLDS.get(state_name, 1.0)
-        if duration >= threshold:
+        if duration >= threshold or state.get("alert_emitted", False):
+            metadata = (
+                f"Detected {state['object_name']}"
+                if state_name == "OBJECT" and state.get("object_name")
+                else ""
+            )
             self.register_event(
                 state_name,
                 duration,
                 state["max_conf"],
-                screenshot_frame=state.get("screenshot_frame")
+                metadata=metadata,
+                screenshot_frame=state.get("screenshot_frame"),
+                notify=not state.get("alert_emitted", False)
             )
         state["screenshot_frame"] = None
 
-    def register_event(self, event_type, duration, confidence, metadata="", screenshot_frame=None):
+    def emit_proctor_alert(self, event_type, duration, confidence, metadata=""):
+        if not server_state.server_mode:
+            return
+        event_obj = {
+            "type": event_type,
+            "duration": duration,
+            "confidence": confidence,
+            "timestamp": datetime.now().isoformat(),
+            "severity": "CRITICAL" if event_type in ["MULTIPLE_FACES", "OBJECT"] else "WARNING",
+            "metadata": metadata
+        }
+        with server_state.lock:
+            server_state.events_queue.append(event_obj)
+
+    def register_event(self, event_type, duration, confidence, metadata="", screenshot_frame=None, notify=True):
         self.event_counts[event_type] += 1
         count = self.event_counts[event_type]
-        
+
         dur_factor = get_duration_factor(event_type, duration)
         freq_factor = get_frequency_factor(count)
         base_weight = BASE_WEIGHTS[event_type]
-        
+
         event_score = base_weight * dur_factor * confidence * freq_factor
-        self.category_scores[event_type] = min(MAX_CATEGORY_SCORE[event_type], self.category_scores[event_type] + event_score)
-        
+        self.category_scores[event_type] = min(MAX_CATEGORY_SCORE[event_type],
+                                               self.category_scores[event_type] + event_score)
+
         self.event_stats[event_type]["count"] += 1
         self.event_stats[event_type]["duration"] += duration
-        
+
         if event_type == "MULTIPLE_FACES":
             self.longest_multi_face_duration = max(self.longest_multi_face_duration, duration)
             if duration > 5.0:
@@ -498,30 +654,21 @@ class SessionMonitorPro:
             self.critical_flags.append(f"Extended candidate absence ({duration:.0f}s)")
         elif event_type == "OBJECT":
             self.critical_flags.append(f"Prohibited object detected")
-            
+
         self.event_timeline.append({
             "time": datetime.now().strftime("%H:%M:%S"),
             "type": event_type.replace("_", " ").title(),
             "duration": duration
         })
-        
-        msg = f"EVENT: {event_type} | Dur: {duration:.1f}s | Conf: {confidence*100:.0f}% | +{event_score:.1f} pts"
+
+        msg = f"EVENT: {event_type} | Dur: {duration:.1f}s | Conf: {confidence * 100:.0f}% | +{event_score:.1f} pts"
         if metadata:
             msg += f" | {metadata}"
         self.log_event(msg, "bad")
 
-        if server_state.server_mode:
-            event_obj = {
-                "type": event_type,
-                "duration": duration,
-                "confidence": confidence,
-                "timestamp": datetime.now().isoformat(),
-                "severity": "CRITICAL" if event_type in ["MULTIPLE_FACES", "OBJECT"] else "WARNING",
-                "metadata": metadata
-            }
-            with server_state.lock:
-                server_state.events_queue.append(event_obj)
-        
+        if notify:
+            self.emit_proctor_alert(event_type, duration, confidence, metadata)
+
         frame_to_save = screenshot_frame if screenshot_frame is not None else self.current_frame
         if frame_to_save is not None and event_type in ["MULTIPLE_FACES", "OBJECT"]:
             folder = DIR_PERSON_SS if event_type == "MULTIPLE_FACES" else DIR_OBJ_SS
@@ -531,15 +678,16 @@ class SessionMonitorPro:
             if not cv2.imwrite(screenshot_path, frame_to_save):
                 self.log_event(f"Failed to save screenshot: {screenshot_path}", "error")
             if event_type == "OBJECT":
-                self.obj_flag_text = f"FLAG: OBJECT DETECTED ({confidence*100:.0f}%)"
+                self.obj_flag_text = f"FLAG: OBJECT DETECTED ({confidence * 100:.0f}%)"
                 self.obj_flag_time = time.time()
 
     def register_instant_event(self, event_type, confidence=1.0, metadata=""):
         self.event_counts[event_type] += 1
         count = self.event_counts[event_type]
         event_score = BASE_WEIGHTS[event_type] * get_frequency_factor(count)
-        self.category_scores[event_type] = min(MAX_CATEGORY_SCORE[event_type], self.category_scores[event_type] + event_score)
-        
+        self.category_scores[event_type] = min(MAX_CATEGORY_SCORE[event_type],
+                                               self.category_scores[event_type] + event_score)
+
         self.event_stats[event_type]["count"] += 1
         self.event_timeline.append({
             "time": datetime.now().strftime("%H:%M:%S"),
@@ -560,11 +708,16 @@ class SessionMonitorPro:
             with server_state.lock:
                 server_state.events_queue.append(event_obj)
 
-    def update_pupil_gaze_state(self, gaze_direction, now):
+    def update_pupil_gaze_state(self, gaze_direction, now, metrics=None):
         self.pupil_direction = gaze_direction
+        self.eye_state = gaze_direction
+        if metrics:
+            self.pupil_movement_metrics = metrics
+
         if gaze_direction != "UNKNOWN":
             self.pupil_unknown_start_time = None
 
+        # --- 1. General Pupil Gaze Away Alert (cooldown/warning) ---
         if gaze_direction in ["LEFT", "RIGHT", "UP"]:
             if self.pupil_away_start_time is None:
                 self.pupil_away_start_time = now
@@ -575,23 +728,140 @@ class SessionMonitorPro:
                 self.pupil_alert_triggered = True
                 self.last_pupil_alert_time = now
                 self.pupil_alert_visible_until = now + PUPIL_ALERT_COOLDOWN
+                self.pupil_alert_text = f"WARNING: Pupil looking {gaze_direction}! Keep eyes on screen"
                 self.register_event(
                     "PUPIL_GAZE_AWAY",
                     away_duration,
                     0.90,
-                    metadata=f"You are looking away from the screen. Gaze: {gaze_direction}"
+                    metadata=f"Pupil looking {gaze_direction} (off-screen eye movement)"
                 )
         elif gaze_direction == "CENTER":
             self.pupil_away_start_time = None
             self.pupil_alert_triggered = False
+
+        # --- 2. Specific Eye Movement: Looking LEFT / RIGHT for > 10 Seconds ---
+        if gaze_direction == "LEFT":
+            if self.eye_left_start_time is None:
+                self.eye_left_start_time = now
+            # Reset right tracking
+            self.eye_right_start_time = None
+            self.eye_right_alert_triggered = False
+            self.current_eye_right_duration = 0.0
+
+            left_dur = now - self.eye_left_start_time
+            self.current_eye_left_duration = left_dur
+            self.longest_eye_left_duration = max(self.longest_eye_left_duration, left_dur)
+
+            if left_dur >= ALERT_CONFIRMATION_SECONDS and not self.eye_left_alert_triggered:
+                self.eye_left_alert_triggered = True
+                self.eye_alert_visible_until = now + 4.0
+                self.eye_alert_text = f"ALERT: Pupil looking LEFT ({left_dur:.1f}s)"
+                self.emit_proctor_alert(
+                    "EYE_LOOKING_LEFT",
+                    left_dur,
+                    0.95,
+                    metadata=f"Candidate pupil positioned LEFT for {left_dur:.1f}s"
+                )
+            if left_dur >= PUPIL_PERSISTENT_DIRECTION_DURATION and not self.eye_left_critical_flagged:
+                self.eye_left_critical_flagged = True
+                self.critical_flags.append(f"Pupil positioned LEFT for prolonged period ({left_dur:.1f}s)")
+
+        elif gaze_direction == "RIGHT":
+            if self.eye_right_start_time is None:
+                self.eye_right_start_time = now
+            # Reset left tracking
+            self.eye_left_start_time = None
+            self.eye_left_alert_triggered = False
+            self.current_eye_left_duration = 0.0
+
+            right_dur = now - self.eye_right_start_time
+            self.current_eye_right_duration = right_dur
+            self.longest_eye_right_duration = max(self.longest_eye_right_duration, right_dur)
+
+            if right_dur >= ALERT_CONFIRMATION_SECONDS and not self.eye_right_alert_triggered:
+                self.eye_right_alert_triggered = True
+                self.eye_alert_visible_until = now + 4.0
+                self.eye_alert_text = f"ALERT: Pupil looking RIGHT ({right_dur:.1f}s)"
+                self.emit_proctor_alert(
+                    "EYE_LOOKING_RIGHT",
+                    right_dur,
+                    0.95,
+                    metadata=f"Candidate pupil positioned RIGHT for {right_dur:.1f}s"
+                )
+            if right_dur >= PUPIL_PERSISTENT_DIRECTION_DURATION and not self.eye_right_critical_flagged:
+                self.eye_right_critical_flagged = True
+                self.critical_flags.append(f"Pupil positioned RIGHT for prolonged period ({right_dur:.1f}s)")
+
+        elif gaze_direction == "CENTER":
+            # Accumulate totals when leaving LEFT / RIGHT states
+            if self.eye_left_start_time is not None:
+                left_duration = now - self.eye_left_start_time
+                self.total_eye_left_duration += left_duration
+                if self.eye_left_alert_triggered:
+                    self.register_event(
+                        "EYE_LOOKING_LEFT",
+                        left_duration,
+                        0.95,
+                        metadata=f"Candidate pupil positioned LEFT for {left_duration:.1f}s",
+                        notify=False
+                    )
+                self.eye_left_start_time = None
+                self.eye_left_alert_triggered = False
+                self.eye_left_critical_flagged = False
+                self.current_eye_left_duration = 0.0
+
+            if self.eye_right_start_time is not None:
+                right_duration = now - self.eye_right_start_time
+                self.total_eye_right_duration += right_duration
+                if self.eye_right_alert_triggered:
+                    self.register_event(
+                        "EYE_LOOKING_RIGHT",
+                        right_duration,
+                        0.95,
+                        metadata=f"Candidate pupil positioned RIGHT for {right_duration:.1f}s",
+                        notify=False
+                    )
+                self.eye_right_start_time = None
+                self.eye_right_alert_triggered = False
+                self.eye_right_critical_flagged = False
+                self.current_eye_right_duration = 0.0
         else:
-            # UNKNOWN is usually a blink, glare, or missed contour. Tolerate a
-            # brief miss, then reset so unreliable frames cannot create alerts.
+            # UNKNOWN - allow small flicker tolerance
             if self.pupil_unknown_start_time is None:
                 self.pupil_unknown_start_time = now
-            elif now - self.pupil_unknown_start_time > 0.4:
+            elif now - self.pupil_unknown_start_time > 0.8:
                 self.pupil_away_start_time = None
                 self.pupil_alert_triggered = False
+                if self.eye_left_start_time is not None:
+                    left_duration = now - self.eye_left_start_time
+                    self.total_eye_left_duration += left_duration
+                    if self.eye_left_alert_triggered:
+                        self.register_event(
+                            "EYE_LOOKING_LEFT",
+                            left_duration,
+                            0.95,
+                            metadata=f"Candidate pupil positioned LEFT for {left_duration:.1f}s",
+                            notify=False
+                        )
+                    self.eye_left_start_time = None
+                    self.eye_left_alert_triggered = False
+                    self.eye_left_critical_flagged = False
+                    self.current_eye_left_duration = 0.0
+                if self.eye_right_start_time is not None:
+                    right_duration = now - self.eye_right_start_time
+                    self.total_eye_right_duration += right_duration
+                    if self.eye_right_alert_triggered:
+                        self.register_event(
+                            "EYE_LOOKING_RIGHT",
+                            right_duration,
+                            0.95,
+                            metadata=f"Candidate pupil positioned RIGHT for {right_duration:.1f}s",
+                            notify=False
+                        )
+                    self.eye_right_start_time = None
+                    self.eye_right_alert_triggered = False
+                    self.eye_right_critical_flagged = False
+                    self.current_eye_right_duration = 0.0
 
     # ------------------------------------------------------------------
     # Threads & Drawing
@@ -605,14 +875,16 @@ class SessionMonitorPro:
                     if title and self.last_window_title and title != self.last_window_title:
                         self.register_instant_event("TAB_SWITCH", metadata=f"Switched to: {title}")
                     if title: self.last_window_title = title
-                except Exception: pass
+                except Exception:
+                    pass
             time.sleep(0.5)
 
     def audio_worker(self):
         if not self.audio_active: return
         try:
             model = WhisperModel("tiny", device="cpu", compute_type="int8")
-        except Exception: return
+        except Exception:
+            return
 
         phrase_queue = queue.Queue()
         state = {'speaking': False, 'silence': 0.0, 'buffer': []}
@@ -620,7 +892,7 @@ class SessionMonitorPro:
         def audio_callback(indata, frames, time_info, status):
             if self.muted or not self.running: return
             audio_data = indata[:, 0].astype(np.float32) / 32768.0
-            volume = np.sqrt(np.mean(audio_data**2))
+            volume = np.sqrt(np.mean(audio_data ** 2))
             if volume > 0.015:
                 state['speaking'] = True
                 state['silence'] = 0.0
@@ -640,14 +912,17 @@ class SessionMonitorPro:
                 while self.running:
                     try:
                         phrase = phrase_queue.get(timeout=1)
-                    except queue.Empty: continue
+                    except queue.Empty:
+                        continue
                     audio_np = np.array(phrase, dtype=np.float32)
                     try:
                         segments, _ = model.transcribe(audio_np, beam_size=1, language="en")
                         text = " ".join([seg.text.strip() for seg in segments]).strip()
                         if text: self.log_event(f"CAPTION: {text}", "info")
-                    except Exception: pass
-        except Exception: pass
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     def draw_ui(self, frame, w):
         now = time.time()
@@ -667,24 +942,41 @@ class SessionMonitorPro:
             # Flashing effect
             alpha = 0.85 if int(now * 2.0) % 2 == 0 else 0.60
             cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-            cv2.putText(frame, "WARNING: PLEASE LOOK AT THE SCREEN!", (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, "WARNING: PLEASE LOOK AT THE SCREEN!", (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.85,
+                        (255, 255, 255), 2, cv2.LINE_AA)
             banner_offset = 55
 
-        # 2. Pupil-gaze warning banner
+        # 2. Eye Movement / Pupil Position Warning Banner (> 10s persistent alert)
+        show_eye_10s_alert = now < self.eye_alert_visible_until
+        if show_eye_10s_alert:
+            overlay = frame.copy()
+            y_start = banner_offset
+            y_end = banner_offset + 55
+            # Urgent red banner with pulsing effect
+            cv2.rectangle(overlay, (0, y_start), (w, y_end), (0, 0, 255), -1)
+            alpha = 0.90 if int(now * 3.0) % 2 == 0 else 0.65
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+            cv2.putText(frame, self.eye_alert_text, (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.78, (255, 255, 255),
+                        2, cv2.LINE_AA)
+            banner_offset += 55
+
+        # 3. Off-Screen Pupil Movement Banner
         show_pupil_banner = (
-            self.pupil_away_start_time is not None
-            and now - self.pupil_away_start_time >= PUPIL_AWAY_DURATION
-        ) or now < self.pupil_alert_visible_until
-        if show_pupil_banner:
+                                    self.pupil_away_start_time is not None
+                                    and now - self.pupil_away_start_time >= PUPIL_AWAY_DURATION
+                            ) or now < self.pupil_alert_visible_until
+        if show_pupil_banner and not show_eye_10s_alert:
             overlay = frame.copy()
             y_start = banner_offset
             y_end = banner_offset + 55
             cv2.rectangle(overlay, (0, y_start), (w, y_end), (0, 0, 220), -1)
             alpha = 0.85 if int(now * 2.0) % 2 == 0 else 0.60
             cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-            cv2.putText(frame, "WARNING: You are looking away from the screen", (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.78, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, self.pupil_alert_text, (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.78,
+                        (255, 255, 255), 2, cv2.LINE_AA)
             banner_offset += 55
 
+        # 4. Multiple people warning banner
         multiple_faces_state = self.active_states.get("MULTIPLE_FACES", {})
         if (
             multiple_faces_state.get("active", False)
@@ -709,12 +1001,29 @@ class SessionMonitorPro:
             )
             banner_offset += 55
 
+        # Eye Movement HUD & Pupil Tracking display in place of generic gaze
         if SHOW_GAZE_DEBUG:
-            cv2.putText(frame, f"Gaze: {self.pupil_direction}", (20, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (30, 255, 255), 2, cv2.LINE_AA)
-            for point in self.last_pupil_points:
-                cv2.circle(frame, point, 3, (0, 255, 255), -1, cv2.LINE_AA)
+            # Color code pupil classification: Green if CENTER, Yellow/Red if LEFT/RIGHT
+            eye_col = (0, 255, 100) if self.pupil_direction == "CENTER" else (0, 165, 255) if self.pupil_direction in [
+                "LEFT", "RIGHT"] else (200, 200, 200)
 
-        # 3. Object detection warning banner
+            # Display real-time measured eye movement & pupil position
+            curr_dur_text = ""
+            if self.pupil_direction == "LEFT" and self.eye_left_start_time:
+                curr_dur_text = f" ({now - self.eye_left_start_time:.1f}s)"
+            elif self.pupil_direction == "RIGHT" and self.eye_right_start_time:
+                curr_dur_text = f" ({now - self.eye_right_start_time:.1f}s)"
+
+            cv2.putText(frame, f"Eye Movement: {self.pupil_direction}{curr_dur_text}", (20, frame.shape[0] - 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, eye_col, 2, cv2.LINE_AA)
+
+            # Draw pupil centers with crosshair
+            for point in self.last_pupil_points:
+                px, py = point
+                cv2.circle(frame, (px, py), 4, (0, 255, 255), -1, cv2.LINE_AA)
+                cv2.circle(frame, (px, py), 8, (0, 200, 255), 1, cv2.LINE_AA)
+
+        # 5. Object detection warning banner
         if now - self.obj_flag_time < 4.0:
             alpha = max(0.0, 1.0 - (now - self.obj_flag_time) / 4.0)
             overlay = frame.copy()
@@ -722,8 +1031,9 @@ class SessionMonitorPro:
             y_end = banner_offset + 55
             cv2.rectangle(overlay, (0, y_start), (w, y_end), (0, 0, 220), -1)
             cv2.addWeighted(overlay, alpha * 0.85, frame, 1 - (alpha * 0.85), 0, frame)
-            cv2.putText(frame, self.obj_flag_text, (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (255, 255, 255), 2, cv2.LINE_AA)
-        
+            cv2.putText(frame, self.obj_flag_text, (20, y_start + 38), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (255, 255, 255),
+                        2, cv2.LINE_AA)
+
         cx, cy = w - 40, 40
         color = (0, 200, 80) if not self.muted else (0, 0, 220)
         cv2.circle(frame, (cx, cy - 4), 10, color, 2, cv2.LINE_AA)
@@ -732,7 +1042,8 @@ class SessionMonitorPro:
         if self.muted:
             cv2.line(frame, (cx - 14, cy - 14), (cx + 14, cy + 14), (0, 0, 255), 3, cv2.LINE_AA)
             cv2.line(frame, (cx + 14, cy - 14), (cx - 14, cy + 14), (0, 0, 255), 3, cv2.LINE_AA)
-        cv2.putText(frame, "MUTED" if self.muted else "MIC ON", (cx - 26, cy + 36), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
+        cv2.putText(frame, "MUTED" if self.muted else "MIC ON", (cx - 26, cy + 36), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                    color, 1, cv2.LINE_AA)
 
     # ------------------------------------------------------------------
     # Main Loop
@@ -774,7 +1085,7 @@ class SessionMonitorPro:
                 now = time.time()
                 dt = now - prev_time
                 prev_time = now
-                
+
                 # Camera Failure Detection
                 if not ok:
                     self.frames_failed += 1
@@ -795,7 +1106,7 @@ class SessionMonitorPro:
                             with server_state.lock:
                                 server_state.events_queue.append(event_obj)
                     continue
-                
+
                 if self.camera_was_disconnected:
                     self.camera_was_disconnected = False
                     self.log_event("Camera reconnected", "info")
@@ -817,25 +1128,38 @@ class SessionMonitorPro:
                 rgb = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2RGB)
                 gray = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2GRAY)
 
-                # 1. Face Detection
-                det_result = self.face_detector.process(rgb)
+                # 1. Face Detection (MediaPipe Tasks API)
+                mp_image = mp.Image(
+                    image_format=mp.ImageFormat.SRGB,
+                    data=rgb
+                )
+
+                det_result = self.face_detector.detect(mp_image)
                 faces = det_result.detections or []
-                high_conf_faces = [d for d in faces if d.score and d.score[0] > 0.50]
+
+                high_conf_faces = [
+                    d for d in faces
+                    if d.categories and d.categories[0].score > 0.50
+                ]
                 face_count = len(high_conf_faces)
-                
+
                 if face_count > 0:
-                    self.total_face_confidence += high_conf_faces[0].score[0]
+                    self.total_face_confidence += high_conf_faces[0].categories[0].score
                     self.confidence_checks += 1
 
                 self.update_state("NO_FACE", face_count == 0, 0.95)
-                self.update_state("MULTIPLE_FACES", face_count > 1, high_conf_faces[1].score[0] if face_count > 1 else 0.9)
+                self.update_state(
+                    "MULTIPLE_FACES",
+                    face_count > 1,
+                    high_conf_faces[1].categories[0].score if face_count > 1 else 0.9
+                )
 
                 # 2. Face Mesh, Head Yaw & Independent Pupil Gaze
                 if face_count == 1 and (now - self.last_mesh_time) >= self.mesh_interval:
                     self.last_mesh_time = now
-                    mesh_result = self.face_mesh.process(rgb)
-                    if mesh_result.multi_face_landmarks:
-                        lm = mesh_result.multi_face_landmarks[0].landmark
+                    mesh_result = self.face_mesh.detect(mp_image)
+                    if mesh_result.face_landmarks:
+                        lm = mesh_result.face_landmarks[0]
                         nose_x = lm[1].x * w
                         mid_x = (lm[33].x + lm[263].x) / 2 * w
                         span = abs(lm[263].x - lm[33].x) * w
@@ -844,16 +1168,28 @@ class SessionMonitorPro:
                         self.update_state("LOOKING_AWAY", head_away, 0.85)
 
                         if abs(yaw) <= PUPIL_HEAD_CENTER_THRESHOLD:
-                            gaze_direction, pupil_data = detect_pupil_gaze(gray, lm, w, h)
+                            gaze_direction, pupil_data, metrics = detect_pupil_gaze(gray, lm, w, h)
+                            # Only trust a non-center gaze if the independent
+                            # dlib tracker agrees (cuts false positives)
+                            if self.dlib_gaze is not None and gaze_direction in ("LEFT", "RIGHT", "UP"):
+                                dlib_dir, _ = self.dlib_gaze.detect(self.current_frame)
+                                if dlib_dir != gaze_direction:
+                                    gaze_direction = "UNKNOWN"
+
                             self.last_pupil_points = [item["center"] for item in pupil_data if item.get("center")]
-                            self.update_pupil_gaze_state(gaze_direction, now)
+                            self.update_pupil_gaze_state(gaze_direction, now, metrics)
                         else:
                             self.last_pupil_points = []
                             self.update_pupil_gaze_state("UNKNOWN", now)
                     else:
                         self.update_state("LOOKING_AWAY", False)
-                        self.last_pupil_points = []
-                        self.update_pupil_gaze_state("UNKNOWN", now)
+                        if self.dlib_gaze is not None:
+                            gaze, pts = self.dlib_gaze.detect(self.current_frame)
+                            self.last_pupil_points = pts
+                            self.update_pupil_gaze_state(gaze, now)
+                        else:
+                            self.last_pupil_points = []
+                            self.update_pupil_gaze_state("UNKNOWN", now)
                 elif face_count != 1:
                     self.update_state("LOOKING_AWAY", False)
                     self.last_pupil_points = []
@@ -884,6 +1220,7 @@ class SessionMonitorPro:
                         try:
                             results = self.yolo_model(self.current_frame, verbose=False)
                             found_obj = False
+                            found_obj_name = None
                             conf = 0.0
                             for r in results:
                                 for box in r.boxes:
@@ -891,31 +1228,62 @@ class SessionMonitorPro:
                                     name = self.yolo_model.names[int(box.cls[0])]
                                     if name in TARGET_OBJECTS and conf > 0.40:
                                         found_obj = True
+                                        found_obj_name = name
                                         break
                                 if found_obj: break
+                            if found_obj:
+                                self.active_states["OBJECT"]["object_name"] = found_obj_name
                             self.update_state("OBJECT", found_obj, conf if found_obj else 0.0)
-                        except Exception: pass
+                        except Exception:
+                            pass
 
                 # 5. Draw UI
-                self.draw_ui(self.current_frame, w)
-                cv2.imshow("Interview Monitor  |  Q=Quit  M=Mute", self.current_frame)
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord("q") or key == ord("Q"): break
-                elif key == ord("m") or key == ord("M"):
-                    self.muted = not self.muted
+                if server_state.server_mode:
+                    if now - getattr(self, "last_preview_time", 0) >= 0.2:
+                        encoded, image = cv2.imencode(".jpg", self.current_frame)
+                        if encoded:
+                            with server_state.lock:
+                                server_state.preview_frame = image.tobytes()
+                        self.last_preview_time = now
+                else:
+                    self.draw_ui(self.current_frame, w)
+                    cv2.imshow("Interview Monitor  |  Q=Quit  M=Mute", self.current_frame)
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord("q") or key == ord("Q"):
+                        break
+                    elif key == ord("m") or key == ord("M"):
+                        self.muted = not self.muted
 
         finally:
             self.running = False
             for state in self.active_states:
                 if self.active_states[state]["active"]:
                     self.finalize_state(state)
-            
+
+            ended_at = time.time()
+            for direction, start_time, alert_triggered in (
+                ("LEFT", self.eye_left_start_time, self.eye_left_alert_triggered),
+                ("RIGHT", self.eye_right_start_time, self.eye_right_alert_triggered)
+            ):
+                if start_time is not None and alert_triggered:
+                    duration = ended_at - start_time
+                    self.register_event(
+                        f"EYE_LOOKING_{direction}",
+                        duration,
+                        0.95,
+                        metadata=f"Candidate pupil positioned {direction} for {duration:.1f}s",
+                        notify=False
+                    )
+
             cap.release()
-            cv2.destroyAllWindows()
+            if not server_state.server_mode:
+                cv2.destroyAllWindows()
             self.log_event("Interview session stopped", "info")
             self.save_log()
             self.print_summary()
+            if server_state.server_mode:
+                with server_state.lock:
+                    server_state.preview_frame = None
 
     def save_log(self):
         try:
@@ -923,7 +1291,8 @@ class SessionMonitorPro:
                 writer = csv.writer(f)
                 writer.writerow(["time", "level", "message"])
                 writer.writerows(self.events)
-        except IOError: pass
+        except IOError:
+            pass
 
     # ------------------------------------------------------------------
     # Professional Reporting (5 Sections)
@@ -932,28 +1301,33 @@ class SessionMonitorPro:
         elapsed = time.time() - self.start_time
         raw_score = int(min(100, sum(self.category_scores.values())))
 
-        if raw_score <= 19: risk_level = "LOW"
-        elif raw_score <= 39: risk_level = "MEDIUM"
-        elif raw_score <= 69: risk_level = "HIGH"
-        else: risk_level = "CRITICAL"
+        if raw_score <= 19:
+            risk_level = "LOW"
+        elif raw_score <= 39:
+            risk_level = "MEDIUM"
+        elif raw_score <= 69:
+            risk_level = "HIGH"
+        else:
+            risk_level = "CRITICAL"
 
         presence_pct = (self.total_on_screen_time / elapsed * 100) if elapsed > 0 else 0
-        looking_pct = (self.total_looking_at_screen / self.total_on_screen_time * 100) if self.total_on_screen_time > 0 else 0
+        looking_pct = (
+                    self.total_looking_at_screen / self.total_on_screen_time * 100) if self.total_on_screen_time > 0 else 0
         away_pct = 100 - looking_pct
-        
+
         # Calculate Monitoring Quality
         avg_conf = (self.total_face_confidence / self.confidence_checks) if self.confidence_checks > 0 else 0
         if self.camera_disconnects > 0 or self.frames_failed > 10 or avg_conf < 0.60:
             mon_quality = "DEGRADED"
-            mon_color = "\033[93m" # Yellow
+            mon_color = "\033[93m"  # Yellow
         else:
             mon_quality = "GOOD"
-            mon_color = "\033[92m" # Green
+            mon_color = "\033[92m"  # Green
 
         print("\n" + "=" * 60)
         print("              INTERVIEW MONITORING REPORT")
         print("=" * 60)
-        
+
         # Section 1: Session Overview
         print(f"  Session ID:            {self.session_id}")
         print(f"  Start Time:            {datetime.fromtimestamp(self.start_time).strftime('%H:%M:%S')}")
@@ -965,7 +1339,7 @@ class SessionMonitorPro:
         if self.camera_disconnects > 0:
             print(f"  Camera Disconnects:    {self.camera_disconnects}")
         print("=" * 60)
-        
+
         # Section 2: Presence & Attention
         print("  PRESENCE & ATTENTION")
         print("-" * 60)
@@ -983,13 +1357,13 @@ class SessionMonitorPro:
         if self.longest_multi_face_duration > 0:
             print(f"  Longest Multi-Face Dur:  {format_time(self.longest_multi_face_duration)}")
         print("=" * 60)
-        
+
         # Section 3: Suspicious Events
         print("  SUSPICIOUS ACTIVITY")
         print("-" * 60)
         print(f"  {'Event':<20} {'Count':<10} {'Duration'}")
         print("  " + "-" * 45)
-        
+
         event_name_map = {
             "TAB_SWITCH": "Tab Switch",
             "LOOKING_AWAY": "Looking Away",
@@ -998,19 +1372,19 @@ class SessionMonitorPro:
             "MULTIPLE_FACES": "Multiple Faces",
             "OBJECT": "Objects Detected"
         }
-        
+
         for e_type, stats in self.event_stats.items():
             name = event_name_map.get(e_type, e_type)
             dur = format_time(stats["duration"]) if stats["duration"] > 0 else "-"
             print(f"  {name:<20} {stats['count']:<10} {dur}")
         print("=" * 60)
-        
+
         # Section 4: Risk Breakdown
         print("  INTEGRITY RISK")
         print("-" * 60)
         print(f"  {'Category':<25} {'Contribution'}")
         print("  " + "-" * 45)
-        
+
         cat_name_map = {
             "TAB_SWITCH": "Browser Activity",
             "LOOKING_AWAY": "Head Movement",
@@ -1019,24 +1393,24 @@ class SessionMonitorPro:
             "MULTIPLE_FACES": "Multiple Faces",
             "OBJECT": "Object Detection"
         }
-        
+
         for cat, score in self.category_scores.items():
             name = cat_name_map.get(cat, cat)
             print(f"  {name:<25} +{int(score)}")
-            
+
         print("  " + "-" * 45)
         score_color = "\033[92m" if raw_score <= 19 else "\033[93m" if raw_score <= 39 else "\033[91m"
         print(f"  INTEGRITY RISK SCORE     {score_color}{raw_score} / 100\033[0m")
         print(f"  RISK LEVEL               {score_color}{risk_level}\033[0m")
         print("=" * 60)
-        
+
         # Section 5: Critical Events / Timeline
         print("  IMPORTANT EVENTS TIMELINE")
         print("-" * 60)
         for evt in self.event_timeline:
             dur_str = f"{evt['duration']:.1f}s" if evt['duration'] > 0 else "-"
             print(f"  {evt['time']}   {evt['type']:<20} {dur_str}")
-            
+
         if self.critical_flags:
             print("-" * 60)
             print("  REVIEW RECOMMENDED:")
@@ -1061,6 +1435,7 @@ class SessionMonitorPro:
         with server_state.lock:
             server_state.summary_data = summary
 
+
 # ======================================================================
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--server":
@@ -1068,7 +1443,7 @@ if __name__ == "__main__":
         server = HTTPServer(("localhost", 8765), ProctoringHTTPHandler)
         print("Starting Proctoring Companion Server on http://localhost:8765...")
         threading.Thread(target=server.serve_forever, daemon=True).start()
-        
+
         try:
             while True:
                 start = False
@@ -1077,11 +1452,13 @@ if __name__ == "__main__":
                         start = True
                         server_state.start_requested = False
                         server_state.is_monitoring = True
-                
+
                 if start:
-                    print(f"Starting proctoring session for Attempt: {server_state.attempt_id}, Stage: {server_state.stage}")
-                    # Instantiate a fresh monitor for this session
+                    print(
+                        f"Starting proctoring session for Attempt: {server_state.attempt_id}, Stage: {server_state.stage}")
                     monitor = SessionMonitorPro(camera_index=0)
+                    with server_state.lock:
+                        server_state.monitor = monitor
                     try:
                         monitor.run()
                     except Exception as ex:
@@ -1091,17 +1468,19 @@ if __name__ == "__main__":
                             server_state.is_monitoring = False
                             server_state.start_requested = False
                             server_state.stop_requested = False
-                            # Ensure summary is populated if run failed early
+                            server_state.monitor = None
+                            server_state.preview_frame = None
                             if server_state.summary_data is None:
                                 server_state.summary_data = {"error": "Failed prematurely"}
                     print("Proctoring session stopped.")
-                
+
                 time.sleep(0.2)
         except KeyboardInterrupt:
             print("\nShutting down Proctoring Companion Server...")
             sys.exit(0)
     else:
-        monitor = SessionMonitorPro(camera_index=0, log_file=os.path.join(BASE_DIR, "session_log.csv"))
+        monitor = SessionMonitorPro(camera_index=0, log_file=os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                                          "session_log.csv"))
         try:
             monitor.run()
         except KeyboardInterrupt:
