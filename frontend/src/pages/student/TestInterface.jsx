@@ -4,7 +4,7 @@ import api from '../../lib/axios';
 import { 
   Clock, ShieldAlert, Award, FileText, CheckCircle2, 
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
-  ClipboardList
+  ClipboardList, Lock
 } from 'lucide-react';
 import ViolationModal from '../../components/ViolationModal';
 import { useProctoring } from '../../hooks/useProctoring';
@@ -364,10 +364,17 @@ const TestInterface = () => {
       }
     };
 
+    const handleGlobalPaste = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setProctorWarning({ message: 'Clipboard pasting is disabled during this proctored test.' });
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('paste', handleGlobalPaste);
 
     requestFullscreen();
 
@@ -376,6 +383,7 @@ const TestInterface = () => {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('paste', handleGlobalPaste);
       clearWindowViolationTimer();
     };
   }, [phase, submitting, tabSwitchesLeft, fullscreenExitsLeft]);
@@ -736,6 +744,34 @@ const TestInterface = () => {
                 className="px-6 py-3 bg-destructive text-destructive-foreground font-bold rounded-xl hover:bg-destructive/90 transition-all w-full mt-4"
               >
                 Reconnect Hardware
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen Required Modal Overlay */}
+        {!isFullscreen && phase === 'TESTING' && !submitting && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-card border border-border max-w-md w-full p-6 rounded-2xl shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto">
+                <Lock size={28} />
+              </div>
+              <h2 className="text-xl font-bold">Fullscreen Proctoring Required</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                This assessment is strictly proctored. You must remain in full-screen mode at all times. Please click below to activate fullscreen mode.
+              </p>
+              {fullscreenExitsLeft < PROCTOR_LIMITS.fullscreenExits && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive font-semibold">
+                  Warning: {fullscreenExitsLeft} of {PROCTOR_LIMITS.fullscreenExits} fullscreen warnings remaining.
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  await requestFullscreen();
+                }}
+                className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Lock size={16} /> Enter Fullscreen Mode
               </button>
             </div>
           </div>

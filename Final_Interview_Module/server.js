@@ -9,7 +9,7 @@ const FALLBACK = process.env.FALLBACK_API_KEY && process.env.FALLBACK_MODEL
   ? { url: process.env.FALLBACK_BASE_URL, key: process.env.FALLBACK_API_KEY, model: process.env.FALLBACK_MODEL } : null;
 
 const TAX=[["DSA","arrays & strings"],["DSA","hash tables"],["DSA","linked lists"],["DSA","stacks & queues"],["DSA","trees & BSTs"],["DSA","heaps"],["DSA","graph traversal"],["DSA","sorting algorithms"],["DSA","binary search"],["DSA","recursion & backtracking"],["DSA","dynamic programming"],["DSA","greedy algorithms"],["DSA","time & space complexity"],["OS","processes & threads"],["OS","CPU scheduling"],["OS","synchronization & semaphores"],["OS","deadlocks"],["OS","virtual memory & paging"],["OS","file systems"],["OS","interrupts & system calls"],["DBMS","transactions & ACID"],["DBMS","normalization"],["DBMS","indexing"],["DBMS","joins & query execution"],["DBMS","isolation levels & concurrency control"],["DBMS","keys & relational model"],["CO","cache memory"],["CO","pipelining & hazards"],["CO","number representation & ALU"],["CO","instruction sets & addressing modes"],["CO","memory hierarchy"],["Networks","TCP vs UDP"],["Networks","HTTP & TLS"],["Networks","DNS"],["Networks","OSI / TCP-IP layers"],["OOP","polymorphism & inheritance"],["OOP","SOLID & design patterns"],["OOP","encapsulation & abstraction"],["Coding","reading and debugging a short code idea"],["Coding","analysing the complexity of an approach"]];
-const LV=["Foundational","Basic","Intermediate","Advanced","Expert"],LD=["recall of definitions and core ideas","explaining how it works with a simple example","applying it to a realistic scenario and comparing trade-offs","design decisions, edge cases, complexity and failure modes","internals, optimisation and system-level reasoning under constraints"];
+const LV=["Foundational","Basic","Intermediate","Practical Application","Applied Systems"],LD=["core practical definition and primary purpose in everyday programming","how it works with a simple, clear, real-world development example","straightforward practical usage in standard web or backend development","common best practices and standard debugging or usage scenarios","practical design trade-offs without obscure theoretical trivia"];
 
 /* ---------- candidate lookup: replace with your database ---------- */
 function getCandidate(id) {
@@ -57,8 +57,9 @@ function genPrompt(s, next, g) {
   const asked = s.turns.map(t => ({ level: t.level, topic: t.sub, question: t.question })), avoid = recent[next.sub] || [];
   return `Write the next question for a spoken technical interview.\nCANDIDATE: ${profile(s.cand)}\nALREADY ASKED IN THIS INTERVIEW (never repeat or paraphrase): ${JSON.stringify(asked)}\nRECENTLY ASKED TO OTHER CANDIDATES on this subtopic (use a clearly different scenario and wording): ${JSON.stringify(avoid)}\n` +
   `Kind: ${next.kind}. Category: ${next.cat}. Subtopic: ${next.sub}. Difficulty level ${next.level}/5 (${LV[next.level - 1]}: ${LD[next.level - 1]}).\n` +
-  (next.kind === 'follow' ? `This is a follow-up on the same topic. Previous question: ${JSON.stringify(s.cur.question)}. Candidate said: ${JSON.stringify(g.answer)}. Grading: score ${g.score}/10, missing ${JSON.stringify(g.missing)}. If the answer was weak or wrong, ask a simpler clarifying question about the fundamentals they missed; if strong, probe one deeper edge case, trade-off or failure mode. Refer to what they actually said.\n` : 'Open a fresh topic with a standalone question.\n') +
-  `One or two spoken sentences, no code blocks, no preamble. Use an unusual scenario or angle (variety seed ${crypto.randomBytes(3).toString('hex')}).\nJSON: {"question":"..."}`;
+  `CRITICAL INSTRUCTION: Keep the question accessible, practical, friendly, and grounded in standard day-to-day software engineering. Avoid obscure academic trivia, tricky theoretical edge cases, or low-level runtime engine internals. The question should be comfortable for a junior to mid-level developer to speak about naturally.\n` +
+  (next.kind === 'follow' ? `This is a follow-up on the same topic. Previous question: ${JSON.stringify(s.cur.question)}. Candidate said: ${JSON.stringify(g.answer)}. Grading: score ${g.score}/10, missing ${JSON.stringify(g.missing)}. Ask a friendly, practical follow-up question clarifying the concepts or asking for a simple practical example. Refer to what they actually said.\n` : 'Open a fresh topic with a direct, conversational question.\n') +
+  `One or two spoken sentences, no code blocks, no preamble.\nJSON: {"question":"..."}`;
 }
 const grade = async (s, cur, answer) => {
   const g = await llm('grade', gradePrompt(s, cur, answer), j => typeof j.score !== 'undefined');
@@ -90,7 +91,7 @@ app.get('/api/candidate/:id', (req, res) => res.json(getCandidate(req.params.id)
 
 app.post('/api/interview/start', wrap(async (req, res) => {
   const cand = getCandidate(String(req.body.candidateId || 'C-0000'));
-  const st = { level: 1, cap: 5, atCap: 0, mainDone: 0, cats: [], used: {}, failL1: 0, maxLv: 1, mainScore: 0, skills: cand.skills };
+  const st = { level: 1, cap: 3, atCap: 0, mainDone: 0, cats: [], used: {}, failL1: 0, maxLv: 1, mainScore: 0, skills: cand.skills };
   const s = { id: crypto.randomUUID(), cand, st, turns: [], t0: Date.now(), done: false, busy: false, cur: null };
   const t = chooseTopic(st), next = { kind: 'main', cat: t[0], sub: t[1], level: 1 };
   const q = await genQ(s, next, null);

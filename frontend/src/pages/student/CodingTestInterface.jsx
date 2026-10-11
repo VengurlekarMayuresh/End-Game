@@ -325,10 +325,20 @@ const CodingTestInterface = () => {
       }
     };
 
+    const handleGlobalPaste = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setProctorWarning({
+        title: 'Pasting Disabled',
+        message: 'Pasting code from external sources is disabled during this proctored coding test. Please type your code manually.'
+      });
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('paste', handleGlobalPaste);
 
     requestFullscreen();
 
@@ -337,6 +347,7 @@ const CodingTestInterface = () => {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('paste', handleGlobalPaste);
       clearWindowViolationTimer();
     };
   }, [phase, finalizing, tabSwitchesLeft, fullscreenExitsLeft]);
@@ -829,6 +840,34 @@ const CodingTestInterface = () => {
           />
         )}
 
+        {/* Fullscreen Required Modal Overlay */}
+        {!isFullscreen && phase === 'TESTING' && !finalizing && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-card border border-border max-w-md w-full p-6 rounded-2xl shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto">
+                <Lock size={28} />
+              </div>
+              <h2 className="text-xl font-bold">Fullscreen Proctoring Required</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                This coding assessment is strictly proctored. You must remain in full-screen mode at all times. Please click below to activate fullscreen mode.
+              </p>
+              {fullscreenExitsLeft < PROCTOR_LIMITS.fullscreenExits && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive font-semibold">
+                  Warning: {fullscreenExitsLeft} of {PROCTOR_LIMITS.fullscreenExits} fullscreen warnings remaining.
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  await requestFullscreen();
+                }}
+                className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Lock size={16} /> Enter Fullscreen Mode
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Workbench Body */}
         <div className="flex-grow flex flex-col md:flex-row overflow-hidden h-[calc(100vh-64px)]">
           
@@ -969,9 +1008,17 @@ const CodingTestInterface = () => {
               <textarea
                 value={code}
                 onChange={e => handleCodeChange(e.target.value)}
+                onPaste={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setProctorWarning({
+                    title: 'Pasting Disabled',
+                    message: 'Pasting code from external sources is disabled during this proctored coding test. Please type your code manually.'
+                  });
+                }}
                 spellCheck="false"
                 className="absolute inset-0 w-full h-full p-6 bg-zinc-950 text-zinc-200 font-mono text-xs focus:outline-none leading-relaxed resize-none overflow-y-auto selection:bg-zinc-800"
-                placeholder="# Write your program solution here"
+                placeholder="# Write your program solution here (Pasting disabled)"
               />
             </div>
 

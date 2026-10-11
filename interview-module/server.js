@@ -12,7 +12,7 @@ const FALLBACK = process.env.FALLBACK_API_KEY && process.env.FALLBACK_MODEL
   ? { url: process.env.FALLBACK_BASE_URL, key: process.env.FALLBACK_API_KEY, model: process.env.FALLBACK_MODEL } : null;
 
 const TAX=[["DSA","arrays & strings"],["DSA","hash tables"],["DSA","linked lists"],["DSA","stacks & queues"],["DSA","trees & BSTs"],["DSA","heaps"],["DSA","graph traversal"],["DSA","sorting algorithms"],["DSA","binary search"],["DSA","recursion & backtracking"],["DSA","dynamic programming"],["DSA","greedy algorithms"],["DSA","time & space complexity"],["OS","processes & threads"],["OS","CPU scheduling"],["OS","synchronization & semaphores"],["OS","deadlocks"],["OS","virtual memory & paging"],["OS","file systems"],["OS","interrupts & system calls"],["DBMS","transactions & ACID"],["DBMS","normalization"],["DBMS","indexing"],["DBMS","joins & query execution"],["DBMS","isolation levels & concurrency control"],["DBMS","keys & relational model"],["CO","cache memory"],["CO","pipelining & hazards"],["CO","number representation & ALU"],["CO","instruction sets & addressing modes"],["CO","memory hierarchy"],["Networks","TCP vs UDP"],["Networks","HTTP & TLS"],["Networks","DNS"],["Networks","OSI / TCP-IP layers"],["OOP","polymorphism & inheritance"],["OOP","SOLID & design patterns"],["OOP","encapsulation & abstraction"],["Coding","reading and debugging a short code idea"],["Coding","analysing the complexity of an approach"]];
-const LV=["Foundational","Basic","Intermediate","Advanced","Expert"],LD=["recall of definitions and core ideas","explaining how it works with a simple example","applying it to a realistic scenario and comparing trade-offs","design decisions, edge cases, complexity and failure modes","internals, optimisation and system-level reasoning under constraints"];
+const LV=["Foundational","Basic","Intermediate","Practical Application","Applied Systems"],LD=["core practical definition and primary purpose in everyday programming","how it works with a simple, clear, real-world development example","straightforward practical usage in standard web or backend development","common best practices and standard debugging or usage scenarios","practical design trade-offs without obscure theoretical trivia"];
 
 /* ---------- recent questions across ALL candidates (anti-repetition), persisted to disk ---------- */
 const RECENT_FILE = path.join(__dirname, 'data', 'recent.json');
@@ -94,26 +94,11 @@ function gradePrompt(s, cur, answer) {
 }
 function genPrompt(s, next, g) {
   const asked = s.turns.map(t => ({ level: t.level, topic: t.sub, question: t.question })), avoid = recent[next.sub] || [];
-  const isWarmup = next.level === 1 || s.turns.length === 0;
-
-  const difficultyInstruction = isWarmup
-    ? `CRITICAL DIFFICULTY INSTRUCTION (Level 1 Warm-up): This question MUST be EXTREMELY EASY, SIMPLE, and BASIC. Ask a straightforward definition or simple introductory concept about ${next.sub}. Do NOT ask about performance trade-offs, complex edge cases, system design, internal algorithms, or tricky scenarios. Ensure ANY candidate with basic knowledge can easily and confidently answer it in 1-2 simple sentences.`
-    : `Difficulty level ${next.level}/5 (${LV[next.level - 1]}: ${LD[next.level - 1]}).`;
-
-  return `Write the next question for a spoken technical interview.\n` +
-  `CANDIDATE PROFILE: ${profile(s.cand)}\n` +
-  `JOB TITLE: ${s.cand.job ? s.cand.job.title : (s.cand.role || 'Developer')}\n` +
-  `ALREADY ASKED IN THIS INTERVIEW: ${JSON.stringify(asked)}\n` +
-  `Topic: ${next.sub} (Category: ${next.cat})\n` +
-  `${difficultyInstruction}\n` +
-  (next.kind === 'follow'
-    ? `This is a follow-up. Previous question: ${JSON.stringify(s.cur.question)}. Candidate answer: ${JSON.stringify(g.answer)}. If candidate struggled, ask a simpler fundamental question. Refer directly to their statement.\n`
-    : `Ask a standalone, clear question on ${next.sub}.\n`) +
-  `STRICT FORMATTING & CONTENT RULES:\n` +
-  `- Do NOT ask numeric calculations, manual math, or quantitative solving questions (candidates answer verbally out loud).\n` +
-  `- For SQL or coding questions, only ask short, 1-line queries or high-level logic. NEVER ask for long, complex, nested SQL queries or code blocks.\n` +
-  `- Keep the question to 1 short, simple spoken sentence. No preamble, no multi-part setups. Make it clear and effortless to answer verbally.\n` +
-  `JSON: {"question":"..."}`;
+  return `Write the next question for a spoken technical interview.\nCANDIDATE: ${profile(s.cand)}\nALREADY ASKED IN THIS INTERVIEW (never repeat or paraphrase): ${JSON.stringify(asked)}\nRECENTLY ASKED TO OTHER CANDIDATES on this subtopic (use a clearly different scenario and wording): ${JSON.stringify(avoid)}\n` +
+  `Where it fits, tie the question to the job's required skills or to one of the candidate's real projects (without quoting the resume).\nKind: ${next.kind}. Category: ${next.cat}. Subtopic: ${next.sub}. Difficulty level ${next.level}/5 (${LV[next.level - 1]}: ${LD[next.level - 1]}).\n` +
+  `CRITICAL INSTRUCTION: Keep the question accessible, practical, friendly, and grounded in standard day-to-day software engineering. Avoid obscure academic trivia, tricky theoretical edge cases, or low-level runtime engine internals. The question should be comfortable for a junior to mid-level developer to speak about naturally.\n` +
+  (next.kind === 'follow' ? `This is a follow-up on the same topic. Previous question: ${JSON.stringify(s.cur.question)}. Candidate said: ${JSON.stringify(g.answer)}. Grading: score ${g.score}/10, missing ${JSON.stringify(g.missing)}. If the answer was weak or wrong, ask a friendly, encouraging question explaining the basics; if strong, ask how they would apply it in a typical web or backend project. Refer to what they actually said.\n` : 'Open a fresh topic with a direct, conversational question.\n') +
+  `One or two spoken sentences, no code blocks, no preamble.\nJSON: {"question":"..."}`;
 }
 const grade = async (s, cur, answer) => {
   try {
@@ -127,7 +112,7 @@ const grade = async (s, cur, answer) => {
       score: baseScore,
       answer,
       correct: [cur.sub + ' core definition'],
-      missing: words < 20 ? ['More in-depth trade-off analysis'] : [],
+      missing: words < 20 ? ['More in-depth practical application'] : [],
       errors: [],
       example_used: words > 35,
       example_ok: words > 35,
@@ -142,6 +127,13 @@ const genQ = async (s, next, g) => {
     if (q && !previouslyAsked.includes(q)) return q;
   } catch (err) {
     console.warn('[genQ fallback]', err.message);
+    const templates = [
+      `Could you explain what ${next.sub} is in ${next.cat}, and give a simple practical example of when you would use it?`,
+      `In everyday development with ${next.cat}, what are the main benefits of using ${next.sub}?`,
+      `How would you explain the basics of ${next.sub} to a junior teammate or colleague?`,
+      `What is a common practical scenario where ${next.sub} is helpful in a web or software project?`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
   }
 
   const templates = (next.kind === 'follow') ? [
@@ -202,7 +194,7 @@ app.get('/api/candidate/:id', (req, res) => { const c = getCandidate(req.params.
 app.post('/api/interview/start', wrap(async (req, res) => {
   const cand = getCandidate(String(req.body.candidateId || ''));
   if (!cand) return res.status(404).json({ code: 'no_candidate', error: 'Unknown candidate' });
-  const st = { level: 1, cap: 5, atCap: 0, mainDone: 0, cats: [], used: {}, failL1: 0, maxLv: 1, mainScore: 0, skills: [...new Set([...((cand.job && cand.job.required_skills) || []), ...cand.skills])].slice(0, 8) };
+  const st = { level: 1, cap: 3, atCap: 0, mainDone: 0, cats: [], used: {}, failL1: 0, maxLv: 1, mainScore: 0, skills: [...new Set([...((cand.job && cand.job.required_skills) || []), ...cand.skills])].slice(0, 8) };
   const s = { id: crypto.randomUUID(), cand, st, turns: [], t0: Date.now(), done: false, busy: false, cur: null };
   const t = chooseTopic(st), next = { kind: 'main', cat: t[0], sub: t[1], level: 1 };
   const q = await genQ(s, next, null);

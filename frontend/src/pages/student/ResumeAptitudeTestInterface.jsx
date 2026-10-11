@@ -41,9 +41,30 @@ const ResumeAptitudeTestInterface = () => {
 
   // Proctoring states
   const [tabViolations, setTabViolations] = useState(0);
+  const [fullscreenViolations, setFullscreenViolations] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
   const [showViolationModal, setShowViolationModal] = useState(false);
+  const [pasteWarning, setPasteWarning] = useState('');
   const [isFinished, setIsFinished] = useState(false);
   const [isSubmittingTest, setIsSubmittingTest] = useState(false);
+
+  const enterFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    } catch (err) {
+      console.warn('Fullscreen entry failed', err);
+    }
+  };
+
+  const handleBlockPaste = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPasteWarning('Pasting answers is strictly disabled during this proctored assessment. Please type your answer directly.');
+    setTimeout(() => setPasteWarning(''), 6000);
+  };
 
   // Fetch session data
   useEffect(() => {
@@ -270,9 +291,24 @@ const ResumeAptitudeTestInterface = () => {
     return () => clearInterval(timer);
   }, [loading, isFinished, remainingSeconds]);
 
-  // Proctoring: Tab switch detection
+  // Proctoring: Tab switch, Fullscreen enforcement & Global Paste blocker
   useEffect(() => {
     if (isFinished || loading) return;
+
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (!active) {
+        setFullscreenViolations(prev => {
+          const updated = prev + 1;
+          setPasteWarning(`Fullscreen exited! Proctor warning (${updated}/${MAX_VIOLATIONS}). Please remain in fullscreen.`);
+          if (updated >= MAX_VIOLATIONS) {
+            handleAutoSubmit('Disqualified: Exceeded maximum fullscreen exits.');
+          }
+          return updated;
+        });
+      }
+    };
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -285,8 +321,22 @@ const ResumeAptitudeTestInterface = () => {
       }
     };
 
+    const handleGlobalPaste = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setPasteWarning('Pasting answers is strictly disabled during this proctored assessment. Please type directly.');
+      setTimeout(() => setPasteWarning(''), 6000);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('paste', handleGlobalPaste);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('paste', handleGlobalPaste);
+    };
   }, [isFinished, loading]);
 
   const formatTimer = (sec) => {
@@ -314,10 +364,43 @@ const ResumeAptitudeTestInterface = () => {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto space-y-6 p-6">
-        <div className="h-16 bg-muted rounded-2xl animate-pulse" />
-        <div className="h-40 bg-muted rounded-2xl animate-pulse" />
-        <div className="h-64 bg-muted rounded-2xl animate-pulse" />
+      <div className="max-w-2xl mx-auto my-12 p-8 bg-card border border-border rounded-3xl shadow-xl text-center space-y-6 animate-in fade-in duration-300">
+        <div className="relative w-20 h-20 mx-auto">
+          <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-ping opacity-40" />
+          <div className="relative w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/40 flex items-center justify-center text-primary shadow-inner">
+            <Sparkles size={36} className="animate-spin text-primary" style={{ animationDuration: '6s' }} />
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold text-foreground">AI Assessment Engine Initializing</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto leading-relaxed">
+            Synthesizing personalized challenges and an adaptive Project Ladder based on your verified resume and target Job Description.
+          </p>
+        </div>
+
+        <div className="space-y-3 max-w-md mx-auto text-left text-xs bg-muted/30 p-4 rounded-2xl border border-border/60">
+          <div className="flex items-center gap-2.5 text-foreground font-semibold">
+            <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+            <span>Analyzing candidate projects, tech stack & competencies</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-foreground font-semibold">
+            <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+            <span>Extracting core Job Description criteria & expectations</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-primary font-semibold animate-pulse">
+            <Clock size={15} className="text-primary shrink-0" />
+            <span>Generating dynamic 3-level Project Ladder tailored to your real work</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-muted-foreground font-medium">
+            <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/40 shrink-0 ml-0.5" />
+            <span>Calibrating accessible real-world question difficulty</span>
+          </div>
+        </div>
+
+        <div className="text-[11px] text-muted-foreground italic">
+          Please stay on this page. Your customized proctored assessment is loading...
+        </div>
       </div>
     );
   }
@@ -394,6 +477,45 @@ const ResumeAptitudeTestInterface = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4 lg:p-6">
+      {/* Fullscreen Required Modal Overlay */}
+      {!isFullscreen && !loading && !isFinished && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-card border border-border max-w-md w-full p-6 rounded-2xl shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto">
+              <Lock size={28} />
+            </div>
+            <h2 className="text-xl font-bold">Fullscreen Proctoring Required</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This role-specific aptitude assessment is strictly proctored. You must remain in full-screen mode to read and answer questions.
+            </p>
+            {fullscreenViolations > 0 && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive font-semibold">
+                Warning: Fullscreen exited {fullscreenViolations}/{MAX_VIOLATIONS} times. Exceeding the limit will auto-submit your test.
+              </div>
+            )}
+            <button
+              onClick={enterFullscreen}
+              className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Lock size={16} /> Enter Fullscreen & Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Paste & Proctor Alert Banner */}
+      {pasteWarning && (
+        <div className="p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={16} className="text-amber-500 shrink-0" />
+            <span>{pasteWarning}</span>
+          </div>
+          <button onClick={() => setPasteWarning('')} className="p-1 hover:bg-amber-500/20 rounded-lg transition-colors">
+            <XCircle size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Violation Modal */}
       {showViolationModal && (
         <ViolationModal
@@ -415,6 +537,11 @@ const ResumeAptitudeTestInterface = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${isFullscreen ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
+            <Lock size={13} />
+            <span>{isFullscreen ? 'Fullscreen Active' : 'Windowed'}</span>
+          </div>
+
           <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-mono text-sm font-bold ${remainingSeconds < 300 ? 'bg-destructive/10 text-destructive border border-destructive/20 animate-pulse' : 'bg-primary/10 text-primary'}`}>
             <Clock size={16} />
             <span>{formatTimer(remainingSeconds)}</span>
@@ -624,8 +751,9 @@ const ResumeAptitudeTestInterface = () => {
                   rows={14}
                   value={codeMap[currentQ.id] || ''}
                   onChange={e => handleCodeChange(currentQ, e.target.value)}
+                  onPaste={handleBlockPaste}
                   className="w-full p-3 font-mono text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
-                  placeholder="Write your solution here..."
+                  placeholder="Write your solution here (Pasting disabled)..."
                   spellCheck={false}
                 />
               </div>
@@ -748,6 +876,7 @@ const ResumeAptitudeTestInterface = () => {
                   rows={6}
                   value={sqlDraft}
                   onChange={e => handleSqlDraftChange(currentQ, e.target.value)}
+                  onPaste={handleBlockPaste}
                   onKeyDown={e => {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                       e.preventDefault();
@@ -755,7 +884,7 @@ const ResumeAptitudeTestInterface = () => {
                     }
                   }}
                   onBlur={() => handleSubmitAnswer(currentQ)}
-                  placeholder="SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department..."
+                  placeholder="SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department... (Pasting disabled)"
                   className="w-full p-3 font-mono text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 leading-relaxed"
                   spellCheck={false}
                 />
@@ -837,8 +966,9 @@ const ResumeAptitudeTestInterface = () => {
                     type="text"
                     value={answersMap[currentQ.id] || ''}
                     onChange={e => handleInputChange(currentQ, e.target.value)}
+                    onPaste={handleBlockPaste}
                     onBlur={() => handleSubmitAnswer(currentQ)}
-                    placeholder="e.g. O(log n) or Hash Map or Shared Memory"
+                    placeholder="e.g. O(log n) or Hash Map (Pasting disabled)"
                     className="w-full px-4 py-2.5 text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 pr-20"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">

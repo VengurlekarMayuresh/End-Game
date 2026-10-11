@@ -6,6 +6,7 @@ const { selectJdFilteredQuestions, shuffleWithSeed } = require('../utils/resumeA
 const { executeSqlInSandbox } = require('../utils/sqlSandboxExecutor');
 const { validateShortAnswer } = require('../utils/shortAnswerValidator');
 const { generateProjectLadder, updateLadderState } = require('../utils/ladderGenerator');
+const { generateDynamicAssessment } = require('../utils/llmAssessmentGenerator');
 const { calculateResumeAptitudeScore } = require('../utils/resumeAptitudeScorer');
 const { runCode } = require('../utils/codeExecutor');
 
@@ -109,30 +110,35 @@ const startSession = async (req, res, next) => {
     // Seed based on student ID + time to guarantee unique question selection and order per candidate
     const seedVal = (student.id ? String(student.id).split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) : 0) + Date.now();
 
-    // 2. Select Bank Questions: 2 DSA_CODE + 3 SQL + 2 Core CS (language auto-detected from resume)
+    // 2. Select Accessible Bank Questions: 2 DSA_CODE + 3 SQL (language auto-detected from resume)
     const bankSelection = selectJdFilteredQuestions(jobDetails, skillExtraction.coreTopics, seedVal, student);
 
-    // Shuffle the non-ladder block per candidate (2+3+2 = 7 questions)
+    // 3. Dynamic LLM Generation for Project Ladder & Custom Questions based on Candidate Resume Projects & Target JD
+    const dynamicGen = await generateDynamicAssessment(student, jobDetails, skillExtraction.coreTopics);
+    const dynamicLadderQuestions = dynamicGen.ladderQuestions || [];
+    const dynamicCoreCsQuestions = (dynamicGen.coreCsQuestions && dynamicGen.coreCsQuestions.length > 0)
+      ? dynamicGen.coreCsQuestions
+      : bankSelection.coreCsQuestions;
+
+    // Shuffle the non-ladder block per candidate (2 DSA + 3 SQL + 2 Core CS = 7 questions)
     const shuffledNonLadder = shuffleWithSeed([
       ...bankSelection.dsaQuestions,
       ...bankSelection.sqlQuestions,
-      ...bankSelection.coreCsQuestions
+      ...dynamicCoreCsQuestions
     ], seedVal);
 
-    // 3. Project Ladder: 8 questions (resume/JD topic-driven)
-    const projectLadderQuestions = generateProjectLadder(skillExtraction.coreTopics);
-
-    // Total: 7 bank + 8 ladder = 15 questions exactly
+    // Total: 7 foundational practical questions + 8 dynamic Project Ladder questions = 15 questions exactly
     const allQuestions = [
-      ...shuffledNonLadder,      // 7
-      ...projectLadderQuestions  // 8
-    ].slice(0, 15); // Hard cap at 15
+      ...shuffledNonLadder,
+      ...dynamicLadderQuestions
+    ].slice(0, 15);
 
-
-    // Initial Ladder State
+    // Initial Ladder State based on dynamic project topics
     const ladderState = {};
-    skillExtraction.coreTopics.forEach(topic => {
-      ladderState[topic] = { currentLevel: 1, maxReached: 1, stopped: false };
+    dynamicLadderQuestions.forEach(q => {
+      if (!ladderState[q.topic]) {
+        ladderState[q.topic] = { currentLevel: 1, maxReached: 1, stopped: false };
+      }
     });
 
     const durationMinutes = 45;

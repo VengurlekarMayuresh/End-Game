@@ -1,0 +1,10 @@
+{
+  "name": "final-interview-module-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Final Interview Module Runner",
+  "scripts": {
+    "start": "npm --prefix interview-platform start",
+    "dev": "npm --prefix interview-platform start"
+  }
+}
