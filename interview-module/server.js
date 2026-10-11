@@ -121,9 +121,10 @@ const grade = async (s, cur, answer) => {
   }
 };
 const genQ = async (s, next, g) => {
+  const previouslyAsked = (s.turns || []).map(t => t.question).concat(s.cur && s.cur.question ? [s.cur.question] : []);
   try {
     const q = (await llm('gen', genPrompt(s, next, g), j => typeof j.question === 'string' && j.question.length > 10)).question;
-    return q;
+    if (q && !previouslyAsked.includes(q)) return q;
   } catch (err) {
     console.warn('[genQ fallback]', err.message);
     const templates = [
@@ -134,12 +135,36 @@ const genQ = async (s, next, g) => {
     ];
     return templates[Math.floor(Math.random() * templates.length)];
   }
+
+  const templates = (next.kind === 'follow') ? [
+    `Could you elaborate on how you handled challenges or errors with ${next.sub}?`,
+    `What is one practical scenario where you prefer using ${next.sub}?`,
+    `How do you typically test or verify your implementation when using ${next.sub}?`,
+    `Can you describe the biggest benefit and one limitation you encountered with ${next.sub}?`
+  ] : [
+    `Could you give a brief overview of how you work with ${next.sub} in your projects?`,
+    `In the context of ${next.cat}, what is the basic core concept behind ${next.sub}?`,
+    `Can you share a simple example from your experience where you used ${next.sub}?`,
+    `How would you explain the fundamental idea of ${next.sub} to a peer?`
+  ];
+
+  const fresh = templates.filter(t => !previouslyAsked.includes(t));
+  const pool = fresh.length > 0 ? fresh : templates;
+  return pool[Math.floor(Math.random() * pool.length)];
 };
 
 /* ---------- adaptive logic (server-side so candidates cannot tamper with it) ---------- */
 function chooseTopic(st) {
-  const pool = TAX.map(t => [t[0], t[1], 0]).concat(st.skills.map(k => [skillCat(k), k + ' in real-world use', 1])).filter(t => !st.used[t[1]]);
-  const recentCats = st.cats.slice(-2), fresh = pool.filter(t => !recentCats.includes(t[0])), wantSkill = st.mainDone % 3 === 2;
+  const candSkills = (st.skills || []).map(k => [skillCat(k), k, 1]).filter(t => !st.used[t[1]]);
+  const generalPool = TAX.map(t => [t[0], t[1], 0]).filter(t => !st.used[t[1]]);
+  
+  // Always start with candidate's actual resume/JD skills first!
+  if (st.mainDone === 0 && candSkills.length > 0) {
+    return candSkills[Math.floor(Math.random() * candSkills.length)];
+  }
+
+  const pool = candSkills.length ? candSkills.concat(generalPool) : generalPool;
+  const recentCats = st.cats.slice(-2), fresh = pool.filter(t => !recentCats.includes(t[0])), wantSkill = st.mainDone % 2 === 0;
   const pref = fresh.filter(t => !!t[2] === wantSkill), from = pref.length ? pref : (fresh.length ? fresh : pool);
   return from[Math.floor(Math.random() * from.length)];
 }
