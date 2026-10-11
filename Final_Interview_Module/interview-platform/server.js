@@ -23,62 +23,97 @@ function pushRecent(sub, q) {
   try { fs.mkdirSync(path.dirname(RECENT_FILE), { recursive: true }); fs.writeFileSync(RECENT_FILE, JSON.stringify(recent)); } catch (e) {}
 }
 
-/* ---------- LLM client (OpenAI-compatible; tries primary twice, then fallback) ---------- */
+/* ---------- LLM client (OpenAI-compatible; tries primary model, candidates, and fallback) ---------- */
+function cleanAndParseJson(rawText, messageObj) {
+  let text = rawText || '';
+  if (!text.trim() && messageObj) {
+    text = messageObj.reasoning || messageObj.reasoning_content || (messageObj.reasoning_details?.[0]?.text) || '';
+  }
+  if (!text || !text.trim()) {
+    throw new Error('Empty LLM response body');
+  }
+
+  // 1. Strip reasoning and thinking tokens
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  text = text.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
+
+  // 2. Extract markdown code block if present
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    text = codeBlockMatch[1].trim();
+  }
+
+  // 3. Locate start and end of JSON object/array
+  const start = text.search(/[\{\[]/);
+  if (start === -1) throw new Error('No JSON object in LLM text: ' + text.slice(0, 100));
+  const isObject = text[start] === '{';
+  const end = isObject ? text.lastIndexOf('}') : text.lastIndexOf(']');
+  if (end === -1 || end <= start) throw new Error('Incomplete JSON object in LLM text: ' + text.slice(0, 100));
+
+  const candidate = text.slice(start, end + 1);
+
+  // 4. Try parsing with repairs
+  try {
+    return JSON.parse(candidate);
+  } catch (e1) {
+    const repaired = candidate.replace(/,\s*([\}\]])/g, '$1');
+    try {
+      return JSON.parse(repaired);
+    } catch (_) {
+      throw new Error('No JSON object in LLM text: ' + text.slice(0, 100));
+    }
+  }
+}
+
 async function call(p, model, prompt, temperature) {
   if (!p || !p.key) throw new Error('No API key configured for LLM');
-  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + p.key };
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + p.key,
+    'HTTP-Referer': 'https://hiresense.ai',
+    'X-Title': 'HireSense'
+  };
   const baseReq = {
     model, temperature,
     messages: [
-      { role: 'system', content: 'You are a senior technical interviewer. Reply with ONLY valid JSON.' },
+      { role: 'system', content: 'You are a senior technical interviewer. Reply with ONLY valid JSON without markdown fences, reasoning tags, or preambles.' },
       { role: 'user', content: prompt }
     ]
   };
 
-  let r;
-  try {
-    r = await fetch(p.url + '/chat/completions', {
-      method: 'POST', signal: AbortSignal.timeout(22000),
-      headers,
-      body: JSON.stringify({ ...baseReq, response_format: { type: 'json_object' } })
-    });
-  } catch (err) {
-    // If response_format causes rejection or network times out, retry without response_format
-    r = null;
-  }
-
-  if (!r || !r.ok) {
-    r = await fetch(p.url + '/chat/completions', {
-      method: 'POST', signal: AbortSignal.timeout(22000),
-      headers,
-      body: JSON.stringify(baseReq)
-    });
-  }
+  const r = await fetch(p.url + '/chat/completions', {
+    method: 'POST', signal: AbortSignal.timeout(22000),
+    headers,
+    body: JSON.stringify(baseReq)
+  });
 
   if (!r.ok) {
     const b = (await r.text()).slice(0, 300);
     throw new Error('LLM HTTP ' + r.status + ' [' + model + '] ' + b);
   }
   const data = await r.json();
-  const t = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-  if (!t) throw new Error('Empty LLM response body');
-  const start = t.indexOf('{'), end = t.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('No JSON object in LLM text: ' + t.slice(0, 100));
-  return JSON.parse(t.slice(start, end + 1));
+  const choice = data.choices && data.choices[0];
+  const msg = choice && choice.message;
+  return cleanAndParseJson(msg && msg.content, msg);
 }
 
 async function llm(kind, prompt, valid) {
-  const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? 0.8 : 0.2;
-  const tries = [[PRIMARY, model], [PRIMARY, model]].concat(FALLBACK ? [[FALLBACK, FALLBACK.model]] : []);
+  const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? 0.7 : 0.2;
+  const modelsToTry = [
+    [PRIMARY, model],
+    [PRIMARY, 'google/gemma-4-31b-it:free'],
+    [PRIMARY, 'nvidia/nemotron-3.5-lightning:free']
+  ].concat(FALLBACK ? [[FALLBACK, FALLBACK.model]] : []);
+
   let last;
-  for (const [p, m] of tries) {
+  for (const [p, m] of modelsToTry) {
     try {
       const j = await call(p, m, prompt, temp);
       if (valid(j)) return j;
-      last = new Error('invalid JSON shape');
+      last = new Error('invalid JSON shape from ' + m);
     } catch (e) {
       last = e;
-      console.warn('[llm]', e.message);
+      console.warn('[llm]', m, e.message);
     }
   }
   throw last;
