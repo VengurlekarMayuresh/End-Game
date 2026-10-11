@@ -1087,13 +1087,11 @@ function selectJdFilteredQuestions(jobDetails, coreTopics = [], seed = Date.now(
     });
   }
 
-  // ── 1. DSA CODE QUESTIONS: 1 General (EASY) + 1 Bit Difficult (MEDIUM/HARD) ──
+  // ── 1. DSA CODE QUESTIONS: Accessible & Practical (EASY / Foundational) ──
   const easyDsa = shuffleWithSeed(DSA_CODE_QUESTION_BANK.filter(q => q.difficulty === 'EASY'), seed);
-  const medHardDsa = shuffleWithSeed(DSA_CODE_QUESTION_BANK.filter(q => q.difficulty !== 'EASY'), seed + 7);
-
   const pickedDsa = [
     easyDsa[0] || DSA_CODE_QUESTION_BANK[0],
-    medHardDsa[0] || DSA_CODE_QUESTION_BANK[1]
+    easyDsa[1] || easyDsa[0] || DSA_CODE_QUESTION_BANK[1]
   ].map(q => ({
     ...q,
     language,
@@ -1102,18 +1100,17 @@ function selectJdFilteredQuestions(jobDetails, coreTopics = [], seed = Date.now(
     _hiddenTestCases: q.hiddenTestCases,
   }));
 
-  // ── 2. SQL QUESTIONS: 1 General (EASY) + 1 Medium + 1 Bit Difficult (Subquery/Join) ──
+  // ── 2. SQL QUESTIONS: 2 Accessible + 1 Moderate (Filtering, Aggregation, Basic Join) ──
   const easySql = shuffleWithSeed(SQL_QUESTION_BANK.filter(q => q.difficulty === 'EASY'), seed + 13);
   const medSql = shuffleWithSeed(SQL_QUESTION_BANK.filter(q => q.difficulty === 'MEDIUM'), seed + 19);
-  const hardSql = shuffleWithSeed(SQL_QUESTION_BANK.filter(q => q.difficulty === 'HARD'), seed + 23);
 
   const pickedSql = [
     easySql[0] || SQL_QUESTION_BANK[2],
-    medSql[0] || SQL_QUESTION_BANK[0],
-    (hardSql[0] || medSql[1] || SQL_QUESTION_BANK[1])
+    easySql[1] || SQL_QUESTION_BANK[0],
+    medSql[0] || SQL_QUESTION_BANK[1]
   ];
 
-  // ── 3. CORE CS / ROLE-SPECIFIC QUESTIONS: 1 Foundational (EASY) + 1 Bit Difficult (MEDIUM/HARD) ──
+  // ── 3. CORE CS / ROLE-SPECIFIC QUESTIONS: Practical & Foundational Concepts ──
   // Match candidate resume skills first
   const resumeMatchedCs = CORE_CS_QUESTION_BANK.filter(q => {
     const qTopic = (q.topic || '').toLowerCase();
@@ -1130,15 +1127,9 @@ function selectJdFilteredQuestions(jobDetails, coreTopics = [], seed = Date.now(
     seed + 31
   );
 
-  const csHardPool = shuffleWithSeed(
-    (resumeMatchedCs.some(q => q.difficulty !== 'EASY') ? resumeMatchedCs : CORE_CS_QUESTION_BANK)
-      .filter(q => q.difficulty !== 'EASY'),
-    seed + 37
-  );
-
   const pickedCoreCs = [
     csEasyPool[0] || CORE_CS_QUESTION_BANK[1],
-    csHardPool[0] || CORE_CS_QUESTION_BANK[6]
+    csEasyPool[1] || CORE_CS_QUESTION_BANK[2] || CORE_CS_QUESTION_BANK[0]
   ];
 
   return {

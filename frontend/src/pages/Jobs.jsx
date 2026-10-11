@@ -29,16 +29,36 @@ import {
   Layers,
   Cpu,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from 'lucide-react';
 
-const fmtSalary = (min, max, currency = '$') => {
+const fmtSalary = (min, max, currency = 'USD') => {
   if (!min && !max) return 'Competitive';
-  const curr = currency || '$';
-  const fmt = n => (n >= 100000 ? `${(n / 1000).toFixed(0)}k` : `${(n / 1000).toFixed(0)}k`);
-  if (min && max) return `${curr}${fmt(min)} – ${curr}${fmt(max)}`;
-  if (min) return `${curr}${fmt(min)}+`;
-  return `Up to ${curr}${fmt(max)}`;
+  const isINR = currency === 'INR' || currency === '₹';
+  const symbol = isINR ? '₹' : (currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$');
+  const fmt = n => {
+    if (isINR) {
+      return n >= 100000 ? `${(n / 100000).toFixed(1)}L` : `${(n / 1000).toFixed(0)}k`;
+    }
+    return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : `${n}`;
+  };
+  if (min && max) return `${symbol}${fmt(min)} – ${symbol}${fmt(max)}`;
+  if (min) return `${symbol}${fmt(min)}+`;
+  return `Up to ${symbol}${fmt(max)}`;
+};
+
+// Safe helper to parse responsibilities or requirements whether string or array
+const parseList = (content) => {
+  if (!content) return [];
+  if (Array.isArray(content)) return content;
+  if (typeof content === 'string') {
+    return content
+      .split('\n')
+      .map(s => s.trim().replace(/^[-*•]\s*/, ''))
+      .filter(Boolean);
+  }
+  return [];
 };
 
 const Jobs = () => {
@@ -51,7 +71,7 @@ const Jobs = () => {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [experienceFilter, setExperienceFilter] = useState('ALL');
-  const [sortBy, setSortBy] = useState('match'); // 'match', 'salary', 'recent'
+  const [sortBy, setSortBy] = useState('recent'); // 'recent', 'salary'
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'saved'
 
   // Saved / bookmarked jobs in localStorage
@@ -108,10 +128,12 @@ const Jobs = () => {
     const dbFormatted = dbJobs.map(j => ({
       ...j,
       isFromDb: true,
-      matchScore: j.matchScore || 95,
       isFeatured: true,
       department: j.department || 'Engineering',
-      experienceLevel: j.experienceLevel || 'Mid-Senior'
+      experienceLevel: j.experienceLevel ||
+        (j.experienceMin !== undefined
+          ? `${j.experienceMin}${j.experienceMax ? `-${j.experienceMax} yrs` : '+ yrs'}`
+          : 'Mid-Senior Level')
     }));
 
     // Avoid duplicates if DB has matching IDs
@@ -160,7 +182,7 @@ const Jobs = () => {
     if (experienceFilter !== 'ALL') {
       result = result.filter(job => {
         const exp = (job.experienceLevel || '').toLowerCase();
-        if (experienceFilter === 'ENTRY') return exp.includes('junior') || exp.includes('entry') || exp.includes('1-');
+        if (experienceFilter === 'ENTRY') return exp.includes('junior') || exp.includes('entry') || exp.includes('0-') || exp.includes('1-');
         if (experienceFilter === 'MID') return exp.includes('mid') || exp.includes('2-') || exp.includes('3-');
         if (experienceFilter === 'SENIOR') return exp.includes('senior') || exp.includes('4-') || exp.includes('5-');
         if (experienceFilter === 'LEAD') return exp.includes('lead') || exp.includes('staff') || exp.includes('principal');
@@ -194,9 +216,6 @@ const Jobs = () => {
 
     // Sorting
     result = [...result].sort((a, b) => {
-      if (sortBy === 'match') {
-        return (b.matchScore || 90) - (a.matchScore || 90);
-      }
       if (sortBy === 'salary') {
         const maxA = a.salaryMax || a.salaryMin || 0;
         const maxB = b.salaryMax || b.salaryMin || 0;
@@ -219,7 +238,7 @@ const Jobs = () => {
     setSelectedCategory('ALL');
     setRemoteOnly(false);
     setExperienceFilter('ALL');
-    setSortBy('match');
+    setSortBy('recent');
   };
 
   const handleCopyJobLink = (job) => {
@@ -239,6 +258,11 @@ const Jobs = () => {
     }
   };
 
+  // Safe parsed lists for the modal
+  const modalResponsibilities = parseList(selectedJobForModal?.responsibilities);
+  const modalRequirements = parseList(selectedJobForModal?.requirements);
+  const modalBenefits = parseList(selectedJobForModal?.benefits);
+
   return (
     <div className="min-h-screen bg-background text-foreground py-10 px-4 pt-20 selection:bg-primary/20 selection:text-primary">
       <div className="container mx-auto max-w-7xl">
@@ -250,14 +274,14 @@ const Jobs = () => {
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-xs font-semibold mb-4 text-primary">
             <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
             <Sparkles size={14} className="text-primary" />
-            Direct AI Interviews & Verified Compensation
+            Direct AI Interviews & Verified Openings
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
             Find High-Impact Technical Roles
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Search verified engineering positions with transparent salary bands, AI match benchmarking, and direct recruiter interviews.
+            Search verified engineering positions with transparent salary bands, direct recruiter assessment pipelines, and zero hiring ghosting.
           </p>
         </div>
 
@@ -404,7 +428,7 @@ const Jobs = () => {
           {/* Results count & Sort dropdown */}
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              Showing <strong className="text-foreground">{filteredJobs.length}</strong> matching positions
+              Showing <strong className="text-foreground">{filteredJobs.length}</strong> positions
             </span>
             <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-3 py-1.5 text-xs">
               <SlidersHorizontal size={13} className="text-muted-foreground" />
@@ -489,8 +513,8 @@ const Jobs = () => {
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-2">
                         <div>
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <h3 className="text-lg sm:text-xl font-bold group-hover:text-primary transition-colors tracking-tight">
@@ -525,10 +549,10 @@ const Jobs = () => {
                         </div>
 
                         {/* Desktop Save Bookmark */}
-                        <div className="flex items-center gap-2 self-start md:self-auto">
+                        <div className="hidden md:flex items-center gap-2 shrink-0">
                           <button
                             onClick={(e) => toggleSaveJob(job.id, e)}
-                            className="hidden md:flex p-2 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground transition-colors"
+                            className="p-2 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground transition-colors"
                             title={isSaved ? 'Remove from saved' : 'Save job'}
                           >
                             {isSaved ? <BookmarkCheck size={16} className="text-primary fill-primary" /> : <Bookmark size={16} />}
@@ -571,32 +595,58 @@ const Jobs = () => {
                         </div>
                       </div>
 
-                      {/* Tech Skills Chips */}
-                      {job.skills?.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/60">
-                          {job.skills.map(skill => {
-                            const isSearched = searchQuery && skill.toLowerCase().includes(searchQuery.toLowerCase());
-                            return (
-                              <span
-                                key={skill}
-                                className={`text-[11px] px-2.5 py-0.5 rounded-md font-mono transition-colors ${
-                                  isSearched
-                                    ? 'bg-primary text-primary-foreground font-semibold'
-                                    : 'bg-muted/70 text-muted-foreground'
-                                }`}
-                              >
-                                {skill}
-                              </span>
-                            );
-                          })}
-
-                          <div className="ml-auto flex items-center gap-2 pt-2 sm:pt-0">
-                            <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                              Quick View & Apply <ChevronRight size={14} />
+                      {/* UNIVERSAL CARD FOOTER (ALWAYS RENDERED ON EVERY JOB) */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-border/60">
+                        {/* Left: Skills chips or fallback role tag */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {job.skills?.length > 0 ? (
+                            job.skills.map(skill => {
+                              const isSearched = searchQuery && skill.toLowerCase().includes(searchQuery.toLowerCase());
+                              return (
+                                <span
+                                  key={skill}
+                                  className={`text-[11px] px-2.5 py-0.5 rounded-md font-mono transition-colors ${
+                                    isSearched
+                                      ? 'bg-primary text-primary-foreground font-semibold'
+                                      : 'bg-muted/70 text-muted-foreground'
+                                  }`}
+                                >
+                                  {skill}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
+                              <ShieldCheck size={13} className="text-emerald-500" />
+                              Direct HireSense AI Fast-Track Interview Available
                             </span>
-                          </div>
+                          )}
                         </div>
-                      )}
+
+                        {/* Right: Quick View & Apply CTA buttons */}
+                        <div className="flex items-center gap-2 ml-auto">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedJobForModal(job);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl border border-border hover:bg-muted text-xs font-semibold text-foreground transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <Eye size={13} className="text-primary" />
+                            Quick View
+                          </button>
+
+                          <Link
+                            to={`/jobs/${job.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all inline-flex items-center gap-1.5 shadow-xs"
+                          >
+                            View & Apply
+                            <ArrowRight size={13} />
+                          </Link>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -734,7 +784,7 @@ const Jobs = () => {
                 {/* About the role */}
                 <div>
                   <h4 className="font-bold text-base mb-2">Role Overview</h4>
-                  <p className="text-muted-foreground leading-relaxed text-xs sm:text-sm">
+                  <p className="text-muted-foreground leading-relaxed text-xs sm:text-sm whitespace-pre-line">
                     {selectedJobForModal.description ||
                       'Join an innovative engineering team delivering high-throughput cloud software. You will architect resilient services, collaborate with cross-functional product designers, and maintain high standards for system reliability.'}
                   </p>
@@ -754,12 +804,12 @@ const Jobs = () => {
                   </div>
                 )}
 
-                {/* Key Responsibilities */}
-                {selectedJobForModal.responsibilities && (
+                {/* Key Responsibilities (safely parsed for string or array) */}
+                {modalResponsibilities.length > 0 && (
                   <div>
                     <h4 className="font-bold text-base mb-2">Core Responsibilities</h4>
                     <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                      {selectedJobForModal.responsibilities.map((resp, i) => (
+                      {modalResponsibilities.map((resp, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
                           <span>{resp}</span>
@@ -769,12 +819,12 @@ const Jobs = () => {
                   </div>
                 )}
 
-                {/* Requirements */}
-                {selectedJobForModal.requirements && (
+                {/* Requirements (safely parsed for string or array) */}
+                {modalRequirements.length > 0 && (
                   <div>
                     <h4 className="font-bold text-base mb-2">Qualifications & Skills</h4>
                     <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                      {selectedJobForModal.requirements.map((req, i) => (
+                      {modalRequirements.map((req, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <CheckCircle2 size={16} className="text-primary shrink-0 mt-0.5" />
                           <span>{req}</span>
@@ -785,11 +835,11 @@ const Jobs = () => {
                 )}
 
                 {/* Benefits */}
-                {selectedJobForModal.benefits && (
+                {modalBenefits.length > 0 && (
                   <div>
                     <h4 className="font-bold text-base mb-2">Perks & Benefits</h4>
                     <div className="grid sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                      {selectedJobForModal.benefits.map((b, i) => (
+                      {modalBenefits.map((b, i) => (
                         <div key={i} className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center gap-2">
                           <Sparkles size={14} className="text-amber-500 shrink-0" />
                           <span>{b}</span>
@@ -808,7 +858,7 @@ const Jobs = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                     <div className="p-2.5 rounded-xl bg-card border border-border">
                       <div className="font-bold text-foreground">Step 1</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">Resume Fit Check</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">Resume Calibration</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-card border border-border">
                       <div className="font-bold text-foreground">Step 2</div>

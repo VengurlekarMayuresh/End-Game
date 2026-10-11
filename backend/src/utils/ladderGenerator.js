@@ -1,283 +1,286 @@
 /**
- * Project/JD Theoretical Ladder Generator & Escalation Engine
- * Escalates from Level 1 (Basic/General) -> Level 2 (Applied Scenario) -> Level 3 (Difficult Internals/Trade-offs).
+ * Project/JD Practical Ladder Generator & Escalation Engine
+ * Escalates from Level 1 (Foundational / Everyday Concept)
+ *               -> Level 2 (Practical Application)
+ *               -> Level 3 (Real-World Best Practice).
  * Tailored dynamically to candidate resume tech stack & matched JD skills.
+ * Made accessible and practical rather than overly theoretical.
  */
 
 const PREDEFINED_LADDERS = {
   react: [
     {
       level: 1,
-      statement: 'In React, what in-memory representation of the real DOM is used to compute efficient UI updates before batching changes to the browser?',
-      canonicalAnswer: 'Virtual DOM',
-      acceptedSynonyms: ['VDOM', 'Virtual Dom', 'vdom', 'Virtual Document Object Model'],
+      statement: 'In React, which built-in hook is used to declare and update state variables inside functional components?',
+      canonicalAnswer: 'useState',
+      acceptedSynonyms: ['use-state', 'useState hook', 'state hook', 'useState()'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which built-in React hook is used to persist mutable values across re-renders without triggering a component re-render when mutated?',
-      canonicalAnswer: 'useRef',
-      acceptedSynonyms: ['useRef hook', 'ref', 'use-ref'],
+      statement: 'Which React hook is used to handle side effects such as data fetching, timers, and DOM subscriptions?',
+      canonicalAnswer: 'useEffect',
+      acceptedSynonyms: ['use-effect', 'useEffect hook', 'effect hook', 'useEffect()'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which internal React 18 reconciliation architecture enables interruptible rendering and concurrent scheduling using fiber nodes?',
-      canonicalAnswer: 'React Fiber',
-      acceptedSynonyms: ['Fiber', 'Fiber Architecture', 'React Fiber reconciler', 'Concurrent Mode'],
+      statement: 'Which hook in React is used to cache and memoize the result of an expensive calculation between renders?',
+      canonicalAnswer: 'useMemo',
+      acceptedSynonyms: ['use-memo', 'useMemo hook', 'memo hook', 'useMemo()', 'useCallback'],
       marks: 2.0
     }
   ],
   'node.js': [
     {
       level: 1,
-      statement: 'What single-threaded core loop in Node.js orchestrates asynchronous non-blocking I/O callbacks across phases like timers and poll?',
-      canonicalAnswer: 'Event Loop',
-      acceptedSynonyms: ['event loop', 'Event-Loop', 'libuv event loop'],
+      statement: 'Which default package manager and CLI tool is bundled with Node.js to install and manage third-party libraries?',
+      canonicalAnswer: 'npm',
+      acceptedSynonyms: ['Node Package Manager', 'yarn', 'pnpm', 'NPM'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which Node.js mechanism or module allows streaming large gigabyte files chunk-by-chunk without overwhelming memory allocation?',
-      canonicalAnswer: 'Streams',
-      acceptedSynonyms: ['Stream', 'Node Streams', 'Readable Stream', 'fs.createReadStream', 'Piping'],
+      statement: 'In Express or Node.js web servers, what type of function executes between receiving a client request and sending the final response?',
+      canonicalAnswer: 'Middleware',
+      acceptedSynonyms: ['middleware', 'middleware function', 'middlewares'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which native C library provides Node.js with its multi-threaded asynchronous thread pool and platform abstraction layer for I/O operations?',
-      canonicalAnswer: 'libuv',
-      acceptedSynonyms: ['libuv library', 'Libuv'],
+      statement: 'Which core built-in Node.js module provides methods to read, write, and manage files on the server file system?',
+      canonicalAnswer: 'fs',
+      acceptedSynonyms: ['file system', 'FileSystem', 'fs module', 'fs/promises'],
       marks: 2.0
     }
   ],
   python: [
     {
       level: 1,
-      statement: 'What mechanism in CPython restricts thread execution such that only one native thread executes Python bytecode at a time?',
-      canonicalAnswer: 'GIL',
-      acceptedSynonyms: ['Global Interpreter Lock', 'gil', 'Global interpreter lock'],
+      statement: 'Which built-in Python data structure is an ordered, mutable sequence defined using square brackets `[]`?',
+      canonicalAnswer: 'List',
+      acceptedSynonyms: ['list', 'lists', 'Python list'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which Python keyword is used inside a function to produce an iterator that yields values one at a time on demand rather than storing them in memory?',
-      canonicalAnswer: 'yield',
-      acceptedSynonyms: ['yield keyword', 'Generator', 'yield statement'],
+      statement: 'Which Python block or statement is used to catch and handle exceptions to prevent a program from crashing?',
+      canonicalAnswer: 'try except',
+      acceptedSynonyms: ['try-except', 'try catch', 'except', 'try', 'exception handling'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'In Python\'s memory manager, which built-in module detects and collects reference cycles that cannot be freed by pure reference counting?',
-      canonicalAnswer: 'gc',
-      acceptedSynonyms: ['gc module', 'Garbage Collector', 'Cycle Detector', 'gc.collect'],
+      statement: 'In Python, which built-in function returns both the index and the item while looping through an iterable?',
+      canonicalAnswer: 'enumerate',
+      acceptedSynonyms: ['enumerate()', 'enumerate function'],
       marks: 2.0
     }
   ],
   java: [
     {
       level: 1,
-      statement: 'What is the primary JVM component responsible for automatically reclaiming dynamically allocated heap memory that is no longer referenced?',
-      canonicalAnswer: 'Garbage Collector',
-      acceptedSynonyms: ['GC', 'Garbage Collection', 'garbage collector'],
+      statement: 'In Java, which keyword is used by a subclass to inherit methods and attributes from a superclass?',
+      canonicalAnswer: 'extends',
+      acceptedSynonyms: ['extends keyword', 'inheritance'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which Java interface in java.util.concurrent represents an asynchronous computation result that supports non-blocking functional composition?',
-      canonicalAnswer: 'CompletableFuture',
-      acceptedSynonyms: ['Future', 'Completable Future', 'Future interface'],
+      statement: 'Which Java access modifier makes a variable or method accessible only within its own class?',
+      canonicalAnswer: 'private',
+      acceptedSynonyms: ['private modifier', 'private keyword'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which Java keyword guarantees that reads and writes of a variable happen directly in main memory, preventing thread-caching inconsistencies?',
-      canonicalAnswer: 'volatile',
-      acceptedSynonyms: ['volatile keyword', 'Volatile'],
+      statement: 'In Java, which common collection interface from java.util represents an ordered sequence of elements that allows duplicates?',
+      canonicalAnswer: 'List',
+      acceptedSynonyms: ['ArrayList', 'java.util.List', 'list'],
       marks: 2.0
     }
   ],
   docker: [
     {
       level: 1,
-      statement: 'What is the lightweight, standalone, executable software package containing all code, runtime, and system libraries needed to run an application?',
-      canonicalAnswer: 'Container Image',
-      acceptedSynonyms: ['Docker Image', 'Image', 'Docker image'],
+      statement: 'What text file contains the sequential instructions and commands used to build a container image?',
+      canonicalAnswer: 'Dockerfile',
+      acceptedSynonyms: ['dockerfile', 'Docker file'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which Dockerfile optimization pattern compiles binaries in an initial build container and copies only artifacts into a minimal runtime image?',
-      canonicalAnswer: 'Multi-stage Build',
-      acceptedSynonyms: ['Multi stage build', 'Multistage build', 'Multi-stage'],
+      statement: 'Which flag is passed to the `docker run` command (e.g. `-d`) to run a container in the background detached from the terminal?',
+      canonicalAnswer: 'detach',
+      acceptedSynonyms: ['-d', '--detach', 'detached', 'detached mode'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which Linux kernel feature does Docker utilize to isolate process trees, network interfaces, and mount points between containers?',
-      canonicalAnswer: 'Namespaces',
-      acceptedSynonyms: ['Linux Namespaces', 'namespace', 'cgroups and namespaces'],
+      statement: 'Which tool uses a YAML configuration file to define, configure, and launch multi-container Docker applications simultaneously?',
+      canonicalAnswer: 'Docker Compose',
+      acceptedSynonyms: ['docker-compose', 'docker compose', 'compose'],
       marks: 2.0
     }
   ],
   mongodb: [
     {
       level: 1,
-      statement: 'What binary-encoded JSON-like format does MongoDB use internally to store documents and represent data types?',
+      statement: 'In what lightweight, binary JSON-like format does MongoDB store document data records?',
       canonicalAnswer: 'BSON',
-      acceptedSynonyms: ['Binary JSON', 'bson'],
+      acceptedSynonyms: ['bson', 'Binary JSON'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which multi-stage data processing framework in MongoDB transforms documents through stages like $match, $group, and $project?',
-      canonicalAnswer: 'Aggregation Pipeline',
-      acceptedSynonyms: ['Aggregation', 'Pipeline', 'Aggregate', 'Aggregation pipeline'],
+      statement: 'Which unique identifier field is automatically generated as the primary key for every document in a MongoDB collection?',
+      canonicalAnswer: '_id',
+      acceptedSynonyms: ['id', 'ObjectId', '_id field'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which special capped collection in MongoDB replica sets records all write operations to support data replication across secondary members?',
-      canonicalAnswer: 'oplog',
-      acceptedSynonyms: ['Oplog', 'Operations Log', 'oplog.rs', 'Operation log'],
+      statement: 'Which MongoDB pipeline framework processes data through ordered stages like `$match` and `$group` to compute results?',
+      canonicalAnswer: 'Aggregation',
+      acceptedSynonyms: ['aggregation pipeline', 'aggregate', 'Aggregation Pipeline'],
       marks: 2.0
     }
   ],
   sql: [
     {
       level: 1,
-      statement: 'What relational constraint ensures each row in a database table has a non-null, uniquely identifiable column value?',
-      canonicalAnswer: 'Primary Key',
-      acceptedSynonyms: ['PK', 'primary key', 'Primary key constraint'],
+      statement: 'Which SQL clause is used to filter records based on a specified condition in a SELECT query?',
+      canonicalAnswer: 'WHERE',
+      acceptedSynonyms: ['where', 'WHERE clause', 'where condition'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which SQL operator or clause combines the result sets of two SELECT queries, automatically removing duplicate rows?',
-      canonicalAnswer: 'UNION',
-      acceptedSynonyms: ['union', 'UNION operator'],
+      statement: 'Which SQL clause is used to group rows with identical values in summary queries alongside functions like COUNT or SUM?',
+      canonicalAnswer: 'GROUP BY',
+      acceptedSynonyms: ['group by', 'GROUP BY clause'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'What relational database logging mechanism writes transaction changes sequentially to persistent storage before committing them to data files?',
-      canonicalAnswer: 'WAL',
-      acceptedSynonyms: ['Write-Ahead Logging', 'Write Ahead Log', 'Write Ahead Logging', 'wal'],
+      statement: 'Which type of SQL JOIN returns all rows from the first table and matched rows from the second table, inserting NULLs when there is no match?',
+      canonicalAnswer: 'LEFT JOIN',
+      acceptedSynonyms: ['left join', 'LEFT OUTER JOIN', 'left outer join'],
       marks: 2.0
     }
   ],
   aws: [
     {
       level: 1,
-      statement: 'Which core AWS service provides highly scalable object storage with 99.999999999% (11 9s) durability for storing images, documents, and backups?',
-      canonicalAnswer: 'S3',
-      acceptedSynonyms: ['Amazon S3', 'Simple Storage Service', 's3'],
+      statement: 'Which core AWS service provides on-demand, scalable virtual server compute capacity in the cloud?',
+      canonicalAnswer: 'EC2',
+      acceptedSynonyms: ['Amazon EC2', 'Elastic Compute Cloud', 'ec2'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which AWS security mechanism grants temporary, fine-grained access credentials to applications and EC2 instances without embedding long-term API keys?',
-      canonicalAnswer: 'IAM Role',
-      acceptedSynonyms: ['IAM Roles', 'IAM', 'Instance Profile', 'Role'],
+      statement: 'Which AWS service provides object storage with high durability for storing images, documents, and backups?',
+      canonicalAnswer: 'S3',
+      acceptedSynonyms: ['Amazon S3', 'Simple Storage Service', 's3'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'In distributed cloud networks, which technique connects two Virtual Private Clouds (VPCs) directly using private IP addresses as if they were in the same network?',
-      canonicalAnswer: 'VPC Peering',
-      acceptedSynonyms: ['Vpc peering', 'VPC Peering Connection', 'Transit Gateway'],
+      statement: 'Which AWS serverless compute service lets you execute code functions in response to triggers without provisioning servers?',
+      canonicalAnswer: 'Lambda',
+      acceptedSynonyms: ['AWS Lambda', 'lambda', 'Amazon Lambda'],
       marks: 2.0
     }
   ],
   rag: [
     {
       level: 1,
-      statement: 'In RAG (Retrieval-Augmented Generation), what component converts text chunks into vector representations?',
-      canonicalAnswer: 'Embedding Model',
-      acceptedSynonyms: ['Embeddings', 'Embedding', 'Encoder', 'Vector Embedding', 'Text Embeddings'],
+      statement: 'In RAG (Retrieval-Augmented Generation), what model or process converts text chunks into numerical vectors?',
+      canonicalAnswer: 'Embedding',
+      acceptedSynonyms: ['Embeddings', 'Embedding Model', 'Vector Embedding', 'Encoder'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which technique retrieves the top-K relevant chunks before passing them as context to the LLM?',
-      canonicalAnswer: 'Vector Search',
-      acceptedSynonyms: ['Semantic Search', 'Similarity Search', 'Vector Retrieval', 'KNN Search', 'Cosine Similarity'],
+      statement: 'Which specialized database is engineered to store and perform fast nearest-neighbor similarity searches on high-dimensional vectors?',
+      canonicalAnswer: 'Vector Database',
+      acceptedSynonyms: ['Vector DB', 'Vector search', 'Vector Store', 'Pinecone', 'Chroma', 'Milvus', 'Qdrant'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which post-retrieval step re-orders retrieved chunks using a cross-encoder to improve context precision?',
-      canonicalAnswer: 'Reranking',
-      acceptedSynonyms: ['Re-ranking', 'Cross-Encoder Reranking', 'Reranker', 'Rerank'],
+      statement: 'What metric or similarity function (measuring the angle between vectors) is most commonly used to rank relevant document chunks in vector search?',
+      canonicalAnswer: 'Cosine Similarity',
+      acceptedSynonyms: ['Cosine', 'Dot Product', 'cosine similarity', 'Euclidean Distance'],
       marks: 2.0
     }
   ],
   microservices: [
     {
       level: 1,
-      statement: 'Which API gateway pattern acts as a single entry point to route requests to backend microservices?',
+      statement: 'What component acts as a reverse proxy entry point to route client requests to underlying microservices?',
       canonicalAnswer: 'API Gateway',
-      acceptedSynonyms: ['Gateway', 'Reverse Proxy', 'API Proxy', 'Router'],
+      acceptedSynonyms: ['Gateway', 'Reverse Proxy', 'Router', 'Proxy'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which design pattern prevents a cascading service failure by failing fast when a downstream service is unresponsive?',
-      canonicalAnswer: 'Circuit Breaker',
-      acceptedSynonyms: ['Circuit breaker pattern', 'CircuitBreaker', 'Fault tolerance'],
+      statement: 'Which lightweight data interchange format based on key-value pairs is most widely used for REST API payloads between services?',
+      canonicalAnswer: 'JSON',
+      acceptedSynonyms: ['json', 'JavaScript Object Notation'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which distributed data pattern maintains eventual consistency across services using a sequence of local transactions?',
-      canonicalAnswer: 'Saga Pattern',
-      acceptedSynonyms: ['Saga', 'Sagas', 'Saga Pattern', 'Choreography Saga', 'Orchestration Saga'],
+      statement: 'Which design pattern prevents repeated failing calls to a degraded microservice by failing fast until the service recovers?',
+      canonicalAnswer: 'Circuit Breaker',
+      acceptedSynonyms: ['circuit breaker', 'Circuit breaker pattern', 'CircuitBreaker'],
       marks: 2.0
     }
   ],
   caching: [
     {
       level: 1,
-      statement: 'Which eviction policy removes the least recently accessed item first when cache capacity is full?',
-      canonicalAnswer: 'LRU',
-      acceptedSynonyms: ['Least Recently Used', 'LRU Eviction', 'lru'],
+      statement: 'What popular open-source in-memory data store is widely used as an ultra-fast cache and message broker?',
+      canonicalAnswer: 'Redis',
+      acceptedSynonyms: ['redis', 'Memcached'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which caching strategy writes data simultaneously to both the cache and underlying database store?',
-      canonicalAnswer: 'Write-Through',
-      acceptedSynonyms: ['Write through', 'Write-Through Caching', 'Synchronous Write'],
+      statement: 'Which cache eviction policy discards the items that haven\'t been accessed for the longest time when cache memory is full?',
+      canonicalAnswer: 'LRU',
+      acceptedSynonyms: ['Least Recently Used', 'lru', 'LRU cache'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'What phenomenon occurs when multiple concurrent requests miss the cache simultaneously and overwhelm the database?',
-      canonicalAnswer: 'Cache Stampede',
-      acceptedSynonyms: ['Thundering Herd', 'Cache Avalanche', 'Dog piling', 'Stampede'],
+      statement: 'What property or acronym specifies how long a cached value remains valid before it expires and must be refreshed?',
+      canonicalAnswer: 'TTL',
+      acceptedSynonyms: ['Time to Live', 'Time To Live', 'ttl', 'Expiration Time'],
       marks: 2.0
     }
   ],
   'system design': [
     {
       level: 1,
-      statement: 'What hardware/software device sits between clients and servers to distribute incoming network traffic across a healthy server pool?',
+      statement: 'What hardware or software component distributes incoming web traffic across multiple server instances to prevent overload?',
       canonicalAnswer: 'Load Balancer',
       acceptedSynonyms: ['load balancer', 'LB', 'Reverse Proxy', 'Application Load Balancer'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: 'Which hashing algorithm assigns both cache nodes and data keys to a circular ring to minimize key remapping when nodes are added or removed?',
-      canonicalAnswer: 'Consistent Hashing',
-      acceptedSynonyms: ['consistent hashing', 'Hash Ring', 'Consistent hash ring'],
+      statement: 'What type of scaling involves adding more servers to your system pool rather than upgrading CPU/RAM on a single server?',
+      canonicalAnswer: 'Horizontal Scaling',
+      acceptedSynonyms: ['Horizontal', 'Scaling out', 'Scale out', 'Horizontal scale'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: 'Which distributed consensus algorithm is designed to be easier to understand than Paxos and is used by etcd and Consul for leader election and log replication?',
-      canonicalAnswer: 'Raft',
-      acceptedSynonyms: ['Raft Consensus', 'raft', 'Raft Algorithm'],
+      statement: 'What database mechanism creates an index on columns to speed up search and query lookups at the cost of slightly slower writes?',
+      canonicalAnswer: 'Indexing',
+      acceptedSynonyms: ['Index', 'Database Index', 'B-Tree Index', 'index'],
       marks: 2.0
     }
   ]
@@ -324,7 +327,7 @@ function generateProjectLadder(coreTopics = []) {
         id: `ladder-${topicKey}-${item.level}`,
         category: 'PROJECT_LADDER',
         topic: topicKey.toUpperCase(),
-        level: item.level, // 1 (Basic), 2 (Intermediate), 3 (Advanced)
+        level: item.level, // 1 (Foundational), 2 (Practical), 3 (Applied Best Practice)
         statement: item.statement,
         canonicalAnswer: item.canonicalAnswer,
         acceptedSynonyms: item.acceptedSynonyms,
@@ -338,27 +341,27 @@ function generateProjectLadder(coreTopics = []) {
 }
 
 function generateGenericLadder(topicName) {
-  const name = (topicName || 'System Architecture').toUpperCase();
+  const name = (topicName || 'Software Architecture').toUpperCase();
   return [
     {
       level: 1,
-      statement: `What primary architectural goal or core benefit does ${name} provide in modern software engineering?`,
-      canonicalAnswer: 'Scalability',
-      acceptedSynonyms: ['Modularity', 'Performance', 'Maintainability', 'High Availability', 'Fault Tolerance'],
+      statement: `In software engineering, what primary benefit does modular component design in ${name} provide for maintenance?`,
+      canonicalAnswer: 'Maintainability',
+      acceptedSynonyms: ['Reusability', 'Readability', 'Modularity', 'Clean Code'],
       marks: 1.0
     },
     {
       level: 2,
-      statement: `What common design pattern or mechanism is used to decouple components in ${name}?`,
-      canonicalAnswer: 'Dependency Injection',
-      acceptedSynonyms: ['Event-Driven Architecture', 'Message Queue', 'Abstraction', 'Interface', 'Adapter Pattern'],
+      statement: `Which standard format or protocol is most commonly used for sending data payloads between services in ${name}?`,
+      canonicalAnswer: 'JSON',
+      acceptedSynonyms: ['REST', 'HTTP', 'JSON format', 'REST API'],
       marks: 1.5
     },
     {
       level: 3,
-      statement: `What critical trade-off or bottleneck must be managed when scaling ${name} under heavy production traffic?`,
-      canonicalAnswer: 'Latency',
-      acceptedSynonyms: ['Throughput', 'Network Latency', 'Memory Consumption', 'Data Consistency', 'Lock Contention'],
+      statement: `What common technique is used in ${name} to store frequently accessed data in fast memory to speed up response times?`,
+      canonicalAnswer: 'Caching',
+      acceptedSynonyms: ['Cache', 'In-memory Cache', 'Redis Caching'],
       marks: 2.0
     }
   ];
@@ -370,17 +373,14 @@ function updateLadderState(currentLadderState, topic, level, isCorrect) {
     state[topic] = { currentLevel: 1, maxReached: 1, stopped: false };
   }
 
-  const topicState = state[topic];
+  const topicState = { ...state[topic] };
 
   if (isCorrect) {
-    if (level === topicState.currentLevel) {
-      if (level < 3) {
-        topicState.currentLevel = level + 1;
-        topicState.maxReached = level + 1;
-      }
+    if (level >= topicState.currentLevel && level < 3) {
+      topicState.currentLevel = level + 1;
+      topicState.maxReached = Math.max(topicState.maxReached, level + 1);
+      topicState.stopped = false;
     }
-  } else {
-    topicState.stopped = true;
   }
 
   state[topic] = topicState;
