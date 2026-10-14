@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProctoring } from '../../hooks/useProctoring';
 import axios from 'axios';
@@ -8,7 +8,8 @@ import {
   Mic, MicOff, Volume2, Sparkles, AlertCircle, ArrowLeft, RefreshCw,
   CheckCircle2, Play, Send, Bot, User, Clock, Award, ShieldCheck, ShieldAlert,
   Video, Eye, FileText, ChevronRight, CheckCheck, Loader2, ExternalLink,
-  Download, Sparkle, Laptop, Settings, ArrowUpRight, Lock, Maximize2, AlertTriangle, Smartphone, Users
+  Download, Sparkle, Laptop, Settings, ArrowUpRight, Lock, Maximize2, AlertTriangle,
+  Smartphone, Users, Home, Trophy, XCircle, CheckSquare
 } from 'lucide-react';
 
 const INTERVIEW_BASE_URL = 'http://localhost:3000';
@@ -16,11 +17,13 @@ const MAX_SCREEN_VIOLATIONS = 3;
 
 const AIInterview = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const applicationId = searchParams.get('applicationId');
   const { user } = useAuth();
 
-  // Mode: 'EMBEDDED' (Interactive Web Canvas) vs 'CONFIG' (Candidate Details & Launch)
+  // Mode: 'EMBEDDED' (Interactive Web Canvas) vs 'CONFIG' (Candidate Details & Launch) vs 'COMPLETED' (post-interview)
   const [viewMode, setViewMode] = useState('CONFIG');
-  const [serverOnline, setServerOnline] = useState(null); // null = checking, true = online, false = offline
+  const [serverOnline, setServerOnline] = useState(null);
   const [serverMeta, setServerMeta] = useState(null);
 
   // Candidate and Session state
@@ -38,6 +41,14 @@ const AIInterview = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [proctorWarning, setProctorWarning] = useState('');
 
+  // Interview completion state
+  const [interviewReport, setInterviewReport] = useState(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [existingReport, setExistingReport] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+
   // Strict Proctoring & Anti-Cheating States
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [screenViolations, setScreenViolations] = useState(0);
@@ -53,7 +64,7 @@ const AIInterview = () => {
   // Reliable Session & Attempt Identifier
   const effectiveAttemptId = candidateId || (user?.id ? `interview-${user.id}` : 'interview-session-active');
 
-  // Companion Python Proctoring Hook (session_monitor_pro.py on port 8765)
+  // Companion Python Proctoring Hook
   const {
     status: pythonProctorStatus,
     errorMsg: pythonProctorError,
@@ -69,6 +80,37 @@ const AIInterview = () => {
     }
   );
 
+  // ── CHECK IF STUDENT HAS ALREADY COMPLETED AN INTERVIEW ──
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        setCheckingStatus(true);
+        if (!applicationId) {
+          setAlreadyCompleted(false);
+          setExistingReport(null);
+          return;
+        }
+        const res = await api.get('/student/interview/status', { params: { applicationId } });
+        if (res.data.hasCompleted) {
+          setAlreadyCompleted(true);
+          setExistingReport(res.data.report);
+        } else {
+          // Explicitly reset — backend is the only source of truth
+          setAlreadyCompleted(false);
+          setExistingReport(null);
+        }
+      } catch (err) {
+        // API failed — default to NOT completed (avoid false positives)
+        setAlreadyCompleted(false);
+        setExistingReport(null);
+        console.log('[AIInterview] Status check error:', err.message);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+    checkStatus();
+  }, [user?.id, applicationId]);
+
   // Start proctoring when entering EMBEDDED live interview mode
   useEffect(() => {
     if (viewMode === 'EMBEDDED') {
@@ -80,6 +122,74 @@ const AIInterview = () => {
       stopProctoring();
     };
   }, [viewMode, effectiveAttemptId]);
+
+  // ── LISTEN FOR INTERVIEW COMPLETION postMessage FROM IFRAME ──
+  // Use a ref to avoid stale closure on submitReportToBackend
+  const submitReportRef = useRef(null);
+  const screenViolationsRef = useRef(screenViolations);
+  useEffect(() => { screenViolationsRef.current = screenViolations; }, [screenViolations]);
+
+  useEffect(() => {
+    const handleMessage = async (event) => {
+      if (event.data?.type === 'AI_INTERVIEW_COMPLETE') {
+        const payload = event.data.payload;
+        console.log('[AIInterview] ✅ Received completion postMessage:', payload);
+
+        stopProctoring();
+        try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
+
+        setInterviewReport(payload);
+        setViewMode('COMPLETED');
+
+        // Use ref version to avoid stale closure
+        if (submitReportRef.current) {
+          submitReportRef.current(payload);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Submit report to our backend for recruiter review
+  const submitReportToBackend = async (reportPayload) => {
+    try {
+      setIsSubmittingReport(true);
+      console.log('[AIInterview] Submitting report to backend...', reportPayload);
+      const res = await api.post('/student/interview/submit-report', {
+        candidateName: reportPayload.candidateName || candidateName,
+        candidateEmail: reportPayload.candidateEmail || candidateEmail,
+        jobTitle: reportPayload.jobTitle || jobTitle,
+        applicationId,
+        interviewSessionId: reportPayload.sessionId || null,
+        percentage: reportPayload.percentage || 0,
+        selected: reportPayload.selected || false,
+        highestLevel: reportPayload.highestLevel || 1,
+        endedEarly: reportPayload.endedEarly || false,
+        turns: reportPayload.turns || [],
+        screenViolations: screenViolationsRef.current || 0
+      });
+      console.log('[AIInterview] ✅ Report submitted to backend:', res.data);
+      setReportSubmitted(true);
+      setAlreadyCompleted(true);
+    } catch (err) {
+      if (err.response?.status === 409) {
+        // Already submitted — treat as success
+        setReportSubmitted(true);
+        setAlreadyCompleted(true);
+      } else {
+        console.error('[AIInterview] ❌ Submit report error:', err.response?.data || err.message);
+      }
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  // Keep submitReportRef up to date
+  useEffect(() => {
+    submitReportRef.current = submitReportToBackend;
+  });
 
   // Enter Fullscreen Helper
   const enterFullscreen = async () => {
@@ -105,7 +215,6 @@ const AIInterview = () => {
           setProctorWarning(msg);
           setShowScreenSwitchModal(true);
 
-          // Log incident to backend proctoring API
           if (sessionId) {
             api.post(`/student/proctoring/session/${sessionId}/event`, {
               eventType: 'TAB_SWITCH',
@@ -119,7 +228,10 @@ const AIInterview = () => {
     };
 
     const handleWindowBlur = () => {
-      if (document.hidden) return; // Already captured by visibilitychange
+      if (document.hidden) return;
+      // Ignore blur when focus moved to the embedded interview iframe (Start/Next buttons, etc.)
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.tagName === 'IFRAME') return;
       setScreenViolations(prev => {
         const nextVal = prev + 1;
         const msg = `WINDOW FOCUS LOST: Warning (${nextVal}/${MAX_SCREEN_VIOLATIONS}). Do not click away to other apps.`;
@@ -257,22 +369,218 @@ const AIInterview = () => {
     }
   };
 
-  // 4. Open Document Intake (for PDF/DOCX resume file upload)
-  const handleOpenIntake = () => {
-    if (!agreedToGuidelines) {
-      setErrorMsg('Please read and agree to all strict proctoring guidelines before entering the interview intake studio.');
-      return;
-    }
-    setActiveFrameUrl(`${INTERVIEW_BASE_URL}/intake.html`);
-    setViewMode('EMBEDDED');
-    enterFullscreen();
-  };
-
   const isProctorConnected = pythonProctorStatus === 'active';
+  const scoreColor = interviewReport
+    ? interviewReport.percentage >= 70 ? 'text-emerald-500' : interviewReport.percentage >= 50 ? 'text-amber-500' : 'text-destructive'
+    : '';
+
+  // ── LOADING STATE ──
+  if (checkingStatus) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 size={32} className="animate-spin text-primary" />
+          <p className="text-sm font-medium">Checking interview status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ALREADY COMPLETED STATE ──
+  if (alreadyCompleted && viewMode !== 'COMPLETED') {
+    const canRetake = existingReport?.status !== 'SELECTED' && existingReport?.status !== 'REJECTED';
+    return (
+      <div className="max-w-3xl mx-auto p-6 space-y-6 animate-in fade-in duration-300">
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle2 size={24} className="text-emerald-500" />
+            </div>
+            <div>
+              <h1 className="text-xl font-extrabold text-foreground">Interview Submitted</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Your AI interview has been submitted for recruiter review.</p>
+            </div>
+          </div>
+
+          {existingReport && (
+            <div className="grid sm:grid-cols-3 gap-4 mt-4">
+              <div className="bg-muted/40 rounded-2xl p-4 border border-border text-center">
+                <p className="text-3xl font-extrabold text-foreground">{existingReport.percentage}<span className="text-base font-semibold text-muted-foreground">/100</span></p>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">Overall Score</p>
+              </div>
+              <div className={`rounded-2xl p-4 border text-center ${existingReport.selected ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                <p className={`text-lg font-extrabold ${existingReport.selected ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {existingReport.selected ? '✓ AI Pass' : '✕ Below Threshold'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">AI Recommendation</p>
+              </div>
+              <div className={`rounded-2xl p-4 border text-center ${
+                existingReport.status === 'SELECTED' ? 'bg-emerald-500/10 border-emerald-500/20' :
+                existingReport.status === 'REJECTED' ? 'bg-destructive/10 border-destructive/20' :
+                'bg-amber-500/10 border-amber-500/20'
+              }`}>
+                <p className={`text-base font-extrabold ${
+                  existingReport.status === 'SELECTED' ? 'text-emerald-600' :
+                  existingReport.status === 'REJECTED' ? 'text-destructive' :
+                  'text-amber-600'
+                }`}>
+                  {existingReport.status === 'PENDING_REVIEW' ? '⏳ Awaiting Review' :
+                   existingReport.status === 'SELECTED' ? '🎉 Selected!' :
+                   '✕ Rejected'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">Recruiter Decision</p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-2xl text-xs text-muted-foreground leading-relaxed">
+            <p className="font-bold text-primary mb-1 flex items-center gap-1.5"><ShieldCheck size={13} /> What happens next?</p>
+            Your interview transcript and scores have been sent to the recruiter panel for human review. The recruiter will evaluate your performance and make a final hiring decision.
+          </div>
+
+          <div className="mt-4 flex gap-3 flex-wrap">
+            <button
+              onClick={() => navigate('/student')}
+              className="flex-1 py-3 bg-primary text-primary-foreground font-bold text-sm rounded-2xl hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Home size={16} /> Go to Dashboard
+            </button>
+            {canRetake && (
+              <button
+                onClick={() => {
+                  setAlreadyCompleted(false);
+                  setExistingReport(null);
+                  setViewMode('CONFIG');
+                }}
+                className="flex-1 py-3 bg-violet-600/10 border border-violet-500/30 text-violet-600 font-semibold text-sm rounded-2xl hover:bg-violet-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Mic size={16} /> Take Interview Again
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── INTERVIEW COMPLETED STATE (right after finishing) ──
+  if (viewMode === 'COMPLETED' && interviewReport) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-300">
+
+        {/* Hero Completion Card */}
+        <div className="bg-gradient-to-br from-violet-600 via-indigo-600 to-primary text-white rounded-3xl p-8 text-center shadow-2xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-white/5 backdrop-blur-sm" />
+          <div className="relative z-10 space-y-4">
+            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto border-4 border-white/30 shadow-inner">
+              {interviewReport.selected
+                ? <Trophy size={36} className="text-yellow-300" />
+                : <CheckCircle2 size={36} className="text-white" />}
+            </div>
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight">Interview Complete!</h1>
+              <p className="text-white/80 text-sm mt-1">Your responses have been recorded and submitted for recruiter review.</p>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-5xl font-extrabold">{interviewReport.percentage}</span>
+              <span className="text-white/70 text-xl font-semibold">/ 100</span>
+            </div>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
+              interviewReport.selected
+                ? 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
+                : 'bg-white/10 text-white/80 border border-white/20'
+            }`}>
+              {interviewReport.selected ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+              AI Recommendation: {interviewReport.selected ? 'Selected ✓' : 'Not Selected'}
+            </div>
+          </div>
+        </div>
+
+        {/* Report Summary */}
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-sm space-y-4">
+          <h2 className="font-extrabold text-base text-foreground flex items-center gap-2">
+            <Award size={18} className="text-primary" /> Assessment Summary
+          </h2>
+
+          <div className="grid sm:grid-cols-3 gap-3 text-center text-xs">
+            <div className="p-3.5 bg-muted/40 rounded-2xl border border-border">
+              <p className="text-2xl font-extrabold text-foreground">{interviewReport.percentage}<span className="text-xs text-muted-foreground">/100</span></p>
+              <p className="text-muted-foreground font-medium mt-1">Score</p>
+            </div>
+            <div className="p-3.5 bg-muted/40 rounded-2xl border border-border">
+              <p className="text-2xl font-extrabold text-foreground">{interviewReport.highestLevel}<span className="text-xs text-muted-foreground">/5</span></p>
+              <p className="text-muted-foreground font-medium mt-1">Highest Level</p>
+            </div>
+            <div className="p-3.5 bg-muted/40 rounded-2xl border border-border">
+              <p className="text-2xl font-extrabold text-foreground">{Array.isArray(interviewReport.turns) ? interviewReport.turns.length : '—'}</p>
+              <p className="text-muted-foreground font-medium mt-1">Questions</p>
+            </div>
+          </div>
+
+          {/* Submission status */}
+          <div className={`flex items-center gap-3 p-3.5 rounded-2xl text-xs font-semibold border ${
+            isSubmittingReport ? 'bg-primary/5 border-primary/20 text-primary' :
+            reportSubmitted ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' :
+            'bg-amber-500/10 border-amber-500/20 text-amber-600'
+          }`}>
+            {isSubmittingReport ? (
+              <><Loader2 size={14} className="animate-spin shrink-0" /> Sending report to recruiter panel...</>
+            ) : reportSubmitted ? (
+              <><CheckSquare size={14} className="shrink-0" /> Report successfully submitted to recruiter panel for review.</>
+            ) : (
+              <><AlertCircle size={14} className="shrink-0" /> Report submission pending...</>
+            )}
+          </div>
+
+          {/* Proctor summary */}
+          {screenViolations > 0 && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive font-semibold flex items-center gap-2">
+              <ShieldAlert size={14} />
+              <span>{screenViolations} screen violation(s) recorded and included in your report.</span>
+            </div>
+          )}
+        </div>
+
+        {/* What Happens Next */}
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-sm space-y-3">
+          <h2 className="font-extrabold text-sm text-foreground">What happens next?</h2>
+          <div className="space-y-2.5 text-xs text-muted-foreground">
+            {[
+              { icon: '📊', text: 'Your full transcript and AI-graded scores have been submitted to the recruiter.' },
+              { icon: '👤', text: 'A human recruiter will review your performance and make the final decision.' },
+              { icon: '📧', text: 'You will be notified about the outcome via your registered email.' },
+              { icon: '🔒', text: 'Your session has been locked. You cannot retake this interview.' }
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="text-base shrink-0">{item.icon}</span>
+                <p>{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => navigate('/student')}
+            className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-extrabold text-sm rounded-2xl hover:opacity-95 transition-all shadow-lg flex items-center justify-center gap-2.5 cursor-pointer"
+          >
+            <Home size={18} /> Go to Home Dashboard
+          </button>
+          <button
+            onClick={() => navigate('/student/tests')}
+            className="py-4 px-6 bg-card border border-border text-foreground font-semibold text-sm rounded-2xl hover:bg-muted transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <ArrowLeft size={16} /> Tests
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300 p-2 md:p-6">
-      
+
       {/* ── FULLSCREEN LOCK REQUIRED MODAL (DURING LIVE INTERVIEW) ── */}
       {viewMode === 'EMBEDDED' && !isFullscreen && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
@@ -351,37 +659,29 @@ const AIInterview = () => {
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          <div className="bg-muted p-1 rounded-xl flex gap-1 border border-border text-xs font-semibold">
-            <button
-              onClick={() => setViewMode('CONFIG')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewMode === 'CONFIG' ? 'bg-card text-foreground shadow-sm font-bold' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              ⚙️ Candidate Setup
-            </button>
-            <button
-              onClick={() => {
-                setViewMode('EMBEDDED');
-                enterFullscreen();
-              }}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewMode === 'EMBEDDED' ? 'bg-card text-foreground shadow-sm font-bold' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              🖥️ Live Canvas Studio
-            </button>
-          </div>
-
-          <a
-            href={activeFrameUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3.5 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
-            title="Open in dedicated full browser window"
-          >
-            <ExternalLink size={13} /> New Window
-          </a>
+          {viewMode === 'EMBEDDED' && (
+            <div className="bg-muted p-1 rounded-xl flex gap-1 border border-border text-xs font-semibold">
+              <button
+                onClick={() => setViewMode('CONFIG')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  viewMode === 'CONFIG' ? 'bg-card text-foreground shadow-sm font-bold' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                ⚙️ Candidate Setup
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('EMBEDDED');
+                  enterFullscreen();
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  viewMode === 'EMBEDDED' ? 'bg-card text-foreground shadow-sm font-bold' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                🖥️ Live Canvas Studio
+              </button>
+            </div>
+          )}
 
           <button
             onClick={() => navigate('/student/tests')}
@@ -425,12 +725,6 @@ const AIInterview = () => {
               <span className="text-[11px] px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary font-mono font-bold rounded-lg">
                 ID: {(effectiveAttemptId || '').slice(0, 18)}
               </span>
-              <button
-                onClick={() => handleOpenIntake()}
-                className="px-3 py-1.5 bg-background border border-border hover:bg-muted text-foreground text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all"
-              >
-                <FileText size={13} /> Resume Intake
-              </button>
               {candidateId && (
                 <a
                   href={`${INTERVIEW_BASE_URL}/api/interview/${candidateId}/download?format=txt`}
@@ -489,7 +783,7 @@ const AIInterview = () => {
         /* ── CONFIG / SETUP MODE ── */
         <div className="space-y-6">
           <div className="grid lg:grid-cols-12 gap-6 items-start">
-            
+
             {/* Left Column: Webcam & Device Readiness */}
             <div className="lg:col-span-5 space-y-4">
               <div className="bg-card border border-border rounded-3xl p-5 md:p-6 shadow-sm space-y-4">
@@ -725,20 +1019,6 @@ const AIInterview = () => {
                         <Play size={18} fill="currentColor" /> Launch Adaptive AI Voice Interview Room
                       </>
                     )}
-                  </button>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-px bg-border" />
-                    <span className="text-[11px] text-muted-foreground uppercase font-semibold">Or upload resume</span>
-                    <div className="flex-1 h-px bg-border" />
-                  </div>
-
-                  <button
-                    onClick={handleOpenIntake}
-                    disabled={!agreedToGuidelines}
-                    className="w-full py-3 bg-secondary/80 hover:bg-secondary text-secondary-foreground font-bold text-xs rounded-xl transition-all border border-border flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    <FileText size={15} /> Open Resume & JD Intake Studio (PDF / DOCX Upload)
                   </button>
                 </div>
 

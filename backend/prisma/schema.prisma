@@ -23,20 +23,20 @@ enum UserStatus {
 }
 
 model User {
-  id                 String    @id @default(uuid())
-  googleId           String?   @unique
+  id                 String     @id @default(uuid())
+  googleId           String?    @unique
   fullName           String
-  email              String    @unique
+  email              String     @unique
   profilePicture     String?
   role               Role?
   status             UserStatus @default(PENDING)
-  isProfileCompleted Boolean   @default(false)
+  isProfileCompleted Boolean    @default(false)
   lastLogin          DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
-  studentProfile     Student?
-  recruiterProfile   Recruiter?
+  studentProfile   Student?
+  recruiterProfile Recruiter?
 }
 
 // -----------------------------------------
@@ -44,55 +44,56 @@ model User {
 // -----------------------------------------
 
 model Student {
-  id             String   @id @default(uuid())
-  userId         String   @unique
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Personal Info
-  phone          String?
-  gender         String?
-  dob            DateTime?
-  address        String?
-  city           String?
-  state          String?
-  country        String?
-  pincode        String?
-  summary        String?   @db.Text   // Professional summary / resume objective (structured resume)
+  phone   String?
+  gender  String?
+  dob     DateTime?
+  address String?
+  city    String?
+  state   String?
+  country String?
+  pincode String?
+  summary String?   @db.Text // Professional summary / resume objective (structured resume)
 
   // Relations
-  education      StudentEducation[]
-  skills         StudentSkill[]
-  projects       StudentProject[]
-  certifications StudentCertification[]
-  experiences    StudentExperience[]
-  languages      StudentLanguage[]
-  documents      StudentDocument[]
-  socialLinks    StudentSocial?
-  preferences    StudentPreference?
-  applications   JobApplication[]
-  testAttempts   TestAttempt[]
-  codingAttempts CodingAttempt[]
-  resumeData     Json?
-  proctoringSessions ProctoringSession[]
+  education              StudentEducation[]
+  skills                 StudentSkill[]
+  projects               StudentProject[]
+  certifications         StudentCertification[]
+  experiences            StudentExperience[]
+  languages              StudentLanguage[]
+  documents              StudentDocument[]
+  socialLinks            StudentSocial?
+  preferences            StudentPreference?
+  applications           JobApplication[]
+  testAttempts           TestAttempt[]
+  codingAttempts         CodingAttempt[]
+  resumeData             Json?
+  proctoringSessions     ProctoringSession[]
   resumeAptitudeAttempts ResumeAptitudeAttempt[]
+  aiInterviewReports     AIInterviewReport[]
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StudentEducation {
-  id             String   @id @default(uuid())
-  studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  institution    String
-  university     String?
-  degree         String
-  branch         String
-  cgpa           Float?
-  percentage     Float?
-  startYear      Int
-  endYear        Int?
-  isCurrent      Boolean  @default(false)
+  id          String  @id @default(uuid())
+  studentId   String
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  institution String
+  university  String?
+  degree      String
+  branch      String
+  cgpa        Float?
+  percentage  Float?
+  startYear   Int
+  endYear     Int?
+  isCurrent   Boolean @default(false)
 }
 
 enum SkillLevel {
@@ -103,50 +104,50 @@ enum SkillLevel {
 }
 
 model StudentSkill {
-  id             String   @id @default(uuid())
-  studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  name           String
-  category       String?
-  level          SkillLevel @default(INTERMEDIATE)
+  id        String     @id @default(uuid())
+  studentId String
+  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name      String
+  category  String?
+  level     SkillLevel @default(INTERMEDIATE)
 }
 
 model StudentProject {
-  id             String   @id @default(uuid())
-  studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  title          String
-  description    String   @db.Text
-  techStack      String[]
-  role           String?
-  duration       String?
-  githubUrl      String?
-  liveUrl        String?
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title       String
+  description String   @db.Text
+  techStack   String[]
+  role        String?
+  duration    String?
+  githubUrl   String?
+  liveUrl     String?
 }
 
 model StudentCertification {
-  id             String   @id @default(uuid())
-  studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  title          String
-  organization   String
-  issueDate      DateTime
-  expiryDate     DateTime?
-  credentialId   String?
-  credentialUrl  String?
+  id            String    @id @default(uuid())
+  studentId     String
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title         String
+  organization  String
+  issueDate     DateTime
+  expiryDate    DateTime?
+  credentialId  String?
+  credentialUrl String?
 }
 
 model StudentExperience {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   company        String
   role           String
   employmentType String
   startDate      DateTime
   endDate        DateTime?
-  isCurrent      Boolean  @default(false)
-  description    String?  @db.Text
+  isCurrent      Boolean   @default(false)
+  description    String?   @db.Text
 }
 
 enum Proficiency {
@@ -157,14 +158,14 @@ enum Proficiency {
 }
 
 model StudentLanguage {
-  id             String   @id @default(uuid())
-  studentId      String
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  language       String
-  read           Boolean  @default(true)
-  write          Boolean  @default(true)
-  speak          Boolean  @default(true)
-  proficiency    Proficiency @default(FLUENT)
+  id          String      @id @default(uuid())
+  studentId   String
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  language    String
+  read        Boolean     @default(true)
+  write       Boolean     @default(true)
+  speak       Boolean     @default(true)
+  proficiency Proficiency @default(FLUENT)
 }
 
 enum DocumentType {
@@ -175,50 +176,49 @@ enum DocumentType {
 }
 
 model StudentDocument {
-  id             String       @id @default(uuid())
-  studentId      String
-  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type           DocumentType
-  url            String
-  filename       String
-  size           Int?         // in bytes
-  mimetype       String?
-  createdAt      DateTime     @default(now())
+  id        String       @id @default(uuid())
+  studentId String
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type      DocumentType
+  url       String
+  filename  String
+  size      Int? // in bytes
+  mimetype  String?
+  createdAt DateTime     @default(now())
 }
 
 model StudentSocial {
-  id             String   @id @default(uuid())
-  studentId      String   @unique
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  github         String?
-  linkedin       String?
-  portfolio      String?
-  leetcode       String?
-  codechef       String?
-  hackerrank     String?
-  codeforces     String?
+  id         String  @id @default(uuid())
+  studentId  String  @unique
+  student    Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  github     String?
+  linkedin   String?
+  portfolio  String?
+  leetcode   String?
+  codechef   String?
+  hackerrank String?
+  codeforces String?
 }
 
 model StudentPreference {
-  id               String   @id @default(uuid())
-  studentId        String   @unique
-  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  preferredRoles   String[]
+  id                 String   @id @default(uuid())
+  studentId          String   @unique
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  preferredRoles     String[]
   preferredLocations String[]
-  expectedSalary   String?
-  employmentType   String?
-  remotePreference String?
+  expectedSalary     String?
+  employmentType     String?
+  remotePreference   String?
 }
-
 
 // -----------------------------------------
 // RECRUITER / ADMIN MODELS (From Module 1)
 // -----------------------------------------
 
 model Recruiter {
-  id                 String   @id @default(uuid())
-  userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyName        String?
   designation        String?
   industry           String?
@@ -264,52 +264,54 @@ enum ApplicationStatus {
 }
 
 model Job {
-  id               String      @id @default(uuid())
-  recruiterId      String
-  recruiter        Recruiter   @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  recruiterId String
+  recruiter   Recruiter @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
 
   title            String
-  description      String      @db.Text
-  requirements     String?     @db.Text
-  responsibilities String?     @db.Text
+  description      String    @db.Text
+  requirements     String?   @db.Text
+  responsibilities String?   @db.Text
   location         String
-  isRemote         Boolean     @default(false)
+  isRemote         Boolean   @default(false)
   employmentType   String
   salaryMin        Int?
   salaryMax        Int?
-  salaryCurrency   String      @default("INR")
+  salaryCurrency   String    @default("INR")
   skills           String[]
-  experienceMin    Int         @default(0)
+  experienceMin    Int       @default(0)
   experienceMax    Int?
-  openings         Int         @default(1)
-  status           JobStatus   @default(ACTIVE)
+  openings         Int       @default(1)
+  status           JobStatus @default(ACTIVE)
   deadline         DateTime?
 
-  applications     JobApplication[]
-  testId           String?
-  test             Test?       @relation(fields: [testId], references: [id], onDelete: SetNull)
+  applications       JobApplication[]
+  testId             String?
+  test               Test?             @relation(fields: [testId], references: [id], onDelete: SetNull)
   codingAssessmentId String?
   codingAssessment   CodingAssessment? @relation(fields: [codingAssessmentId], references: [id], onDelete: SetNull)
 
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model JobApplication {
-  id          String            @id @default(uuid())
-  jobId       String
-  job         Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  jobId     String
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   status      ApplicationStatus @default(APPLIED)
   coverLetter String?           @db.Text
   resumeUrl   String?
-  notes       String?           @db.Text   // Recruiter private notes
+  notes       String?           @db.Text // Recruiter private notes
   matchScore  Float?            @default(0)
 
-  appliedAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aiInterviewReport AIInterviewReport?
 
   @@unique([jobId, studentId])
 }
@@ -328,11 +330,11 @@ model Question {
   explanation   String?        @db.Text
   category      String
   topic         String?
-  difficulty    String         // EASY, MEDIUM, HARD
+  difficulty    String // EASY, MEDIUM, HARD
   tags          String[]
   marks         Float          @default(1.0)
   negativeMarks Float          @default(0.0)
-  estimatedTime Int?           // in seconds
+  estimatedTime Int? // in seconds
   status        String         @default("ACTIVE") // ACTIVE, INACTIVE
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -346,7 +348,7 @@ model Test {
   name                String
   description         String?        @db.Text
   instructions        String?        @db.Text
-  duration            Int            // in minutes
+  duration            Int // in minutes
   passingPercentage   Float          @default(40.0)
   maxAttempts         Int            @default(1)
   negativeMarking     Boolean        @default(false)
@@ -376,31 +378,31 @@ model TestQuestion {
 }
 
 model TestAttempt {
-  id                  String    @id @default(uuid())
-  testId              String
-  test                Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
-  studentId           String
-  student             Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  score               Float     @default(0.0)
-  percentage          Float     @default(0.0)
-  passed              Boolean   @default(false)
-  startedAt           DateTime  @default(now())
-  completedAt         DateTime?
-  timeTaken           Int?      // in seconds
-  status              String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
-  correctAnswersCount Int       @default(0)
-  wrongAnswersCount   Int       @default(0)
-  skippedCount        Int       @default(0)
-  answers             Json      // array of answer objects: e.g. [{questionId, selectedOption, isCorrect, score}]
-  categoryBreakdown   Json?     // category-wise performance
-  difficultyBreakdown Json?     // difficulty-wise performance
-  tabViolations       Int       @default(0)    // tab/window switch violations
-  fullscreenViolations Int     @default(0)   // fullscreen exit violations
-  disqualified        Boolean   @default(false)
-  remark              String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  proctoringSession   ProctoringSession?
+  id                   String             @id @default(uuid())
+  testId               String
+  test                 Test               @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId            String
+  student              Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score                Float              @default(0.0)
+  percentage           Float              @default(0.0)
+  passed               Boolean            @default(false)
+  startedAt            DateTime           @default(now())
+  completedAt          DateTime?
+  timeTaken            Int? // in seconds
+  status               String             @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
+  correctAnswersCount  Int                @default(0)
+  wrongAnswersCount    Int                @default(0)
+  skippedCount         Int                @default(0)
+  answers              Json // array of answer objects: e.g. [{questionId, selectedOption, isCorrect, score}]
+  categoryBreakdown    Json? // category-wise performance
+  difficultyBreakdown  Json? // difficulty-wise performance
+  tabViolations        Int                @default(0) // tab/window switch violations
+  fullscreenViolations Int                @default(0) // fullscreen exit violations
+  disqualified         Boolean            @default(false)
+  remark               String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  proctoringSession    ProctoringSession?
 }
 
 // -----------------------------------------
@@ -408,19 +410,19 @@ model TestAttempt {
 // -----------------------------------------
 
 model CodingAssessment {
-  id                String          @id @default(uuid())
-  recruiterId       String
-  recruiter         Recruiter       @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
-  name              String
-  description       String?         @db.Text
-  instructions      String?         @db.Text
-  duration          Int             // in minutes
-  status            String          @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  problems          CodingProblem[]
-  jobs              Job[]
-  attempts          CodingAttempt[]
+  id           String          @id @default(uuid())
+  recruiterId  String
+  recruiter    Recruiter       @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?         @db.Text
+  instructions String?         @db.Text
+  duration     Int // in minutes
+  status       String          @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  problems     CodingProblem[]
+  jobs         Job[]
+  attempts     CodingAttempt[]
 }
 
 model CodingProblem {
@@ -430,15 +432,15 @@ model CodingProblem {
   title              String
   statement          String             @db.Text
   description        String             @db.Text
-  difficulty         String             // EASY, MEDIUM, HARD
+  difficulty         String // EASY, MEDIUM, HARD
   inputFormat        String             @db.Text
   outputFormat       String             @db.Text
   constraints        String             @db.Text
-  examples           Json               // [{input, output, explanation}]
+  examples           Json // [{input, output, explanation}]
   sampleInput        String             @db.Text
   sampleOutput       String             @db.Text
   marks              Float              @default(10.0)
-  supportedLanguages String[]           // e.g. ["PYTHON", "JAVA"]
+  supportedLanguages String[] // e.g. ["PYTHON", "JAVA"]
   pythonStarterCode  String?            @db.Text
   javaStarterCode    String?            @db.Text
   order              Int                @default(0)
@@ -471,7 +473,7 @@ model CodingAttempt {
   passed             Boolean            @default(false)
   startedAt          DateTime           @default(now())
   completedAt        DateTime?
-  timeTaken          Int?               // in seconds
+  timeTaken          Int? // in seconds
   status             String             @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -485,13 +487,13 @@ model CodingSubmission {
   codingAttempt   CodingAttempt @relation(fields: [codingAttemptId], references: [id], onDelete: Cascade)
   codingProblemId String
   codingProblem   CodingProblem @relation(fields: [codingProblemId], references: [id], onDelete: Cascade)
-  language        String        // PYTHON, JAVA
+  language        String // PYTHON, JAVA
   code            String        @db.Text
   marksObtained   Float         @default(0.0)
   testsPassed     Int           @default(0)
   totalTests      Int           @default(0)
   status          String        @default("PENDING") // PENDING, COMPILED, COMPILATION_FAILED, RUNTIME_ERROR, TIME_LIMIT_EXCEEDED, SUCCESS
-  executionTime   Float?        // in seconds
+  executionTime   Float? // in seconds
   errorMessage    String?       @db.Text
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -509,37 +511,37 @@ model CodingAutosave {
 }
 
 model ProctoringSession {
-  id              String            @id @default(uuid())
-  studentId       String
-  student         Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  testAttemptId   String?           @unique
-  testAttempt     TestAttempt?      @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
-  
-  codingAttemptId String?           @unique
-  codingAttempt   CodingAttempt?    @relation(fields: [codingAttemptId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  stage           String            // "APTITUDE" or "CODING"
-  startedAt       DateTime          @default(now())
-  completedAt     DateTime?
-  status          String            @default("ACTIVE") // "ACTIVE", "COMPLETED"
-  riskScore       Int               @default(0)
-  riskLevel       String            @default("LOW") // "LOW", "MEDIUM", "HIGH", "CRITICAL"
-  events          ProctoringEvent[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  testAttemptId String?      @unique
+  testAttempt   TestAttempt? @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
+
+  codingAttemptId String?        @unique
+  codingAttempt   CodingAttempt? @relation(fields: [codingAttemptId], references: [id], onDelete: Cascade)
+
+  stage       String // "APTITUDE" or "CODING"
+  startedAt   DateTime          @default(now())
+  completedAt DateTime?
+  status      String            @default("ACTIVE") // "ACTIVE", "COMPLETED"
+  riskScore   Int               @default(0)
+  riskLevel   String            @default("LOW") // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  events      ProctoringEvent[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 }
 
 model ProctoringEvent {
-  id          String            @id @default(uuid())
-  sessionId   String
-  session     ProctoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  eventType   String            // "LOOKING_AWAY", "NO_FACE", "MULTIPLE_FACES", "OBJECT", "TAB_SWITCH", "CAMERA_DISCONNECTED", "CAMERA_RECONNECTED"
-  timestamp   DateTime          @default(now())
-  severity    String            // "INFO", "WARNING", "CRITICAL"
-  duration    Float?            // duration in seconds
-  metadata    String?           // extra context
-  createdAt   DateTime          @default(now())
+  id        String            @id @default(uuid())
+  sessionId String
+  session   ProctoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  eventType String // "LOOKING_AWAY", "NO_FACE", "MULTIPLE_FACES", "OBJECT", "TAB_SWITCH", "CAMERA_DISCONNECTED", "CAMERA_RECONNECTED"
+  timestamp DateTime          @default(now())
+  severity  String // "INFO", "WARNING", "CRITICAL"
+  duration  Float? // duration in seconds
+  metadata  String? // extra context
+  createdAt DateTime          @default(now())
 }
 
 // -----------------------------------------
@@ -547,46 +549,85 @@ model ProctoringEvent {
 // -----------------------------------------
 
 model ResumeAptitudeQuestion {
-  id                 String   @id @default(uuid())
-  category           String   // DSA, SQL, CORE_CS
-  topic              String   // e.g. "complexity trade-offs", "hashing", "aggregation", "indexing", "OS", "Networking", "DBMS", "OOP"
-  statement          String   @db.Text
-  canonicalAnswer    String   // 1-4 word canonical short answer
-  acceptedSynonyms   String[] // Pre-validated synonyms array
-  referenceSchemaSql String?  @db.Text // Optional reference DDL/DML for SQL sandbox
-  expectedQueryOutput Json?   // Expected JSON row array for SQL verification
-  difficulty         String   // EASY, MEDIUM, HARD
-  marks              Float    @default(1.0)
-  tags               String[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  category            String // DSA, SQL, CORE_CS
+  topic               String // e.g. "complexity trade-offs", "hashing", "aggregation", "indexing", "OS", "Networking", "DBMS", "OOP"
+  statement           String   @db.Text
+  canonicalAnswer     String // 1-4 word canonical short answer
+  acceptedSynonyms    String[] // Pre-validated synonyms array
+  referenceSchemaSql  String?  @db.Text // Optional reference DDL/DML for SQL sandbox
+  expectedQueryOutput Json? // Expected JSON row array for SQL verification
+  difficulty          String // EASY, MEDIUM, HARD
+  marks               Float    @default(1.0)
+  tags                String[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ResumeAptitudeAttempt {
-  id                   String    @id @default(uuid())
-  studentId            String
-  student              Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  jobId                String?
-  score                Float     @default(0.0)
-  maxScore             Float     @default(15.0)
-  percentage           Float     @default(0.0)
-  passed               Boolean   @default(false)
-  startedAt            DateTime  @default(now())
-  expiresAt            DateTime  // Server-authoritative 45-minute countdown expiry
-  completedAt          DateTime?
-  timeTaken            Int?      // in seconds
-  status               String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
-  
-  skillExtraction      Json      // Matched, claimed-but-unverified, missing skills & project tech
-  questions            Json      // 15 session questions (DSA x2, SQL x2, Core CS x3-4, Project Ladder ~7)
-  answers              Json      // Submitted short answers, execution results, scores
-  ladderState          Json      // Topic depth levels reached (Basic=1, Inter=2, Adv=3)
-  categoryBreakdown    Json?     // Detailed score breakdown by category
-  
-  tabViolations        Int       @default(0)
-  fullscreenViolations Int       @default(0)
-  disqualified         Boolean   @default(false)
+  id          String    @id @default(uuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  jobId       String?
+  score       Float     @default(0.0)
+  maxScore    Float     @default(15.0)
+  percentage  Float     @default(0.0)
+  passed      Boolean   @default(false)
+  startedAt   DateTime  @default(now())
+  expiresAt   DateTime // Server-authoritative 45-minute countdown expiry
+  completedAt DateTime?
+  timeTaken   Int? // in seconds
+  status      String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, AUTO_SUBMITTED
+
+  skillExtraction   Json // Matched, claimed-but-unverified, missing skills & project tech
+  questions         Json // 15 session questions (DSA x2, SQL x2, Core CS x3-4, Project Ladder ~7)
+  answers           Json // Submitted short answers, execution results, scores
+  ladderState       Json // Topic depth levels reached (Basic=1, Inter=2, Adv=3)
+  categoryBreakdown Json? // Detailed score breakdown by category
+
+  tabViolations        Int      @default(0)
+  fullscreenViolations Int      @default(0)
+  disqualified         Boolean  @default(false)
   remark               String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// -----------------------------------------
+// AI INTERVIEW REPORT MODEL (Module 15)
+// -----------------------------------------
+
+model AIInterviewReport {
+  id            String          @id @default(uuid())
+  studentId     String? // optional: set when student submits via JWT; may be null for webhook-only reports
+  student       Student?        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  applicationId String?         @unique
+  application   JobApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  // Candidate info snapshot
+  candidateName  String
+  candidateEmail String
+  jobTitle       String
+
+  // Interview engine data
+  interviewSessionId String? // session ID from the interview engine (port 3000)
+  percentage         Int // overall score 0-100
+  selected           Boolean // AI recommendation
+  highestLevel       Int     @default(1)
+  endedEarly         Boolean @default(false)
+  turns              Json // full transcript turns array
+
+  // Proctor summary
+  screenViolations Int @default(0)
+
+  // Recruiter decision
+  recruiterDecision String? // "SELECTED", "REJECTED", "REVIEW"
+  recruiterNote     String?   @db.Text
+  decidedAt         DateTime?
+
+  status String @default("PENDING_REVIEW") // PENDING_REVIEW, SELECTED, REJECTED
+
+  completedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
