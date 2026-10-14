@@ -108,5 +108,16 @@ router.post('/assign-resume-aptitude', assignSessionForCandidate);
 router.get('/resume-aptitude/application/:applicationId/results', getResultsByApplicationId);
 router.post('/resume-aptitude/application/:applicationId/advance', advanceCandidateToNextRound);
 
+// AI Interview Reports (Module 15)
+const {
+  getAllInterviewReports,
+  getInterviewReportById,
+  makeInterviewDecision
+} = require('../controllers/aiInterview.controller');
+
+router.get('/interview-reports', getAllInterviewReports);
+router.get('/interview-reports/:reportId', getInterviewReportById);
+router.put('/interview-reports/:reportId/decision', makeInterviewDecision);
+
 module.exports = router;
 

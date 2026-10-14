@@ -438,5 +438,7 @@ function showReport(pct,ok,payload){
  +'<button class="rbt p" onclick="rv.go(\'Advanced\')">→ Advance candidate</button><button class="rbt d" onclick="rv.go(\'Rejected\')">✕ Reject candidate</button><p class="rf" style="padding:10px 0 0" id="aud">Your action, reason, and timestamp will be recorded.</p></div></div></div>'
  +'<div class="rg"><div class="rc hide" id="txp"><h3>Full transcript</h3>'+turns.map(function(t){return '<div style="margin:10px 0;font-size:13px"><span class="rt '+(t.score>=7?'g':t.score>=5?'b':'a')+'">Q'+(t.i+1)+' · '+mmss(t.at)+' · '+t.topic+' · '+t.score+'/10</span><p style="margin:6px 0"><b>'+cq(t)+'</b></p><p style="margin:0;color:#4a5670">'+esc(t.answer)+'</p></div>'}).join('')+'</div></div><div class="rf">Meridian Hire · '+rid+' · AI-assisted, human-decided</div>';
  document.querySelector('header').classList.add('hide');document.querySelector('.wrap').classList.add('hide');var R=$('report');R.innerHTML=h;R.classList.remove('hide');window.scrollTo(0,0);
+ // Notify parent frame (React app) that the interview is complete
+ try{window.parent.postMessage({type:'AI_INTERVIEW_COMPLETE',payload:{percentage:pct,selected:ok,sessionId:SID,candidateName:cand.name,candidateEmail:cand.email||'',jobTitle:cand.role||'',highestLevel:S.maxLv,endedEarly:!!(payload&&payload.endedEarly),turns:turns}}, '*')}catch(e){}
 }
 </script></body></html>

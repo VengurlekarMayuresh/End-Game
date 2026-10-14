@@ -38,7 +38,7 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
     const c = db.prepare('SELECT * FROM candidates WHERE id=?').get(String(id));
     if (!c) return null;
     const j = c.job_id ? db.prepare('SELECT * FROM jobs WHERE id=?').get(c.job_id) : null;
-    return { id: c.id, name: c.name, role: c.role, exp: c.experience, edu: c.education, skills: JSON.parse(c.skills), projects: JSON.parse(c.projects),
+    return { id: c.id, name: c.name, email: c.email || '', role: c.role, exp: c.experience, edu: c.education, skills: JSON.parse(c.skills), projects: JSON.parse(c.projects),
       job: j ? { title: j.title, required_skills: JSON.parse(j.required_skills), summary: j.summary } : null };
   }
 

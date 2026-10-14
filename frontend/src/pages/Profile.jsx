@@ -60,6 +60,9 @@ const Profile = () => {
   // Applications & Interview State
   const [applications, setApplications] = useState([]);
   const [loadingApps, setLoadingApps] = useState(false);
+  const [interviewCompleted, setInterviewCompleted] = useState(false);
+  const [interviewReport, setInterviewReport] = useState(null);
+  const [interviewReportsByApplication, setInterviewReportsByApplication] = useState({});
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -74,7 +77,34 @@ const Profile = () => {
       }
     };
     fetchApplications();
+
+    // Fetch interview completion status
+    const fetchInterviewStatus = async () => {
+      try {
+        const ivRes = await api.get('/student/interview/status');
+        if (ivRes.data.hasCompleted) {
+          setInterviewCompleted(true);
+          setInterviewReport(ivRes.data.report);
+        }
+      } catch (err) {
+        // No interview yet — normal
+      }
+    };
+    fetchInterviewStatus();
   }, []);
+
+  useEffect(() => {
+    const assigned = applications.filter(a => a.status === 'INTERVIEW' || a.status === 'OFFERED');
+    if (!assigned.length) return;
+    Promise.all(assigned.map(async app => {
+      try {
+        const response = await api.get('/student/interview/status', { params: { applicationId: app.id } });
+        return [app.id, response.data.hasCompleted ? response.data.report : null];
+      } catch {
+        return [app.id, null];
+      }
+    })).then(entries => setInterviewReportsByApplication(Object.fromEntries(entries)));
+  }, [applications]);
 
   const assignedInterviews = applications.filter(a => a.status === 'INTERVIEW' || a.status === 'OFFERED');
   const otherApplications = applications.filter(a => a.status !== 'INTERVIEW' && a.status !== 'OFFERED');
@@ -366,6 +396,7 @@ const Profile = () => {
                 const companyName = app.job?.recruiter?.companyName || 'Hiring Organization';
                 const jobTitle = app.job?.title || 'Software Engineer';
                 const isOffered = app.status === 'OFFERED';
+                const appReport = interviewReportsByApplication[app.id];
 
                 return (
                   <div
@@ -402,12 +433,28 @@ const Profile = () => {
                         </div>
                       </div>
 
-                      <Link
-                        to="/student/interview"
-                        className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 shrink-0 active:scale-95"
-                      >
-                        <Mic size={15} /> Enter Interview Room
-                      </Link>
+                      {appReport ? (
+                        <div className="flex flex-col items-center gap-1.5 shrink-0">
+                          <div className="px-5 py-2.5 bg-emerald-500/15 border-2 border-emerald-500/30 text-emerald-600 font-bold text-xs rounded-xl flex items-center justify-center gap-2">
+                            <CheckCheck size={15} /> Interview Submitted ✓
+                          </div>
+                          {appReport && (
+                            <span className="text-[11px] text-muted-foreground text-center">
+                              Score: <strong className="text-foreground">{appReport.percentage}/100</strong>
+                              {' · '}
+                              {appReport.status === 'PENDING_REVIEW' ? '⏳ Pending review' :
+                               appReport.status === 'SELECTED' ? '🎉 Selected!' : '✕ Rejected'}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <Link
+                          to={`/student/interview?applicationId=${encodeURIComponent(app.id)}`}
+                          className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 shrink-0 active:scale-95"
+                        >
+                          <Mic size={15} /> Enter Interview Room
+                        </Link>
+                      )}
                     </div>
 
                     {/* 4-ROUND PIPELINE PROGRESSION: ALL PREVIOUS ROUNDS CLEARED */}

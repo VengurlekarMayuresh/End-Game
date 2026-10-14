@@ -127,4 +127,13 @@ router.post('/resume-aptitude/session/:attemptId/submit-code', submitDsaCode);
 router.post('/resume-aptitude/session/:attemptId/submit', submitSession);
 router.get('/resume-aptitude/session/:attemptId/results', getResults);
 
+// AI Interview Report
+const {
+  submitInterviewReport,
+  getStudentInterviewStatus
+} = require('../controllers/aiInterview.controller');
+
+router.post('/interview/submit-report', submitInterviewReport);
+router.get('/interview/status', getStudentInterviewStatus);
+
 module.exports = router;

@@ -27,20 +27,40 @@ const StudentDashboard = () => {
   const [activeTestsCount, setActiveTestsCount] = useState(0);
   const [completedTestsCount, setCompletedTestsCount] = useState(0);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [interviewCompleted, setInterviewCompleted] = useState(false);
+  const [interviewReport, setInterviewReport] = useState(null);
+  const [interviewReportsByApplication, setInterviewReportsByApplication] = useState({});
+
+  const fetchInterviewStatuses = async (apps) => {
+    const assigned = apps.filter(app => app.status === 'INTERVIEW' || app.status === 'OFFERED');
+    const entries = await Promise.all(assigned.map(async app => {
+      try {
+        const response = await api.get('/student/interview/status', {
+          params: { applicationId: app.id }
+        });
+        return [app.id, response.data.hasCompleted ? response.data.report : null];
+      } catch {
+        return [app.id, null];
+      }
+    }));
+    setInterviewReportsByApplication(Object.fromEntries(entries));
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoadingStats(true);
-      
+
       // Fetch applications
       try {
         const appRes = await api.get('/student/applications');
-        setApplications(appRes.data);
-        setApplicationsCount(appRes.data.length);
+        const apps = appRes.data || [];
+        setApplications(apps);
+        setApplicationsCount(apps.length);
+        await fetchInterviewStatuses(apps);
       } catch (err) {
         console.error('Failed to fetch applications', err);
       }
-      
+
       // Fetch tests
       try {
         const testRes = await api.get('/student/tests');
@@ -49,10 +69,24 @@ const StudentDashboard = () => {
       } catch (err) {
         console.error('Failed to fetch tests', err);
       }
-      
+
       setLoadingStats(false);
     };
     fetchStats();
+  }, [user?.id]);
+
+  // Poll interview status every 20s so recruiter decisions reflect automatically
+  useEffect(() => {
+    const fetchInterviewStatus = async () => {
+      try {
+        const appRes = await api.get('/student/applications');
+        const apps = appRes.data || [];
+        setApplications(apps);
+        await fetchInterviewStatuses(apps);
+      } catch (err) {}
+    };
+    const interval = setInterval(fetchInterviewStatus, 20000);
+    return () => clearInterval(interval);
   }, []);
 
   if (isProfileLoading || loadingStats) {
@@ -81,6 +115,9 @@ const StudentDashboard = () => {
   // Assigned Interviews Filter
   const assignedInterviews = applications.filter(app => app.status === 'INTERVIEW' || app.status === 'OFFERED');
   const latestAssigned = assignedInterviews[0];
+  const latestInterviewReport = latestAssigned
+    ? interviewReportsByApplication[latestAssigned.id]
+    : null;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
@@ -106,12 +143,39 @@ const StudentDashboard = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 shrink-0">
-              <Link
-                to="/student/interview"
-                className="px-6 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-violet-500/25 flex items-center justify-center gap-2 active:scale-95"
-              >
-                <Mic size={18} /> Launch AI Interview Room
-              </Link>
+              {latestInterviewReport ? (
+                <div className="flex flex-col items-center gap-2">
+                  {/* Decision banner */}
+                  {latestInterviewReport.status === 'SELECTED' ? (
+                    <div className="px-6 py-3.5 bg-emerald-600 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30">
+                      <Trophy size={18} /> 🎉 You've Been Selected!
+                    </div>
+                  ) : latestInterviewReport.status === 'REJECTED' ? (
+                    <div className="px-6 py-3.5 bg-red-500/20 border-2 border-red-500/40 text-red-600 font-bold text-sm rounded-2xl flex items-center justify-center gap-2">
+                      <CheckCheck size={18} /> Interview Result: Not Selected
+                    </div>
+                  ) : (
+                    <div className="px-6 py-3.5 bg-emerald-600/20 border-2 border-emerald-500/40 text-emerald-600 font-bold text-sm rounded-2xl flex items-center justify-center gap-2">
+                      <CheckCheck size={18} /> Interview Submitted ✓
+                    </div>
+                  )}
+                  {latestInterviewReport && (
+                    <span className="text-xs text-muted-foreground text-center">
+                      Score: <strong className="text-foreground">{latestInterviewReport.percentage}/100</strong>
+                      {' · '}
+                      {latestInterviewReport.status === 'PENDING_REVIEW' ? '⏳ Awaiting recruiter decision' :
+                       latestInterviewReport.status === 'SELECTED' ? '✓ Recruiter selected you' : '✕ Recruiter decision: Rejected'}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  to={`/student/interview?applicationId=${encodeURIComponent(latestAssigned?.id || '')}`}
+                  className="px-6 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm rounded-2xl transition-all shadow-md shadow-violet-500/25 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Mic size={18} /> Launch AI Interview Room
+                </Link>
+              )}
               <Link
                 to="/student/profile?tab=interviews"
                 className="px-4 py-3.5 bg-card/80 hover:bg-card border border-border text-foreground font-semibold text-sm rounded-2xl transition-all flex items-center justify-center gap-1.5"
@@ -173,18 +237,49 @@ const StudentDashboard = () => {
               </div>
 
               {/* Round 4 */}
-              <div className="p-3.5 bg-violet-500/15 border-2 border-violet-500/40 rounded-xl flex items-start gap-3 relative shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
-                  <Mic size={18} />
+              {latestInterviewReport ? (
+                <div className={`p-3.5 rounded-xl flex items-start gap-3 ${
+                  latestInterviewReport.status === 'SELECTED' ? 'bg-emerald-500/10 border border-emerald-500/30' :
+                  latestInterviewReport.status === 'REJECTED' ? 'bg-red-500/10 border border-red-500/30' :
+                  'bg-emerald-500/10 border border-emerald-500/30'
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    latestInterviewReport.status === 'SELECTED' ? 'bg-emerald-500/20 text-emerald-600' :
+                    latestInterviewReport.status === 'REJECTED' ? 'bg-red-500/20 text-red-500' :
+                    'bg-emerald-500/20 text-emerald-600'
+                  }`}>
+                    {latestInterviewReport.status === 'SELECTED' ? <Trophy size={18} /> :
+                     latestInterviewReport.status === 'REJECTED' ? <CheckCheck size={18} /> :
+                     <CheckCheck size={18} />}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Round 4 (Final)</span>
+                    <h4 className="text-xs font-bold text-foreground">AI Voice Interview</h4>
+                    <p className={`text-[11px] font-bold mt-0.5 flex items-center gap-1 ${
+                      latestInterviewReport.status === 'SELECTED' ? 'text-emerald-600' :
+                      latestInterviewReport.status === 'REJECTED' ? 'text-red-500' :
+                      'text-amber-600'
+                    }`}>
+                      {latestInterviewReport.status === 'SELECTED' ? '🎉 Recruiter: Selected!' :
+                       latestInterviewReport.status === 'REJECTED' ? '✕ Recruiter: Not Selected' :
+                       '⏳ Submitted · Awaiting Decision'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">Round 4 (Final)</span>
-                  <h4 className="text-xs font-bold text-foreground">AI Voice Interview</h4>
-                  <p className="text-[11px] text-violet-600 dark:text-violet-400 font-bold mt-0.5 flex items-center gap-1">
-                    ● Assigned & Active
-                  </p>
+              ) : (
+                <div className="p-3.5 bg-violet-500/15 border-2 border-violet-500/40 rounded-xl flex items-start gap-3 relative shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
+                    <Mic size={18} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">Round 4 (Final)</span>
+                    <h4 className="text-xs font-bold text-foreground">AI Voice Interview</h4>
+                    <p className="text-[11px] text-violet-600 dark:text-violet-400 font-bold mt-0.5 flex items-center gap-1">
+                      ● Assigned & Active
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
@@ -316,13 +411,26 @@ const StudentDashboard = () => {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {app.status === 'INTERVIEW' ? (
-                          <Link
-                            to="/student/interview"
-                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
-                          >
-                            <Mic size={13} /> Enter Interview Room
-                          </Link>
+                        {(app.status === 'INTERVIEW' || app.status === 'OFFERED') ? (
+                          interviewReportsByApplication[app.id] ? (
+                            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border ${
+                              interviewReportsByApplication[app.id]?.status === 'SELECTED' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600' :
+                              interviewReportsByApplication[app.id]?.status === 'REJECTED' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                              'bg-amber-500/10 border-amber-500/20 text-amber-600'
+                            }`}>
+                              <CheckCheck size={13} />
+                              {interviewReportsByApplication[app.id]?.status === 'SELECTED' ? '🎉 Selected' :
+                               interviewReportsByApplication[app.id]?.status === 'REJECTED' ? 'Not Selected' :
+                               'Interview Submitted'}
+                            </div>
+                          ) : (
+                            <Link
+                              to={`/student/interview?applicationId=${encodeURIComponent(app.id)}`}
+                              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                            >
+                              <Mic size={13} /> Enter Interview Room
+                            </Link>
+                          )
                         ) : app.job?.test && app.job.test.status === 'PUBLISHED' && (
                           <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 text-[10px] font-bold rounded">
                             <ClipboardList size={10} /> Has Test

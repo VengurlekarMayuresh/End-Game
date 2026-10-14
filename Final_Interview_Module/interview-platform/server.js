@@ -289,9 +289,19 @@ app.get('/api/interview/:id/report', (req, res) => {
   if (!s) { const r = loadReport(req.params.id); return r ? res.json(r) : res.status(404).json({ code: 'no_session' }); }
   if (!s.done) { s.done = true; saveInterview(s); }
   const pct = Math.round(avg(s.turns.map(t => t.score)) * 10);
-  const rep = { candidate: s.cand.name, candidateId: s.cand.id, percentage: pct, selected: pct >= PASS, highestLevel: s.st.maxLv, endedEarly: !!s.endedEarly, turns: s.turns };
+  const rep = { candidate: s.cand.name, candidateEmail: s.cand.email || '', candidateId: s.cand.id, role: s.cand.role || '', percentage: pct, selected: pct >= PASS, highestLevel: s.st.maxLv, endedEarly: !!s.endedEarly, turns: s.turns };
   res.json(rep);
+
+  // Fire-and-forget: notify main backend so recruiter can see the report
+  try {
+    const http = require('http');
+    const body = JSON.stringify({ candidateName: s.cand.name, candidateEmail: s.cand.email || '', jobTitle: s.cand.role || 'Software Development Engineer', interviewSessionId: req.params.id, percentage: pct, selected: pct >= PASS, highestLevel: s.st.maxLv, endedEarly: !!s.endedEarly, turns: s.turns, screenViolations: 0 });
+    const webhook = http.request({ hostname: 'localhost', port: 5000, path: '/api/internal/interview-report', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-internal-secret': 'hiresense-internal-2024' } }, r => r.resume());
+    webhook.on('error', () => {});
+    webhook.write(body); webhook.end();
+  } catch (e) {}
 });
+
 
 app.get('/api/interview/:id/download', (req, res) => {
   const s = sessions.get(req.params.id);
