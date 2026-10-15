@@ -6,68 +6,128 @@ const crypto = require('crypto');
  * directly from candidate resume projects, skills, and target Job Description.
  */
 
-const defaultUrl = process.env.OPENROUTER_API_KEY && !process.env.LLM_API_KEY ? 'https://openrouter.ai/api/v1' : (process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1');
-const defaultKey = process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
-const defaultModel = process.env.GEN_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+function getLlmConfig() {
+  const url = process.env.LLM_BASE_URL || (process.env.OPENROUTER_API_KEY && !process.env.LLM_API_KEY ? 'https://openrouter.ai/api/v1' : 'https://openrouter.ai/api/v1');
+  const key = process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  const model = process.env.GEN_MODEL || 'openrouter/free';
+  return { url, key, model };
+}
+
+/**
+ * Extracts and parses JSON from raw LLM responses, stripping reasoning,
+ * thinking tags, and markdown code blocks.
+ */
+function cleanAndParseJson(rawText, messageObj) {
+  let text = rawText || '';
+  if (!text.trim() && messageObj) {
+    text = messageObj.reasoning || messageObj.reasoning_content || (messageObj.reasoning_details?.[0]?.text) || '';
+  }
+  if (!text || !text.trim()) {
+    throw new Error('Empty response from LLM');
+  }
+
+  // 1. Strip reasoning and thinking tokens
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  text = text.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
+
+  // 2. Extract markdown code block if present
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    text = codeBlockMatch[1].trim();
+  }
+
+  // 3. Locate start and end of JSON object/array
+  const start = text.search(/[\{\[]/);
+  if (start === -1) {
+    throw new Error('No JSON object found in response: ' + text.slice(0, 100));
+  }
+  const isObject = text[start] === '{';
+  const end = isObject ? text.lastIndexOf('}') : text.lastIndexOf(']');
+  if (end === -1 || end <= start) {
+    throw new Error('Incomplete JSON object found in response: ' + text.slice(0, 100));
+  }
+
+  const candidate = text.slice(start, end + 1);
+
+  // 4. Parse with automatic repair for trailing commas
+  try {
+    return JSON.parse(candidate);
+  } catch (initialErr) {
+    const repaired = candidate.replace(/,\s*([\}\]])/g, '$1');
+    try {
+      return JSON.parse(repaired);
+    } catch (_) {
+      throw new Error('Invalid JSON format: ' + initialErr.message);
+    }
+  }
+}
 
 async function callLlm(prompt, temperature = 0.5) {
-  if (!defaultKey) {
+  const { url, key, model } = getLlmConfig();
+  if (!key) {
     throw new Error('No LLM API key configured');
   }
 
-  const endpoint = defaultUrl.endsWith('/chat/completions')
-    ? defaultUrl
-    : `${defaultUrl.replace(/\/+$/, '')}/chat/completions`;
+  const endpoint = url.endsWith('/chat/completions')
+    ? url
+    : `${url.replace(/\/+$/, '')}/chat/completions`;
 
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${defaultKey}`
+    'Authorization': `Bearer ${key}`,
+    'HTTP-Referer': 'https://hiresense.ai',
+    'X-Title': 'HireSense'
   };
 
-  const body = {
-    model: defaultModel,
-    temperature,
-    messages: [
-      {
-        role: 'system',
-        content: 'You are an expert technical interviewer and hiring architect. Output ONLY valid, parsable JSON without markdown ticks or preambles.'
-      },
-      {
-        role: 'user',
-        content: prompt
+  const modelsToTry = Array.from(new Set([
+    model,
+    'openrouter/free',
+    'google/gemma-4-31b-it:free',
+    'nvidia/nemotron-3.5-lightning:free'
+  ]));
+
+  let lastError = null;
+
+  for (const model of modelsToTry) {
+    try {
+      const body = {
+        model,
+        temperature,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert technical interviewer and hiring architect. Output ONLY valid, parsable JSON without markdown ticks or preambles.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        signal: AbortSignal.timeout(28000),
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`LLM HTTP ${res.status} [${model}]: ${errText.slice(0, 150)}`);
       }
-    ]
-  };
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    signal: AbortSignal.timeout(35000),
-    headers,
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`LLM HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      const data = await res.json();
+      const choice = data.choices?.[0];
+      const msg = choice?.message;
+      return cleanAndParseJson(msg?.content, msg);
+    } catch (err) {
+      lastError = err;
+      console.warn(`[llmAssessmentGenerator] Model ${model} failed: ${err.message}. Trying next candidate...`);
+    }
   }
 
-  const data = await res.json();
-  const rawContent = data.choices?.[0]?.message?.content || '';
-  if (!rawContent) throw new Error('Empty response from LLM');
-
-  // Strip potential markdown ```json blocks
-  let cleanJson = rawContent.trim();
-  if (cleanJson.startsWith('```json')) cleanJson = cleanJson.slice(7);
-  else if (cleanJson.startsWith('```')) cleanJson = cleanJson.slice(3);
-  if (cleanJson.endsWith('```')) cleanJson = cleanJson.slice(0, -3);
-
-  const start = cleanJson.indexOf('{');
-  const end = cleanJson.lastIndexOf('}');
-  if (start === -1 || end === -1) {
-    throw new Error('No JSON object found in response');
-  }
-
-  return JSON.parse(cleanJson.slice(start, end + 1));
+  throw lastError || new Error('All LLM models failed to synthesize JSON');
 }
 
 /**
@@ -373,6 +433,7 @@ function buildTailoredProjectLadderFallback(candidate, job) {
   ];
 
   const ladderQuestions = [...l1Questions, ...l2Questions, ...l3Questions];
+  const coreCsQuestions = [];
 
   coreCsQuestions.push(
     {

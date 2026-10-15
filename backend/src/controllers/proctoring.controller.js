@@ -172,6 +172,29 @@ const logProctoringEvent = async (req, res, next) => {
       return res.status(403).json({ message: 'Student profile not found' });
     }
 
+    // Check in-memory/interview sessions first if ID matches
+    if (sessionId.startsWith('proc-interview-') || sessionId.startsWith('mock-proc-')) {
+      const session = mockProctoringSessions.find(s => s.id === sessionId);
+      if (!session) {
+        return res.status(404).json({ message: 'Proctoring session not found' });
+      }
+      if (session.studentId !== student.id) {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+
+      const event = {
+        id: 'proc-evt-' + Date.now(),
+        sessionId,
+        eventType,
+        severity,
+        duration: duration ? parseFloat(duration) : null,
+        metadata: metadata ? String(metadata) : null,
+        timestamp: new Date()
+      };
+      mockProctoringEvents.push(event);
+      return res.status(201).json({ event });
+    }
+
     try {
       const session = await prisma.proctoringSession.findUnique({
         where: { id: sessionId }
@@ -237,6 +260,26 @@ const completeProctoringSession = async (req, res, next) => {
     const student = await prisma.student.findUnique({ where: { userId } });
     if (!student) {
       return res.status(403).json({ message: 'Student profile not found' });
+    }
+
+    // Handle in-memory/interview sessions first if ID matches
+    if (sessionId.startsWith('proc-interview-') || sessionId.startsWith('mock-proc-')) {
+      const sessionIdx = mockProctoringSessions.findIndex(s => s.id === sessionId);
+      if (sessionIdx === -1) {
+        return res.status(404).json({ message: 'Proctoring session not found' });
+      }
+      if (mockProctoringSessions[sessionIdx].studentId !== student.id) {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+
+      mockProctoringSessions[sessionIdx] = {
+        ...mockProctoringSessions[sessionIdx],
+        completedAt: new Date(),
+        status: 'COMPLETED',
+        riskScore: riskScore ? parseInt(riskScore) : 0,
+        riskLevel: riskLevel || 'LOW'
+      };
+      return res.json({ session: mockProctoringSessions[sessionIdx] });
     }
 
     try {
