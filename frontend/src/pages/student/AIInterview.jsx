@@ -293,8 +293,16 @@ const AIInterview = () => {
     }
   }, [user]);
 
-  // 2. Initialize Hardware Webcam Preview
+  // 2. Initialize Hardware Webcam Preview in CONFIG view mode
   useEffect(() => {
+    if (viewMode !== 'CONFIG') {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        setMediaStream(null);
+      }
+      return;
+    }
+
     let streamInstance = null;
     const enableWebcam = async () => {
       try {
@@ -304,9 +312,6 @@ const AIInterview = () => {
         setMicActive(true);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-        }
-        if (embeddedVideoRef.current) {
-          embeddedVideoRef.current.srcObject = stream;
         }
       } catch (err) {
         console.warn('Webcam/mic access declined or unavailable', err);
@@ -321,7 +326,7 @@ const AIInterview = () => {
         streamInstance.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [viewMode]);
 
   // Sync embedded webcam stream
   useEffect(() => {

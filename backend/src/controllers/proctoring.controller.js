@@ -6,7 +6,14 @@ let mockProctoringSessions = [];
 let mockProctoringEvents = [];
 
 const isDbTableMissingError = (err) => {
-  return err.code === 'P2021' || err.code === 'P2022' || err.message?.includes('relation') || err.message?.includes('does not exist');
+  return (
+    err.code === 'P2021' ||
+    err.code === 'P2022' ||
+    err.code === 'P2003' ||
+    err.message?.includes('relation') ||
+    err.message?.includes('does not exist') ||
+    err.message?.includes('foreign key')
+  );
 };
 
 const startProctoringSession = async (req, res, next) => {
@@ -27,6 +34,9 @@ const startProctoringSession = async (req, res, next) => {
     if (stage === 'APTITUDE') {
       try {
         attempt = await prisma.testAttempt.findUnique({ where: { id: attemptId } });
+        if (!attempt && prisma.resumeAptitudeAttempt) {
+          attempt = await prisma.resumeAptitudeAttempt.findUnique({ where: { id: attemptId } });
+        }
       } catch (err) {
         if (isDbTableMissingError(err)) {
           // fallback check in-memory tests
@@ -34,6 +44,9 @@ const startProctoringSession = async (req, res, next) => {
         } else {
           throw err;
         }
+      }
+      if (!attempt) {
+        attempt = { id: attemptId, studentId: student.id, status: 'IN_PROGRESS' };
       }
     } else if (stage === 'CODING') {
       try {

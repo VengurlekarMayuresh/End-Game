@@ -22,6 +22,9 @@ select{font:inherit;font-size:13px;border:1px solid var(--bd);border-radius:8px;
 .bar{height:8px;background:#efece4;border-radius:9px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .4s}
 .video{position:relative;border-radius:14px;overflow:hidden;height:330px;background:#c9b9a2}
 .video svg.scene{width:100%;height:100%;display:block}
+.camera-inset{position:absolute;right:14px;bottom:14px;width:min(36%,300px);aspect-ratio:16/9;object-fit:cover;background:#101828;border:2px solid #fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:2}
+.camera-label{position:absolute;right:24px;bottom:24px;z-index:3;padding:3px 8px;border-radius:6px;background:rgba(15,27,51,.8);color:#fff;font-size:10px;font-weight:700;letter-spacing:.04em}
+.camera-label:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px}
 .badge{position:absolute;top:12px;font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:7px;padding:4px 10px;background:rgba(255,255,255,.92);color:var(--ac)}
 .b1{left:12px}.b2{right:12px;background:rgba(15,27,51,.85);color:#fff}
 .nm{position:absolute;left:14px;bottom:14px;display:flex;gap:12px;align-items:center;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)}
@@ -31,6 +34,12 @@ select{font:inherit;font-size:13px;border:1px solid var(--bd);border-radius:8px;
 .speaking .wv i{animation:w .7s ease-in-out infinite}.wv i:nth-child(2n){animation-delay:.15s}.wv i:nth-child(3n){animation-delay:.3s}
 @keyframes w{50%{height:26px}}
 .start{position:absolute;inset:0;display:grid;place-items:center;background:rgba(15,27,51,.35)}
+.startbox{width:min(440px,calc(100% - 32px));padding:20px;border-radius:14px;background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.consent{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;font-size:13px;color:var(--tx)}
+.consent input{margin-top:4px}
+.startbox .btn{width:100%}
+.proctor-alert{position:fixed;top:20px;left:50%;z-index:20;width:min(520px,calc(100% - 32px));padding:14px 18px;border:1px solid #f1d9a8;border-radius:12px;background:#fff4d6;color:#7c4b00;box-shadow:0 8px 26px rgba(15,27,51,.2);font-size:14px;font-weight:700;opacity:1;transform:translate(-50%,0);transition:opacity .25s,transform .25s}
+.proctor-alert.hide{display:block!important;opacity:0;pointer-events:none;transform:translate(-50%,-12px)}
 .btn{font:inherit;border-radius:10px;border:1px solid var(--bd);background:#fff;color:var(--tx);padding:9px 18px;cursor:pointer}
 .btn.p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600;font-size:16px;padding:12px 26px}
 .tr{margin-top:14px}
@@ -130,10 +139,19 @@ table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}td,th{pa
     <ellipse id="mouth" cx="100" cy="116" rx="9" ry="2" fill="#8a2f3a"/></g>
   </svg>
   <span class="badge b1" id="bd1">AI INTERVIEWER · READY</span><span class="badge b2">▤ CAPTIONS ON</span>
+  <img id="proctorCamera" class="camera-inset hide" alt="Live local proctoring camera preview">
+  <span id="cameraLabel" class="camera-label hide">LIVE CAMERA · LOCAL ONLY</span>
   <div class="nm"><div class="ic">🎧</div><div><b id="nmn">Avery · AI interviewer</b><small>Natural voice · TTS active</small></div><div class="wv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-  <div class="start" id="startov"><button class="btn p" id="start">▶ Start interview</button></div>
+  <div class="start" id="startov">
+   <div class="startbox">
+    <label class="consent"><input type="checkbox" id="cameraConsent"><span><b>Allow camera access and proctoring for this interview.</b><br>The local monitor checks presence, multiple people, and prohibited objects. Flagged screenshots are saved on this device; video is not streamed to the server.</span></label>
+    <button class="btn p" id="start" disabled>▶ Start interview</button>
+    <div class="note" id="proctorStatus" style="margin-top:10px">Allow camera access to enable the interview.</div>
+   </div>
+  </div>
  </div>
 
+ <div id="proctorAlert" class="proctor-alert hide" role="alert" aria-live="assertive"></div>
  <div class="card tr">
   <div class="th"><span>💬 <b>Live transcript</b></span><span class="pill" id="qp">QUESTION 0 OF 0</span><button class="link" id="repeat" disabled>↻ Repeat question</button></div>
   <div class="bub ai"><div class="bh"><b id="aiN">Avery</b><span class="tag n" id="aiTag">Waiting</span></div><span id="aiText">Press “Start interview” to begin. Please allow microphone access. Voice input works best in Chrome or Edge.</span></div>
@@ -168,6 +186,125 @@ async function api(path,body,method){var r=await fetch(API+path,{method:method||
 /* ---- 4. UI + speech ---- */
 var $=function(i){return document.getElementById(i)},synth=window.speechSynthesis,SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var rec,listening=false,speaking=false,voiceOn=true,mouthT,Q=[],qi=0,stage='main',answer='',turns=[],cur=null,asked='',running=false,t0,clock;
+var PROCTOR_URL='http://localhost:8765',proctorConsent=false,proctorActive=false,proctorPoll=null,previewPoll=null,proctorAlertTimeout=null,pendingProctorAlerts=[],proctorAlertVisible=false;
+function setProctorMessage(text){$('proctorStatus').textContent=text}
+function proctorAlertText(alert){
+ var messages={
+  LOOKING_AWAY:'Head yaw detected: turn back to face the screen.',
+  PUPIL_GAZE_AWAY:'Pupil gaze away detected: look back at the screen.',
+  EYE_LOOKING_LEFT:'Pupil has been looking left for an extended period.',
+  EYE_LOOKING_RIGHT:'Pupil has been looking right for an extended period.',
+  NO_FACE:'No face detected. Stay in front of the camera.',
+  MULTIPLE_FACES:'Multiple people detected. Complete the interview alone.',
+  OBJECT:'Prohibited object detected. Remove the phone or laptop from view.',
+  TAB_SWITCH:'The active window changed during the interview.',
+  CAMERA_DISCONNECTED:'Camera disconnected. Check the camera connection.',
+  CAMERA_RECONNECTED:'Camera reconnected.'
+ };
+ var text=messages[alert.type]||('Proctoring alert: '+alert.type);
+ if(alert.direction&&alert.type==='PUPIL_GAZE_AWAY')text+=' Direction: '+alert.direction+'.';
+ if(alert.duration)text+=' ('+Number(alert.duration).toFixed(1)+'s)';
+ if(alert.metadata)text+=' '+alert.metadata;
+ return text;
+}
+function showProctorAlert(alert){
+ if(proctorAlertVisible){pendingProctorAlerts.push(alert);return}
+ var banner=$('proctorAlert');
+ proctorAlertVisible=true;
+ banner.textContent=proctorAlertText(alert);
+ banner.classList.remove('hide');
+ proctorAlertTimeout=setTimeout(function(){
+  banner.classList.add('hide');
+  proctorAlertVisible=false;
+  proctorAlertTimeout=null;
+  if(pendingProctorAlerts.length)setTimeout(function(){showProctorAlert(pendingProctorAlerts.shift())},300);
+ },3500);
+}
+async function proctorRequest(path,body){
+ var response=await fetch(PROCTOR_URL+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});
+ if(!response.ok)throw new Error('Proctoring service returned HTTP '+response.status);
+ var data=await response.json();if(data.error)throw new Error(data.error);return data;
+}
+async function checkProctorReady(){
+ try{
+  var status=await proctorRequest('/status');
+  if(status.status!=='idle'&&status.stage!=='INTERVIEW'){
+   try{await proctorRequest('/stop',{})}catch(err){}
+  }
+  return true;
+ }
+ catch(e){if(e instanceof TypeError)throw new Error('Start the local proctoring service with: python proctoring\\session_monitor_pro.py --server');throw e}
+}
+async function startInterviewProctoring(sessionId){
+ var curStatus=await proctorRequest('/status');
+ if(curStatus.status==='running'&&(curStatus.attemptId===sessionId||curStatus.stage==='INTERVIEW')){
+  return;
+ }
+ await proctorRequest('/start',{attemptId:sessionId,stage:'INTERVIEW'});
+ for(var i=0;i<20;i++){
+  await new Promise(function(resolve){setTimeout(resolve,250)});
+  var status=await proctorRequest('/status');
+  if(status.status==='running')return;
+ }
+ throw new Error('The camera monitor did not start. Check the camera and the proctoring terminal.');
+}
+async function pollProctorEvents(){
+ if(!proctorActive)return;
+ try{
+  var result=await proctorRequest('/events');
+  (result.events||[]).forEach(showProctorAlert);
+  setProctorMessage('Proctoring is active in this interview window.');
+ }catch(e){setProctorMessage('Connection to the proctoring monitor was lost. Please check that it is still running.')}
+}
+function updateProctorPreview(){
+ if(!proctorActive)return;
+ $('proctorCamera').src=PROCTOR_URL+'/frame?t='+Date.now();
+}
+function showProctorPreview(){
+ $('proctorCamera').classList.remove('hide');
+ $('cameraLabel').classList.remove('hide');
+ updateProctorPreview();
+ previewPoll=setInterval(updateProctorPreview,500);
+}
+function hideProctorPreview(){
+ if(previewPoll){clearInterval(previewPoll);previewPoll=null}
+ $('proctorCamera').classList.add('hide');
+ $('cameraLabel').classList.add('hide');
+ $('proctorCamera').removeAttribute('src');
+}
+async function stopInterviewProctoring(){
+ if(proctorPoll){clearInterval(proctorPoll);proctorPoll=null}
+ if(proctorAlertTimeout){clearTimeout(proctorAlertTimeout);proctorAlertTimeout=null}
+ pendingProctorAlerts=[];
+ proctorAlertVisible=false;
+ $('proctorAlert').classList.add('hide');
+ hideProctorPreview();
+ if(!proctorActive)return;
+ proctorActive=false;
+ try{
+  var result=await proctorRequest('/stop',{});
+  var finalEvents=await proctorRequest('/events');
+  (finalEvents.events||[]).forEach(showProctorAlert);
+  var summary=result.summary;
+  setProctorMessage(summary?'Proctoring complete · Risk '+summary.riskLevel+' ('+summary.riskScore+'/100).':'Proctoring stopped.');
+ }catch(e){setProctorMessage('Could not stop the proctoring service cleanly: '+e.message)}
+}
+window.addEventListener('pagehide',function(){
+ if(proctorPoll){clearInterval(proctorPoll);proctorPoll=null}
+ if(previewPoll){clearInterval(previewPoll);previewPoll=null}
+ if(proctorActive)navigator.sendBeacon(PROCTOR_URL+'/stop',new Blob(['{}'],{type:'text/plain'}));
+});
+$('cameraConsent').onchange=async function(){
+ if(!this.checked){proctorConsent=false;$('start').disabled=true;setProctorMessage('Allow camera access to enable the interview.');return}
+ this.disabled=true;setProctorMessage('Waiting for camera permission…');
+ try{
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera permission requires localhost or a secure HTTPS connection.');
+  var stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+  stream.getTracks().forEach(function(track){track.stop()});
+  proctorConsent=true;$('start').disabled=false;setProctorMessage('Camera access allowed. Proctoring will start with the interview.');
+ }catch(e){this.checked=false;proctorConsent=false;$('start').disabled=true;setProctorMessage(e.message||'Camera permission was denied.')}
+ finally{this.disabled=false}
+};
 function renderCand(){first=cand.name.split(' ')[0];$('ini').textContent=cand.name.split(' ').map(function(x){return x[0]}).join('');$('cn').textContent=cand.name;$('cid').textContent='Candidate '+cand.id;$('cr').textContent=cand.role;$('ce').textContent=cand.exp;$('cd').textContent=cand.edu;$('sub').textContent=cand.name+' · Structured adaptive assessment';$('sk').innerHTML=cand.skills.map(function(s){return '<span class="chip">'+s+'</span>'}).join('');}
 renderCand();
 (async function(){var id=new URLSearchParams(location.search).get('candidate');if(!id){location.replace('intake.html');return}
@@ -213,13 +350,27 @@ function qpill(){$('qp').textContent='QUESTION '+Math.min(S.mainDone+1,S.total)+
 function show(r,pre){S.level=r.level;S.maxLv=r.maxLevel;S.mainDone=r.mainDone;S.total=r.total;S.stage=r.kind;qpill();pips();$('pb').style.width=(S.mainDone/S.total*100)+'%';ask((pre||'')+r.question)}
 function fail(e,fd,restart){after(function(){return fd.v},function(){thk=false;setSt();
  $('aiText').textContent='I could not reach the interview server ('+((e&&e.code)||'error')+'). '+(restart?'Please press Start to try again.':'Please press Submit to try again.');$('aiTag').textContent='Offline';
- if(restart){running=false;clearInterval(clock);$('startov').classList.remove('hide')}else{['submit','repeat'].forEach(function(i){$(i).disabled=false})}})}
+ if(restart){running=false;clearInterval(clock);$('start').disabled=!proctorConsent;$('startov').classList.remove('hide')}else{['submit','repeat'].forEach(function(i){$(i).disabled=false})}})}
 $('start').onclick=async function(){
- $('startov').classList.add('hide');running=true;turns=[];SID=null;S={level:1,maxLv:1,mainDone:0,total:6,stage:'main'};t0=Date.now();
- clock=setInterval(function(){var x=Math.floor((Date.now()-t0)/1000);$('tm').textContent=('0'+Math.floor(x/60)).slice(-2)+':'+('0'+x%60).slice(-2)},1000);$('rs').textContent='Shown in report';pips();
+ if(!proctorConsent){setProctorMessage('Allow camera access before starting the interview.');return}
+ $('start').disabled=true;setProctorMessage('Connecting to the proctoring monitor…');
+ try{await checkProctorReady()}catch(e){$('start').disabled=false;setProctorMessage(e.message);return}
+ turns=[];SID=null;S={level:1,maxLv:1,mainDone:0,total:6,stage:'main'};t0=Date.now();
+ $('rs').textContent='Shown in report';pips();
+ var res;try{res=await api('/api/interview/start',{candidateId:cand.id})}catch(e){$('start').disabled=false;return fail(e,{v:true},true)}
+ SID=res.sessionId;
+ try{
+  await startInterviewProctoring(SID);
+  pendingProctorAlerts=[];proctorAlertVisible=false;
+  proctorActive=true;proctorPoll=setInterval(pollProctorEvents,400);showProctorPreview();setProctorMessage('Proctoring is active in this interview window.');pollProctorEvents();
+ }catch(e){
+  try{await proctorRequest('/stop',{})}catch(stopError){console.warn('Unable to cancel failed proctoring startup',stopError)}
+  $('start').disabled=false;setProctorMessage('Could not start proctoring; the interview has not started. '+e.message);return
+ }
+ $('startov').classList.add('hide');running=true;
+ clock=setInterval(function(){var x=Math.floor((Date.now()-t0)/1000);$('tm').textContent=('0'+Math.floor(x/60)).slice(-2)+':'+('0'+x%60).slice(-2)},1000);
  var fd={v:false};say('Hello '+first+', welcome to your technical interview. I have reviewed your profile. I will start with a few fundamentals to understand your background, and adjust from there.',function(){fd.v=true});thk=true;setSt();
- var res;try{res=await api('/api/interview/start',{candidateId:cand.id})}catch(e){return fail(e,fd,true)}
- SID=res.sessionId;after(function(){return fd.v},function(){thk=false;setSt();show(res,'')});
+ after(function(){return fd.v},function(){thk=false;setSt();show(res,'')});
 };
 $('repeat').onclick=function(){ask(asked)};
 $('submit').onclick=async function(){
@@ -232,7 +383,9 @@ $('submit').onclick=async function(){
 };
 $('end').onclick=function(){if(running)finish()};
 async function finish(){
+ if(!running)return;
  running=false;stopListen();clearInterval(clock);thk=false;if(synth)synth.cancel();speaking=false;setSt();$('pb').style.width='100%';lock();
+ await stopInterviewProctoring();
  if(!SID){$('startov').classList.remove('hide');return}
  var rep;try{rep=await api('/api/interview/'+SID+'/report',null,'GET')}catch(e){$('aiText').textContent='Could not load the report.';return}
  if(!rep.turns.length){$('startov').classList.remove('hide');return}
@@ -295,5 +448,7 @@ function showReport(pct,ok,payload){
  +'<button class="rbt p" onclick="rv.go(\'Advanced\')">→ Advance candidate</button><button class="rbt d" onclick="rv.go(\'Rejected\')">✕ Reject candidate</button><p class="rf" style="padding:10px 0 0" id="aud">Your action, reason, and timestamp will be recorded.</p></div></div></div>'
  +'<div class="rg"><div class="rc hide" id="txp"><h3>Full transcript</h3>'+turns.map(function(t){return '<div style="margin:10px 0;font-size:13px"><span class="rt '+(t.score>=7?'g':t.score>=5?'b':'a')+'">Q'+(t.i+1)+' · '+mmss(t.at)+' · '+t.topic+' · '+t.score+'/10</span><p style="margin:6px 0"><b>'+cq(t)+'</b></p><p style="margin:0;color:#4a5670">'+esc(t.answer)+'</p></div>'}).join('')+'</div></div><div class="rf">Meridian Hire · '+rid+' · AI-assisted, human-decided</div>';
  document.querySelector('header').classList.add('hide');document.querySelector('.wrap').classList.add('hide');var R=$('report');R.innerHTML=h;R.classList.remove('hide');window.scrollTo(0,0);
+ // Notify parent frame (React app) that the interview is complete
+ try{window.parent.postMessage({type:'AI_INTERVIEW_COMPLETE',payload:{percentage:pct,selected:ok,sessionId:SID,candidateName:cand.name,candidateEmail:cand.email||'',jobTitle:cand.role||'',highestLevel:S.maxLv,endedEarly:!!(payload&&payload.endedEarly),turns:turns}}, '*')}catch(e){}
 }
 </script></body></html>

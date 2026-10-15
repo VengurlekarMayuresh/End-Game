@@ -224,6 +224,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 const { getCandidate, saveInterview, loadReport } = require('./intake')(app, llm);
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e.message); res.status(502).json({ code: 'llm_error', error: 'AI service unavailable' }); });
 
+app.get('/api/health', (req, res) => res.json({ status: 'ok', gen: GEN, grade: GRADE }));
+
 app.get('/api/candidate/:id', (req, res) => { const c = getCandidate(req.params.id); c ? res.json(c) : res.status(404).json({ code: 'no_candidate' }); });  // TODO: restrict access (contains personal data)
 
 app.post('/api/interview/start', wrap(async (req, res) => {

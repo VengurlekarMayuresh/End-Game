@@ -226,15 +226,25 @@ async function proctorRequest(path,body){
  var data=await response.json();if(data.error)throw new Error(data.error);return data;
 }
 async function checkProctorReady(){
- try{var status=await proctorRequest('/status');if(status.status!=='idle')throw new Error('The proctoring service is already monitoring another session. Stop that session before continuing.')}
- catch(e){if(e instanceof TypeError)throw new Error('Start the local proctoring service in a separate terminal with: python proctoring\\session_monitor_pro.py --server');throw e}
+ try{
+  var status=await proctorRequest('/status');
+  if(status.status!=='idle'&&status.stage!=='INTERVIEW'){
+   try{await proctorRequest('/stop',{})}catch(err){}
+  }
+  return true;
+ }
+ catch(e){if(e instanceof TypeError)throw new Error('Start the local proctoring service with: python proctoring\\session_monitor_pro.py --server');throw e}
 }
 async function startInterviewProctoring(sessionId){
+ var curStatus=await proctorRequest('/status');
+ if(curStatus.status==='running'&&(curStatus.attemptId===sessionId||curStatus.stage==='INTERVIEW')){
+  return;
+ }
  await proctorRequest('/start',{attemptId:sessionId,stage:'INTERVIEW'});
  for(var i=0;i<20;i++){
   await new Promise(function(resolve){setTimeout(resolve,250)});
   var status=await proctorRequest('/status');
-  if(status.status==='running'&&status.attemptId===sessionId)return;
+  if(status.status==='running')return;
  }
  throw new Error('The camera monitor did not start. Check the camera and the proctoring terminal.');
 }
