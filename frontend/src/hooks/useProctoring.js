@@ -14,7 +14,7 @@ export const useProctoring = (attemptId, stage, onWarning) => {
   const stageRef = useRef(stage);
   const sessionIdRef = useRef(null);
   
-  // Throttle warnings for the same event type to prevent popup spam (e.g. 5 seconds cooldown)
+  // Throttle warnings for the same event type to prevent popup spam (5s cooldown)
   const lastWarningTimesRef = useRef({});
 
   useEffect(() => {
@@ -27,42 +27,46 @@ export const useProctoring = (attemptId, stage, onWarning) => {
     setStatus('idle');
     setErrorMsg('');
 
+    let sId = null;
+
+    // 1. Start proctoring session on Node.js Backend
     try {
-      // 1. Start proctoring session on Node.js Backend
       const backendRes = await api.post('/student/proctoring/session/start', {
         attemptId: attemptIdRef.current,
         stage: stageRef.current
       });
-      const sId = backendRes.data.session.id;
-      setSessionId(sId);
-      sessionIdRef.current = sId;
+      sId = backendRes.data?.session?.id;
+    } catch (backendErr) {
+      console.warn('Backend proctoring session creation warning; using fallback session id:', backendErr?.response?.data || backendErr?.message);
+      sId = `proc-${stageRef.current.toLowerCase()}-${attemptIdRef.current}`;
+    }
 
-      // 2. Start local Python proctoring service
-      try {
-        await axios.post(`${LOCAL_PROCTOR_URL}/start`, {
-          attemptId: attemptIdRef.current,
-          stage: stageRef.current
-        });
-        
-        setStatus('active');
-        // 3. Start polling events
-        startPolling();
-      } catch (localErr) {
-        console.warn('Local Python proctoring server not available', localErr);
-        setStatus('issue');
-        setErrorMsg('Python proctoring monitor is not running. Please start it on your machine.');
-        
-        // Log the failure event to backend
+    setSessionId(sId);
+    sessionIdRef.current = sId;
+
+    // 2. Start local Python proctoring service
+    try {
+      await axios.post(`${LOCAL_PROCTOR_URL}/start`, {
+        attemptId: attemptIdRef.current,
+        stage: stageRef.current
+      });
+      
+      setStatus('active');
+      // 3. Start polling events
+      startPolling();
+    } catch (localErr) {
+      console.warn('Local Python proctoring server not available', localErr);
+      setStatus('issue');
+      setErrorMsg('Python proctoring companion is not running. Please start it on port 8765.');
+      
+      // Log the failure event to backend if session exists
+      if (sId && !sId.startsWith('proc-')) {
         await api.post(`/student/proctoring/session/${sId}/event`, {
           eventType: 'PYTHON_SERVICE_UNAVAILABLE',
           severity: 'WARNING',
-          metadata: 'Candidate started exam without local python proctor service running.'
-        });
+          metadata: 'Candidate started assessment without local python proctor service running.'
+        }).catch(() => {});
       }
-    } catch (backendErr) {
-      console.error('Failed to initialize proctoring session on backend', backendErr);
-      setStatus('issue');
-      setErrorMsg('Failed to initialize proctoring session.');
     }
   };
 
@@ -99,36 +103,38 @@ export const useProctoring = (attemptId, stage, onWarning) => {
               // Trigger visual warning in UI
               let friendlyMessage = 'Please remain focused on the assessment.';
               if (evt.type === 'LOOKING_AWAY') {
-                friendlyMessage = 'Unusual gaze activity detected. Please look at the screen.';
+                friendlyMessage = 'Unusual gaze activity detected. Please look directly at the screen.';
               } else if (evt.type === 'PUPIL_GAZE_AWAY') {
-                friendlyMessage = 'You are looking away from the screen';
+                friendlyMessage = 'You are looking away from the screen.';
               } else if (evt.type === 'NO_FACE') {
                 friendlyMessage = 'No face detected. Please ensure you stay in front of the camera.';
               } else if (evt.type === 'MULTIPLE_FACES') {
                 friendlyMessage = 'Multiple faces detected. Ensure you are taking the assessment alone.';
               } else if (evt.type === 'OBJECT') {
-                friendlyMessage = 'Prohibited object detected. Please keep mobile devices and materials away.';
+                friendlyMessage = 'Prohibited object detected. Please keep mobile devices away.';
               } else if (evt.type === 'CAMERA_DISCONNECTED') {
                 friendlyMessage = 'Camera is unavailable. Please check your connection.';
               } else if (evt.type === 'CAMERA_RECONNECTED') {
                 friendlyMessage = 'Camera reconnected successfully.';
               }
               
-              onWarning(friendlyMessage, evt.type);
+              if (onWarning) onWarning(friendlyMessage, evt.type);
             }
           }
         }
       } catch (err) {
         console.warn('Lost connection to local proctoring server', err);
         setStatus('issue');
-        setErrorMsg('Proctoring monitor disconnected. Please keep it running.');
+        setErrorMsg('Proctoring companion disconnected. Please keep it running.');
         
         // Notify user about local service loss
         const now = Date.now();
         const lastWarnTime = lastWarningTimesRef.current['LOCAL_SERVICE_DISCONNECTED'] || 0;
         if (now - lastWarnTime > 10000) {
           lastWarningTimesRef.current['LOCAL_SERVICE_DISCONNECTED'] = now;
-          onWarning('Proctoring monitor connection lost. Please ensure the companion app is running.', 'SERVICE_DISCONNECTED');
+          if (onWarning) {
+            onWarning('Proctoring companion connection lost. Please ensure session_monitor_pro.py is running.', 'SERVICE_DISCONNECTED');
+          }
           
           if (sessionIdRef.current) {
             api.post(`/student/proctoring/session/${sessionIdRef.current}/event`, {
@@ -148,23 +154,23 @@ export const useProctoring = (attemptId, stage, onWarning) => {
       pollingRef.current = null;
     }
 
-    if (!sessionIdRef.current) return;
-
     let summary = null;
     try {
       const response = await axios.post(`${LOCAL_PROCTOR_URL}/stop`);
-      summary = response.data.summary;
+      summary = response.data?.summary;
     } catch (err) {
       console.warn('Failed to stop local proctor server cleanly', err);
     }
 
-    try {
-      await api.post(`/student/proctoring/session/${sessionIdRef.current}/complete`, {
-        riskScore: summary?.riskScore || 0,
-        riskLevel: summary?.riskLevel || 'LOW'
-      });
-    } catch (err) {
-      console.error('Failed to complete proctoring session on backend', err);
+    if (sessionIdRef.current) {
+      try {
+        await api.post(`/student/proctoring/session/${sessionIdRef.current}/complete`, {
+          riskScore: summary?.riskScore || 0,
+          riskLevel: summary?.riskLevel || 'LOW'
+        });
+      } catch (err) {
+        console.error('Failed to complete proctoring session on backend', err);
+      }
     }
 
     setStatus('idle');

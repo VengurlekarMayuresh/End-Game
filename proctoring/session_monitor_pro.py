@@ -310,10 +310,13 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
             with server_state.lock:
                 frame = server_state.preview_frame
             if frame is None:
-                self.send_response(503)
-                self._set_cors_headers()
-                self.end_headers()
-                return
+                placeholder = np.zeros((360, 640, 3), dtype=np.uint8)
+                placeholder[:] = (24, 24, 30)
+                status_txt = "AI PROCTOR INITIALIZING..." if server_state.is_monitoring else "PROCTOR COMPANION READY"
+                cv2.putText(placeholder, status_txt, (140, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 220, 120) if server_state.is_monitoring else (180, 180, 180), 2, cv2.LINE_AA)
+                cv2.putText(placeholder, "HIRESENSE INTEGRITY SYSTEM", (170, 215), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 140, 150), 1, cv2.LINE_AA)
+                _, encoded = cv2.imencode(".jpg", placeholder, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                frame = encoded.tobytes()
 
             self.send_response(200)
             self._set_cors_headers()
@@ -366,7 +369,19 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
             attempt_id = body.get("attemptId")
             stage = body.get("stage", "APTITUDE").upper()
 
+            # Cleanly stop any existing monitor session so the camera is released
             with server_state.lock:
+                if server_state.is_monitoring and server_state.monitor:
+                    try:
+                        server_state.monitor.running = False
+                    except Exception:
+                        pass
+                server_state.stop_requested = True
+
+            time.sleep(0.35)
+
+            with server_state.lock:
+                server_state.stop_requested = False
                 server_state.attempt_id = attempt_id
                 server_state.stage = stage
                 server_state.events_queue.clear()
@@ -378,6 +393,11 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 
         elif self.path == "/stop":
             with server_state.lock:
+                if server_state.monitor:
+                    try:
+                        server_state.monitor.running = False
+                    except Exception:
+                        pass
                 server_state.stop_requested = True
 
             # Wait for monitoring loop to terminate and set summary_data
@@ -1104,32 +1124,27 @@ class SessionMonitorPro:
             backends = [cv2.CAP_ANY]
 
         indices = [self.camera_index] + [i for i in [0, 1, 2] if i != self.camera_index]
-        for idx in indices:
-            for b in backends:
-                try:
-                    c = cv2.VideoCapture(idx, b)
-                    if c.isOpened():
-                        ok, test_frame = c.read()
-                        if ok and test_frame is not None and test_frame.size > 0:
-                            print(f"  Successfully opened camera index {idx} with backend {b}")
-                            self.camera_index = idx
-                            return c
-                    c.release()
-                except Exception:
-                    pass
+        for attempt in range(3):
+            for idx in indices:
+                for b in backends:
+                    try:
+                        c = cv2.VideoCapture(idx, b)
+                        if c.isOpened():
+                            ok, test_frame = c.read()
+                            if ok and test_frame is not None and test_frame.size > 0:
+                                print(f"  Successfully opened camera index {idx} with backend {b} (attempt {attempt + 1})")
+                                self.camera_index = idx
+                                return c
+                        c.release()
+                    except Exception:
+                        pass
+            time.sleep(0.35)
         return None
 
     # ------------------------------------------------------------------
-    # Main Loop
+    # Main Loop (Headless - Streams directly to website)
     # ------------------------------------------------------------------
     def run(self):
-        if not server_state.server_mode:
-            print("\n" + "=" * 60)
-            print("  INTERVIEW SESSION MONITOR")
-            print("=" * 60)
-            consent = input(" Continue? (y/n): ").strip().lower()
-            if consent != "y": return
-
         cap = self._open_camera()
         if cap is None:
             print("Cannot access camera.")
@@ -1431,24 +1446,15 @@ class SessionMonitorPro:
                         except Exception:
                             pass
 
-                # 5. Draw UI
-                if server_state.server_mode:
-                    if now - getattr(self, "last_preview_time", 0) >= 0.2:
-                        preview_copy = self.current_frame.copy()
-                        self.draw_ui(preview_copy, w)
-                        encoded, image = cv2.imencode(".jpg", preview_copy)
-                        if encoded:
-                            with server_state.lock:
-                                server_state.preview_frame = image.tobytes()
-                        self.last_preview_time = now
-                else:
-                    self.draw_ui(self.current_frame, w)
-                    cv2.imshow("Interview Monitor  |  Q=Quit  M=Mute", self.current_frame)
-                    key = cv2.waitKey(1) & 0xFF
-                    if key == ord("q") or key == ord("Q"):
-                        break
-                    elif key == ord("m") or key == ord("M"):
-                        self.muted = not self.muted
+                # 5. Draw UI & Stream Annotated Preview to Web Client (No External Window)
+                if now - getattr(self, "last_preview_time", 0) >= 0.15:
+                    preview_copy = self.current_frame.copy()
+                    self.draw_ui(preview_copy, w)
+                    encoded, image = cv2.imencode(".jpg", preview_copy)
+                    if encoded:
+                        with server_state.lock:
+                            server_state.preview_frame = image.tobytes()
+                    self.last_preview_time = now
 
         finally:
             self.running = False
@@ -1634,53 +1640,46 @@ class SessionMonitorPro:
 
 # ======================================================================
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--server":
-        server_state.server_mode = True
-        server = HTTPServer(("localhost", 8765), ProctoringHTTPHandler)
-        print("Starting Proctoring Companion Server on http://localhost:8765...")
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+    server_state.server_mode = True
+    server = HTTPServer(("localhost", 8765), ProctoringHTTPHandler)
+    print("=" * 60)
+    print("  HIRESENSE AI PROCTORING ENGINE (HEADLESS WEB COMPANION)")
+    print("  Listening on: http://localhost:8765")
+    print("  Mode: Web Integrated (No external window - streams to website)")
+    print("=" * 60)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
 
-        try:
-            while True:
-                start = False
+    try:
+        while True:
+            start = False
+            with server_state.lock:
+                if server_state.start_requested:
+                    start = True
+                    server_state.start_requested = False
+                    server_state.is_monitoring = True
+
+            if start:
+                print(
+                    f"\n[PROCTOR ACTIVE] Attempt: {server_state.attempt_id}, Stage: {server_state.stage}")
+                monitor = SessionMonitorPro(camera_index=0)
                 with server_state.lock:
-                    if server_state.start_requested:
-                        start = True
-                        server_state.start_requested = False
-                        server_state.is_monitoring = True
-
-                if start:
-                    print(
-                        f"Starting proctoring session for Attempt: {server_state.attempt_id}, Stage: {server_state.stage}")
-                    monitor = SessionMonitorPro(camera_index=0)
+                    server_state.monitor = monitor
+                try:
+                    monitor.run()
+                except Exception as ex:
+                    print(f"Error in proctoring monitor loop: {ex}")
+                finally:
                     with server_state.lock:
-                        server_state.monitor = monitor
-                    try:
-                        monitor.run()
-                    except Exception as ex:
-                        print(f"Error in proctoring monitor loop: {ex}")
-                    finally:
-                        with server_state.lock:
-                            server_state.is_monitoring = False
-                            server_state.start_requested = False
-                            server_state.stop_requested = False
-                            server_state.monitor = None
-                            server_state.preview_frame = None
-                            if server_state.summary_data is None:
-                                server_state.summary_data = {"error": "Failed prematurely"}
-                    print("Proctoring session stopped.")
+                        server_state.is_monitoring = False
+                        server_state.start_requested = False
+                        server_state.stop_requested = False
+                        server_state.monitor = None
+                        server_state.preview_frame = None
+                        if server_state.summary_data is None:
+                            server_state.summary_data = {"error": "Failed prematurely"}
+                print("[PROCTOR STOPPED] Session completed. Statistics recorded.")
 
-                time.sleep(0.2)
-        except KeyboardInterrupt:
-            print("\nShutting down Proctoring Companion Server...")
-            sys.exit(0)
-    else:
-        monitor = SessionMonitorPro(camera_index=0, log_file=os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                                                          "session_log.csv"))
-        try:
-            monitor.run()
-        except KeyboardInterrupt:
-            if monitor.running:
-                monitor.running = False
-                monitor.print_summary()
-            sys.exit(0)
+            time.sleep(0.2)
+    except KeyboardInterrupt:
+        print("\nShutting down Proctoring Companion Server...")
+        sys.exit(0)

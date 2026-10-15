@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import { 
-  Clock, ShieldAlert, Award, FileText, CheckCircle2, 
+  Clock, ShieldAlert, ShieldCheck, Video, Award, FileText, CheckCircle2, 
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
   ClipboardList, Lock
 } from 'lucide-react';
@@ -46,6 +46,9 @@ const TestInterface = () => {
   const [violationCounts, setViolationCounts] = useState({ tab: 0, fullscreen: 0 });
   const [proctorWarning, setProctorWarning] = useState(null);
 
+  const [proctorFrameTs, setProctorFrameTs] = useState(Date.now());
+  const [proctorFrameError, setProctorFrameError] = useState(false);
+
   const {
     status: pythonProctorStatus,
     errorMsg: pythonProctorError,
@@ -56,8 +59,18 @@ const TestInterface = () => {
     'APTITUDE',
     (msg, eventType) => {
       setProctorWarning({ message: msg, type: eventType });
+      setTimeout(() => setProctorWarning(null), 5000);
     }
   );
+
+  useEffect(() => {
+    if (pythonProctorStatus !== 'active') return;
+    setProctorFrameError(false);
+    const interval = setInterval(() => {
+      setProctorFrameTs(Date.now());
+    }, 500);
+    return () => clearInterval(interval);
+  }, [pythonProctorStatus]);
 
   const {
     hasPermissions: hardwarePermissions,
@@ -65,7 +78,7 @@ const TestInterface = () => {
     isHardwareLost,
     requestPermissions,
     stream: hardwareStream
-  } = useHardwareMonitor(phase === 'TESTING', { holdVideo: false });
+  } = useHardwareMonitor(phase === 'INSTRUCTIONS' || phase === 'TESTING', { holdVideo: false });
 
   const proctorStartedRef = useRef(false);
 
@@ -1039,6 +1052,61 @@ const TestInterface = () => {
             </div>
           </aside>
         </div>
+
+        {/* Floating Real-Time Proctoring Alert Toast */}
+        {proctorWarning && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-lg w-full px-4 animate-in fade-in slide-in-from-top-4 duration-200">
+            <div className="p-4 bg-destructive text-destructive-foreground rounded-2xl shadow-2xl flex items-center justify-between gap-3 border-2 border-white/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl shrink-0">
+                  <ShieldAlert size={20} className="animate-pulse" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs uppercase tracking-wider">AI Proctoring Alert</div>
+                  <div className="text-xs font-semibold">{proctorWarning.message || proctorWarning}</div>
+                </div>
+              </div>
+              <button onClick={() => setProctorWarning(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors shrink-0">
+                <XCircle size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Camera Proctoring Picture-in-Picture Feed */}
+        {phase === 'TESTING' && (
+          <div className="fixed bottom-5 right-5 z-40 bg-zinc-950/90 border-2 border-primary/40 rounded-2xl p-2 shadow-2xl backdrop-blur-md w-44 md:w-52">
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center">
+              {pythonProctorStatus === 'active' && !proctorFrameError ? (
+                <img
+                  src={`http://localhost:8765/frame?t=${proctorFrameTs}`}
+                  alt="AI Proctor Live Stream"
+                  className="w-full h-full object-cover rounded-xl"
+                  onError={() => setProctorFrameError(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 text-[10px] p-2 text-center">
+                  <Video size={16} className="mb-1 text-primary animate-pulse" />
+                  Connecting AI Proctor...
+                </div>
+              )}
+              <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-emerald-500/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">REC</span>
+              </div>
+              {pythonProctorStatus === 'active' && (
+                <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-primary/80 text-[9px] font-mono font-bold text-white">
+                  AI PROCTOR
+                </div>
+              )}
+            </div>
+            <div className="mt-1.5 text-center">
+              <p className="text-[10px] font-medium text-zinc-400 flex items-center justify-center gap-1">
+                <ShieldCheck size={11} className="text-primary" /> Camera Proctor Active
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

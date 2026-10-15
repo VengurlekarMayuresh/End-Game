@@ -575,6 +575,26 @@ const ResumeAptitudeTestInterface = () => {
         </div>
       )}
 
+      {/* Floating Real-Time Proctoring Alert Toast */}
+      {proctorWarning && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-lg w-full px-4 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="p-4 bg-destructive text-destructive-foreground rounded-2xl shadow-2xl flex items-center justify-between gap-3 border-2 border-white/20">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl shrink-0">
+                <ShieldAlert size={20} className="animate-pulse" />
+              </div>
+              <div>
+                <div className="font-extrabold text-xs uppercase tracking-wider">AI Proctoring Alert</div>
+                <div className="text-xs font-semibold">{proctorWarning.message || proctorWarning}</div>
+              </div>
+            </div>
+            <button onClick={() => setProctorWarning(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors shrink-0">
+              <XCircle size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Paste & Proctor Alert Banner */}
       {pasteWarning && (
         <div className="p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-1">

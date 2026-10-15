@@ -752,6 +752,26 @@ const AIInterview = () => {
             </div>
           </div>
 
+          {/* Floating Real-Time Proctoring Alert Toast */}
+          {proctorWarning && (
+            <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-lg w-full px-4 animate-in fade-in slide-in-from-top-4 duration-200">
+              <div className="p-4 bg-destructive text-destructive-foreground rounded-2xl shadow-2xl flex items-center justify-between gap-3 border-2 border-white/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-xl shrink-0">
+                    <ShieldAlert size={20} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-xs uppercase tracking-wider">AI Proctoring Alert</div>
+                    <div className="text-xs font-semibold">{proctorWarning}</div>
+                  </div>
+                </div>
+                <button onClick={() => setProctorWarning('')} className="p-1 hover:bg-white/20 rounded-lg transition-colors shrink-0">
+                  <XCircle size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="relative min-h-[820px] w-full bg-slate-950">
             <iframe
               id="ai-interview-frame"
