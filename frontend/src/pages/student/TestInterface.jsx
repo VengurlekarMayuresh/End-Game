@@ -65,7 +65,7 @@ const TestInterface = () => {
     isHardwareLost,
     requestPermissions,
     stream: hardwareStream
-  } = useHardwareMonitor(phase === 'TESTING');
+  } = useHardwareMonitor(phase === 'TESTING', { holdVideo: false });
 
   const proctorStartedRef = useRef(false);
 

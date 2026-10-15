@@ -328,12 +328,15 @@ const AIInterview = () => {
     };
   }, [viewMode]);
 
-  // Sync embedded webcam stream
+  // Polling frame for proctoring camera feed in embedded view
+  const [proctorFrameTs, setProctorFrameTs] = useState(Date.now());
   useEffect(() => {
-    if (embeddedVideoRef.current && mediaStream) {
-      embeddedVideoRef.current.srcObject = mediaStream;
-    }
-  }, [viewMode, mediaStream]);
+    if (viewMode !== 'EMBEDDED') return;
+    const interval = setInterval(() => {
+      setProctorFrameTs(Date.now());
+    }, 500);
+    return () => clearInterval(interval);
+  }, [viewMode]);
 
   // 3. Quick Launch Candidate Session directly into the AI Interview Room
   const handleDirectLaunch = async () => {
@@ -762,12 +765,12 @@ const AIInterview = () => {
           {/* Floating Camera Proctoring Picture-in-Picture Feed */}
           <div className="fixed bottom-5 right-5 z-40 bg-zinc-950/90 border-2 border-primary/40 rounded-2xl p-2 shadow-2xl backdrop-blur-md w-44 md:w-52">
             <div className="relative aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center">
-              <video
-                ref={embeddedVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover scale-x-[-1] rounded-xl"
+              <img
+                src={`http://localhost:8765/frame?t=${proctorFrameTs}`}
+                alt="Live AI Proctor Feed"
+                className="w-full h-full object-cover rounded-xl"
+                onError={(e) => { e.target.style.display = 'none'; }}
+                onLoad={(e) => { e.target.style.display = 'block'; }}
               />
               <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-emerald-500/40">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />

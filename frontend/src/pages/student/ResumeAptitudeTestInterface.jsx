@@ -69,16 +69,28 @@ const ResumeAptitudeTestInterface = () => {
     }
   );
 
-  // Camera & Mic Hardware Monitor
+  // Camera & Mic Hardware Monitor (releases video so Python companion has exclusive camera access)
   const {
     hasPermissions: hardwarePermissions,
     hardwareError,
     isHardwareLost,
     requestPermissions,
     stream: hardwareStream
-  } = useHardwareMonitor(!isFinished && !loading);
+  } = useHardwareMonitor(!isFinished && !loading, { holdVideo: false });
 
-  // Bind hardware webcam stream to video element
+  const [proctorFrameTs, setProctorFrameTs] = useState(Date.now());
+  const [proctorFrameError, setProctorFrameError] = useState(false);
+
+  useEffect(() => {
+    if (pythonProctorStatus !== 'active') return;
+    setProctorFrameError(false);
+    const interval = setInterval(() => {
+      setProctorFrameTs(Date.now());
+    }, 500);
+    return () => clearInterval(interval);
+  }, [pythonProctorStatus]);
+
+  // Bind fallback hardware webcam stream to video element if ever active
   useEffect(() => {
     if (cameraVideoRef.current && hardwareStream) {
       cameraVideoRef.current.srcObject = hardwareStream;
@@ -1096,18 +1108,27 @@ const ResumeAptitudeTestInterface = () => {
       {!loading && !isFinished && (
         <div className="fixed bottom-5 right-5 z-40 bg-zinc-950/90 border-2 border-primary/40 rounded-2xl p-2 shadow-2xl backdrop-blur-md w-44 md:w-52">
           <div className="relative aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center">
-            <video
-              ref={cameraVideoRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full h-full object-cover scale-x-[-1] rounded-xl"
-            />
+            {pythonProctorStatus === 'active' && !proctorFrameError ? (
+              <img
+                src={`http://localhost:8765/frame?t=${proctorFrameTs}`}
+                alt="AI Proctor Live Stream"
+                className="w-full h-full object-cover rounded-xl"
+                onError={() => setProctorFrameError(true)}
+              />
+            ) : (
+              <video
+                ref={cameraVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover scale-x-[-1] rounded-xl"
+              />
+            )}
             <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-emerald-500/40">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
               <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">REC</span>
             </div>
-            {pythonProctorStatus?.isMonitoring && (
+            {pythonProctorStatus === 'active' && (
               <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-primary/80 text-[9px] font-mono font-bold text-white">
                 AI PROCTOR
               </div>

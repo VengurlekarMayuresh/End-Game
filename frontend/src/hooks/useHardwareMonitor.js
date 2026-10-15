@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export const useHardwareMonitor = (isActive = false) => {
+export const useHardwareMonitor = (isActive = false, options = {}) => {
+  const { holdVideo = false } = options;
   const [hasPermissions, setHasPermissions] = useState(false);
   const [hardwareError, setHardwareError] = useState('');
   const [isHardwareLost, setIsHardwareLost] = useState(false);
@@ -15,6 +16,11 @@ export const useHardwareMonitor = (isActive = false) => {
       if (!isActive) {
         stream.getTracks().forEach(track => track.stop());
       } else {
+        // If holdVideo is false, release the video track immediately so local Python proctoring service can access webcam 0 without collision
+        if (!holdVideo) {
+          stream.getVideoTracks().forEach(track => track.stop());
+        }
+
         streamRef.current = stream;
         
         // Listen for stream end (e.g. user revoked permissions or unplugged device)
@@ -41,7 +47,7 @@ export const useHardwareMonitor = (isActive = false) => {
       }
       return false;
     }
-  }, [isActive]);
+  }, [isActive, holdVideo]);
 
   // If isActive becomes true, make sure we have a stream. 
   // If it becomes false, clean up.
