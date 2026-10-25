@@ -91,6 +91,58 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
     }
   }
 
+  const TECH_CATALOG = [
+    'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Golang', 'Go', 'Rust', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Scala', 'R', 'Dart', 'SQL', 'Bash', 'Shell',
+    'React', 'Next.js', 'Vue', 'Nuxt.js', 'Angular', 'Svelte', 'Redux', 'Tailwind CSS', 'CSS3', 'HTML5', 'WebSockets', 'Webpack', 'Vite',
+    'Node.js', 'Express', 'NestJS', 'Django', 'FastAPI', 'Flask', 'Spring Boot', 'ASP.NET', 'Ruby on Rails', 'Laravel', 'Gin', 'Koa',
+    'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Cassandra', 'DynamoDB', 'ElasticSearch', 'SQLite', 'Oracle', 'Firebase', 'Prisma', 'TypeORM',
+    'AWS', 'GCP', 'Azure', 'Docker', 'Kubernetes', 'Terraform', 'CI/CD', 'Git', 'Linux', 'Ansible', 'Jenkins', 'GitHub Actions', 'Serverless',
+    'Kafka', 'RabbitMQ', 'GraphQL', 'REST APIs', 'gRPC', 'Microservices', 'System Design', 'Event-Driven Architecture', 'Distributed Systems',
+    'Machine Learning', 'Deep Learning', 'PyTorch', 'TensorFlow', 'Pandas', 'NumPy', 'Scikit-Learn', 'LLMs', 'NLP', 'Computer Vision',
+    'Data Structures', 'Algorithms', 'Object-Oriented Programming', 'Design Patterns', 'Concurrency'
+  ];
+
+  function extractDynamicSkills(text) {
+    if (!text || typeof text !== 'string') return [];
+    const found = new Set();
+    const lower = ' ' + text.toLowerCase() + ' ';
+    for (const t of TECH_CATALOG) {
+      const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp('(?:\\b|[^a-zA-Z0-9])' + escaped + '(?:\\b|[^a-zA-Z0-9])', 'i');
+      if (regex.test(lower)) found.add(t);
+    }
+    return [...found];
+  }
+
+  function extractDynamicProjects(resumeText) {
+    if (!resumeText || typeof resumeText !== 'string') return [];
+    const lines = resumeText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const projects = [];
+    let inProj = false;
+    for (let i = 0; i < lines.length && projects.length < 4; i++) {
+      const l = lines[i];
+      if (/^(projects|key projects|academic projects|personal projects|technical projects)/i.test(l)) {
+        inProj = true;
+        continue;
+      }
+      if (inProj) {
+        if (/^(education|experience|work experience|skills|certifications|awards|summary)/i.test(l)) {
+          inProj = false;
+          break;
+        }
+        const match = l.match(/^(?:[-*•\d.]+\s*)?([A-Za-z0-9][A-Za-z0-9\s_\-:–]{3,40})(?:\s*[:–-]\s*(.*))?$/);
+        if (match && match[1] && !/^(the|and|for|with|using|built|created|designed)\b/i.test(match[1])) {
+          const name = match[1].trim();
+          const summary = (match[2] || lines[i + 1] || 'Technical project from candidate profile').slice(0, 150).trim();
+          if (!/capstone/i.test(name)) {
+            projects.push({ name, summary });
+          }
+        }
+      }
+    }
+    return projects;
+  }
+
   const handleCandidateCreation = async (req, res, b, f) => {
     try {
       const consentGiven = b.consent === 'true' || b.consent === true || b.consent === '1' || b.consent === 1;
@@ -100,62 +152,69 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
       const jd = str((await fileText(f.jdFile && f.jdFile[0])) || b.jdText || b.jd || '', 12000);
 
       const parsedSkills = Array.isArray(b.skills) ? b.skills : (b.skills ? String(b.skills).split(',').map(s => s.trim()).filter(Boolean) : []);
-      const defaultSkills = ['Data Structures', 'Algorithms', 'Databases', 'System Design', 'JavaScript', 'Python'];
-      const effectiveSkills = parsedSkills.length ? parsedSkills : defaultSkills;
+      const parsedProjects = (Array.isArray(b.projects) ? b.projects : []).filter(p => p && p.name && !/capstone/i.test(p.name));
+
+      // 1. Dynamic Extraction from actual documents
+      const jdExtractedSkills = extractDynamicSkills(jd);
+      const resumeExtractedSkills = extractDynamicSkills(resume);
+      const resumeExtractedProjects = parsedProjects.length ? parsedProjects : extractDynamicProjects(resume);
+
+      const dynamicRole = str(b.jobTitle || b.role, 100) || (jd.match(/(?:title|position|role):\s*([^\n\r]+)/i)?.[1]?.trim()) || 'Software Engineer';
 
       let c = null, job = null;
-      // If skills and name are already provided (e.g., from portal or pre-filled form), skip long LLM wait!
-      if (b.name && parsedSkills.length > 0) {
-        c = {
-          name: str(b.name, 80),
-          email: str(b.email, 120) || 'candidate@hiresense.ai',
-          phone: str(b.phone, 30) || '',
-          role_applied: str(b.role || b.jobTitle, 100) || 'Software Engineer',
-          experience_label: str(b.experience, 100) || 'Technical Candidate',
-          education: str(b.education, 120) || 'Computer Science & Engineering',
-          skills: effectiveSkills,
-          projects: Array.isArray(b.projects) && b.projects.length ? b.projects.filter(p => p && p.name && !/capstone/i.test(p.name)) : [],
-          summary: str(b.summary || b.resumeText || 'Verified technical profile from candidate assessment.', 500)
-        };
-        job = {
-          title: str(b.jobTitle || b.role, 100) || 'Software Development Engineer',
-          required_skills: effectiveSkills,
-          nice_to_have: ['Cloud & Distributed Systems'],
-          seniority: 'Technical Round',
-          summary: jd ? jd.slice(0, 300) : 'Evaluation of foundational and applied computer science principles.'
-        };
-      } else {
-        const effectiveResume = resume.length >= 20 ? resume : `Candidate Name: ${b.name || 'Candidate'}\nRole: ${b.role || 'Software Engineer'}\nSkills: ${effectiveSkills.join(', ')}`;
-        const effectiveJd = jd.length >= 20 ? jd : 'Software Development Engineer role requiring core CS, data structures, algorithms, system design, databases and backend engineering.';
+      // 2. Try LLM extraction when documents have content
+      if (jd.length >= 30 || resume.length >= 30) {
         try {
+          const effectiveResume = resume.length >= 20 ? resume : `Candidate: ${b.name || 'Candidate'}\nRole: ${dynamicRole}\nSkills: ${[...new Set([...parsedSkills, ...resumeExtractedSkills])].join(', ')}`;
+          const effectiveJd = jd.length >= 20 ? jd : `${dynamicRole} role requiring: ${[...new Set([...jdExtractedSkills, ...parsedSkills])].join(', ')}`;
           const j = await llm('grade', extractPrompt(effectiveJd, effectiveResume), x => x && x.candidate && x.job);
           c = j.candidate;
           job = j.job;
         } catch (e) {
-          console.warn('[intake LLM fallback]', e.message);
-          c = {
-            name: str(b.name, 80) || 'Candidate',
-            email: str(b.email, 120) || 'candidate@hiresense.ai',
-            phone: str(b.phone, 30) || '',
-            role_applied: str(b.role || b.jobTitle, 100) || 'Software Engineer',
-            experience_label: 'Technical Candidate',
-            education: 'Computer Science & Engineering',
-            skills: effectiveSkills,
-            projects: [],
-            summary: 'Verified technical profile from HireSense AI candidate assessment.'
-          };
-          job = {
-            title: str(b.jobTitle || b.role, 100) || 'Software Development Engineer',
-            required_skills: effectiveSkills,
-            nice_to_have: ['Cloud & Distributed Systems'],
-            seniority: 'Technical Round',
-            summary: 'Evaluation of foundational and applied computer science principles.'
-          };
+          console.warn('[intake LLM dynamic fallback]', e.message);
+        }
+      }
+
+      // 3. Fallback dynamically to text-extracted data (never static dummy lists!)
+      if (!job) {
+        const reqSkills = [...new Set([...jdExtractedSkills, ...parsedSkills])];
+        job = {
+          title: dynamicRole,
+          required_skills: reqSkills.length > 0 ? reqSkills : (resumeExtractedSkills.length ? resumeExtractedSkills : [dynamicRole, 'System Architecture', 'Core Problem Solving']),
+          nice_to_have: jdExtractedSkills.slice(4, 9),
+          seniority: 'Technical Round',
+          summary: jd ? jd.slice(0, 300) : `Technical interview assessment for ${dynamicRole} role.`
+        };
+      }
+
+      if (!c) {
+        const candSkills = [...new Set([...parsedSkills, ...resumeExtractedSkills])];
+        c = {
+          name: str(b.name, 80) || 'Candidate',
+          email: str(b.email, 120) || 'candidate@hiresense.ai',
+          phone: str(b.phone, 30) || '',
+          role_applied: dynamicRole,
+          experience_label: str(b.experience, 100) || 'Technical Candidate',
+          education: str(b.education, 120) || 'Computer Science & Engineering',
+          skills: candSkills.length > 0 ? candSkills : job.required_skills,
+          projects: resumeExtractedProjects,
+          summary: str(b.summary || (resume ? resume.slice(0, 400) : `Profile for ${dynamicRole} assessment.`), 500)
+        };
+      } else {
+        if (b.name) c.name = str(b.name, 80);
+        if (b.email) c.email = str(b.email, 120);
+        if (b.phone) c.phone = str(b.phone, 30);
+        if (b.role || b.jobTitle) c.role_applied = str(b.role || b.jobTitle, 100);
+        if (resumeExtractedProjects.length && (!c.projects || !c.projects.length)) {
+          c.projects = resumeExtractedProjects;
+        }
+        if (Array.isArray(c.projects)) {
+          c.projects = c.projects.filter(p => p && p.name && !/capstone/i.test(p.name));
         }
       }
 
       const id = 'C-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-      const finalJd = jd || 'Software Development Engineer role requiring core CS, data structures, algorithms, system design, databases and backend engineering.';
+      const finalJd = jd || `${job.title} role with core responsibilities: ${(job.required_skills || []).join(', ')}`;
       const jobId = 'J-' + crypto.createHash('sha256').update(finalJd).digest('hex').slice(0, 10);
       db.prepare('INSERT OR IGNORE INTO jobs VALUES(?,?,?,?,?,?,?,?)').run(jobId, str(job.title, 100), finalJd, JSON.stringify(arr(job.required_skills, 15)), JSON.stringify(arr(job.nice_to_have, 15)), str(job.seniority, 40), str(job.summary, 500), now());
       db.prepare(`INSERT INTO candidates(

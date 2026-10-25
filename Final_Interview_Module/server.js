@@ -6,10 +6,10 @@ const TOTAL = +process.env.MAIN_QUESTIONS || 6, PASS = +process.env.PASS_MARK ||
 const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
 const defaultUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const PRIMARY = { url: process.env.LLM_BASE_URL || defaultUrl, key: geminiKey };
-const defaultModel = 'gemini-2.0-flash';
+const defaultModel = 'gemini-2.5-flash';
 const GEN = process.env.GEN_MODEL || defaultModel, GRADE = process.env.GRADE_MODEL || defaultModel;
-const FALLBACK = (process.env.FALLBACK_API_KEY || geminiKey) && (process.env.FALLBACK_MODEL || 'gemini-1.5-flash')
-  ? { url: process.env.FALLBACK_BASE_URL || defaultUrl, key: process.env.FALLBACK_API_KEY || geminiKey, model: process.env.FALLBACK_MODEL || 'gemini-1.5-flash' } : null;
+const FALLBACK = (process.env.FALLBACK_API_KEY || geminiKey) && (process.env.FALLBACK_MODEL || 'gemini-2.5-flash')
+  ? { url: process.env.FALLBACK_BASE_URL || defaultUrl, key: process.env.FALLBACK_API_KEY || geminiKey, model: process.env.FALLBACK_MODEL || 'gemini-2.5-flash' } : null;
 
 const TAX = [
   ["Frontend & UI", "Component state & lifecycle"],
@@ -129,8 +129,44 @@ async function call(p, model, prompt, temperature) {
 
   const isGemini = (p.url && p.url.includes('generativelanguage.googleapis.com')) || (!p.url.includes('openrouter.ai') && !p.url.includes('groq.com'));
 
-  // Method 1: Google Gemini official OpenAI-compatible endpoint
-  // https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+  // Method 1: Direct Google Gemini REST API (Native - fastest & most reliable)
+  if (isGemini) {
+    try {
+      const cleanModel = model.replace(/^models\//, '').replace(/^google\//, '');
+      const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(p.key)}`;
+      const nativeReq = {
+        systemInstruction: {
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
+        contents: [
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
+        generationConfig: {
+          temperature,
+          responseMimeType: 'application/json'
+        }
+      };
+
+      const nativeRes = await fetch(nativeUrl, {
+        method: 'POST',
+        signal: AbortSignal.timeout(22000),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nativeReq)
+      });
+
+      if (nativeRes.ok) {
+        const nativeData = await nativeRes.json();
+        const cand = nativeData.candidates && nativeData.candidates[0];
+        const text = cand?.content?.parts?.[0]?.text || '';
+        return cleanAndParseJson(text, cand);
+      }
+      console.warn('[Gemini Native HTTP ' + nativeRes.status + ']', (await nativeRes.text()).slice(0, 150));
+    } catch (nativeErr) {
+      console.warn('[Gemini Native fallback to OpenAI endpoint]', nativeErr.message);
+    }
+  }
+
+  // Method 2: OpenAI-compatible endpoint (Secondary or non-Gemini)
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ' + p.key
@@ -154,73 +190,30 @@ async function call(p, model, prompt, temperature) {
     ? p.url
     : `${p.url.replace(/\/+$/, '')}/chat/completions`;
 
-  try {
-    const r = await fetch(endpoint, {
-      method: 'POST',
-      signal: AbortSignal.timeout(25000),
-      headers,
-      body: JSON.stringify(baseReq)
-    });
-
-    if (r.ok) {
-      const data = await r.json();
-      const choice = data.choices && data.choices[0];
-      const msg = choice && choice.message;
-      return cleanAndParseJson(msg && msg.content, msg);
-    }
-
-    if (!isGemini) {
-      const b = (await r.text()).slice(0, 300);
-      throw new Error('LLM HTTP ' + r.status + ' [' + model + '] ' + b);
-    }
-  } catch (err) {
-    if (!isGemini) throw err;
-    console.warn('[Gemini endpoint retry]', err.message);
-  }
-
-  // Method 2: Direct Google Gemini REST API (Native fallback)
-  // https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}
-  const cleanModel = model.replace(/^models\//, '').replace(/^google\//, '');
-  const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(p.key)}`;
-
-  const nativeReq = {
-    systemInstruction: {
-      parts: [{ text: SYSTEM_PROMPT }]
-    },
-    contents: [
-      { role: 'user', parts: [{ text: prompt }] }
-    ],
-    generationConfig: {
-      temperature,
-      responseMimeType: 'application/json'
-    }
-  };
-
-  const nativeRes = await fetch(nativeUrl, {
+  const r = await fetch(endpoint, {
     method: 'POST',
     signal: AbortSignal.timeout(25000),
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(nativeReq)
+    headers,
+    body: JSON.stringify(baseReq)
   });
 
-  if (!nativeRes.ok) {
-    const b = (await nativeRes.text()).slice(0, 300);
-    throw new Error('Google Gemini API HTTP ' + nativeRes.status + ' [' + cleanModel + '] ' + b);
+  if (r.ok) {
+    const data = await r.json();
+    const choice = data.choices && data.choices[0];
+    const msg = choice && choice.message;
+    return cleanAndParseJson(msg && msg.content, msg);
   }
 
-  const nativeData = await nativeRes.json();
-  const cand = nativeData.candidates && nativeData.candidates[0];
-  const text = cand?.content?.parts?.[0]?.text || '';
-  return cleanAndParseJson(text, cand);
+  const b = (await r.text()).slice(0, 300);
+  throw new Error('LLM HTTP ' + r.status + ' [' + model + '] ' + b);
 }
 
 async function llm(kind, prompt, valid) {
-  const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? 0.7 : 0.2;
+  const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? (0.75 + Math.random() * 0.1) : 0.2;
   const modelsToTry = [
-    [PRIMARY, model],
-    [PRIMARY, 'gemini-2.0-flash'],
-    [PRIMARY, 'gemini-1.5-flash'],
-    [PRIMARY, 'gemini-1.5-pro']
+    [PRIMARY, model || 'gemini-2.5-flash'],
+    [PRIMARY, 'gemini-2.5-flash'],
+    [PRIMARY, 'gemini-2.5-pro']
   ].concat(FALLBACK ? [[FALLBACK, FALLBACK.model]] : []);
 
   let last;
@@ -342,7 +335,13 @@ function genPrompt(s, next, g) {
     }
   }
 
-  const avoid = recent[next.sub] || [];
+  const focusAngles = [
+    'Focus on practical hands-on architecture, real-world trade-offs, and implementation nuances.',
+    'Focus on everyday debugging, troubleshooting edge cases, and performance bottlenecks.',
+    'Focus on production scalability, fault tolerance, and concurrency challenges.',
+    'Focus on real-world system integration, clean interfaces, and resilient error handling.'
+  ];
+  const dynamicAngle = focusAngles[turnIndex % focusAngles.length];
 
   return `Generate the interviewer's next spoken turn.
 
@@ -371,13 +370,14 @@ TURN INSTRUCTIONS:
 ${turnGuidance}
 
 MANDATORY RULES:
-1. Ground the question deeply in the Job Description requirements, with appropriate touches on the candidate's actual resume.
-2. STRICT PROHIBITION: NEVER use or mention the word "capstone", and NEVER invent a "capstone project". Base the questions strictly on the Job Description and genuine resume details provided.
-3. Stick strictly to FREQUENTLY ASKED interview questions from basic to advanced.
-4. Sound exactly like an empathetic, seasoned senior human interviewer.
-5. Output 1-3 spoken conversational sentences ending with exactly ONE question.
-6. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
-7. JSON ONLY: {"question":"..."}`;
+1. FULLY DYNAMIC & UNIQUE: Formulate a completely fresh, novel question directly tailored to the specific details in the Job Description and Candidate Resume. NEVER repeat questions.
+2. Direct Angle for this turn: ${dynamicAngle}
+3. STRICT PROHIBITION: NEVER use or mention the word "capstone", and NEVER invent a "capstone project". Base the questions strictly on the Job Description and genuine resume details provided.
+4. Stick strictly to standard technical interview questions from basic to advanced.
+5. Sound exactly like an empathetic, seasoned senior human interviewer having a natural conversation.
+6. Output 1-3 spoken conversational sentences ending with exactly ONE question.
+7. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
+8. JSON ONLY: {"question":"..."}`;
 }
 
 const grade = async (s, cur, answer) => {
@@ -410,20 +410,44 @@ const genQ = async (s, next, g) => {
     console.warn('[genQ fallback]', err.message);
   }
 
-  const templates = (next.kind === 'follow') ? [
-    `That is a good point. In everyday development with ${next.sub}, how do you usually handle errors or unexpected edge cases?`,
-    `Makes sense. In your experience, what is the biggest practical trade-off or challenge when working with ${next.sub}?`,
-    `Thanks for that explanation. How would you test or verify that your implementation of ${next.sub} behaves correctly in production?`,
-    `Understood. If you needed to optimize performance when using ${next.sub}, what would be your primary approach?`
-  ] : [
-    `To start with ${next.sub}, could you explain its fundamental purpose and give a quick example of when you would use it?`,
-    `In everyday software engineering, what are the primary advantages of using ${next.sub}, and what common problem does it solve?`,
-    `How would you explain the core concepts of ${next.sub} and how you typically apply it in a project?`,
-    `What is a typical real-world scenario where you would choose ${next.sub} over alternative approaches?`
-  ];
+  const candFirstName = (s.cand?.name || 'Candidate').split(' ')[0];
+  const targetRole = s.cand?.role || s.cand?.job?.title || 'Software Development Engineer';
+  const isTurn0 = (s.turns || []).length === 0;
 
-  const fresh = templates.filter(t => !previouslyAsked.includes(t));
-  const pool = fresh.length > 0 ? fresh : templates;
+  let dynamicPool = [];
+  if (isTurn0) {
+    if (next.cat === 'Resume Projects') {
+      dynamicPool = [
+        `Welcome to the interview, ${candFirstName}. I noticed your work on the "${next.sub}" on your resume. Could you walk me through the system architecture and how you chose that technical stack?`,
+        `Hi ${candFirstName}, great to meet you. Looking at your background, you built "${next.sub}". What was the most technically challenging problem you had to solve during that project?`,
+        `Welcome, ${candFirstName}. I'd love to hear about "${next.sub}" from your resume. How did you design the data flow and ensure reliability in that implementation?`
+      ];
+    } else {
+      dynamicPool = [
+        `Welcome to the technical interview, ${candFirstName}, for the ${targetRole} role. To get started, could you share your practical experience working with ${next.sub} and how you typically design services around it?`,
+        `Hello ${candFirstName}, glad to have you with us today. Given that ${next.sub} is a core requirement for our ${targetRole} position, could you walk me through how you have applied it in your past projects?`,
+        `Welcome, ${candFirstName}. As a starting point for our discussion today on the ${targetRole} position, what key principles guide your approach when building systems with ${next.sub}?`
+      ];
+    }
+  } else if (next.kind === 'follow') {
+    dynamicPool = [
+      `That makes sense regarding ${next.sub}. If your service experienced sudden 10x traffic spikes or high concurrent writes, where would that design degrade first and how would you optimize it?`,
+      `Building on your explanation of ${next.sub}, how do you ensure data consistency and graceful error recovery if a downstream network dependency fails?`,
+      `In a mission-critical ${targetRole} environment, what specific edge cases or race conditions would you guard against when implementing that ${next.sub} logic?`,
+      `Good breakdown of ${next.sub}. From an architectural standpoint, how would you test and benchmark this implementation to verify its performance before deploying to production?`
+    ];
+  } else {
+    dynamicPool = [
+      `In the context of everyday ${targetRole} responsibilities, how do you architect and structure ${next.sub} to guarantee high availability and clean separation of concerns?`,
+      `When implementing ${next.sub} in a scalable production system, what specific design patterns, caching layers, or indexing strategies do you rely on to minimize latency?`,
+      `Can you discuss a subtle performance bottleneck or production failure you might encounter with ${next.sub}, and the step-by-step diagnostic process you would use to resolve it?`,
+      `When evaluating architectural trade-offs for ${next.sub} in a modern distributed stack, what factors guide your choice over alternative approaches?`,
+      `How do you design automated testing, resilience mechanisms, and monitoring dashboards when deploying ${next.sub} in an enterprise environment?`
+    ];
+  }
+
+  const fresh = dynamicPool.filter(t => !previouslyAsked.includes(t));
+  const pool = fresh.length > 0 ? fresh : dynamicPool;
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
@@ -436,35 +460,71 @@ function chooseTopic(st, cand) {
 
   // Turn 0: Opening / Resume Anchor or Primary JD Requirement
   if (st.mainDone === 0) {
-    if (realProjects.length > 0 && realProjects[0].name) {
-      return ['Resume Projects', realProjects[0].name];
+    if (realProjects.length > 0) {
+      const selectedProject = realProjects[Math.floor(Math.random() * realProjects.length)];
+      return ['Resume Projects', selectedProject.name];
     }
-    if (jdSkills.length > 0) {
-      return [skillCat(jdSkills[0]), jdSkills[0]];
-    }
-    if (candSkills.length > 0) {
-      return [skillCat(candSkills[0]), candSkills[0]];
-    }
-    return ['Software Engineering', 'Technical Architecture'];
+    const pool = jdSkills.length > 0 ? jdSkills : (candSkills.length > 0 ? candSkills : ['Software Engineering']);
+    const primary = pool[Math.floor(Math.random() * Math.min(pool.length, 3))];
+    return [skillCat(primary), primary];
   }
 
-  // Build candidate & JD skill topic pairs: [Category, Subtopic, isFromJD/Resume]
-  const skillTopics = allSkills
+  // Turn 1+: Prioritize unused JD skills heavily, then unused candidate skills
+  const unusedJd = jdSkills.filter(s => !st.used[s]);
+  const unusedCand = candSkills.filter(s => !st.used[s]);
+
+  // Combine topics with strong priority for JD requirements
+  const candidatePool = (unusedJd.length > 0 ? unusedJd : (unusedCand.length > 0 ? unusedCand : allSkills))
     .map(skill => [skillCat(skill), skill, 1])
     .filter(t => !st.used[t[1]]);
 
-  // If we have unused JD / Resume skills, ALWAYS pick from them first!
-  if (skillTopics.length > 0) {
-    const recentCats = st.cats.slice(-2);
-    const fresh = skillTopics.filter(t => !recentCats.includes(t[0]));
-    const pool = fresh.length > 0 ? fresh : skillTopics;
-    return pool[0];
+  const recentCats = st.cats.slice(-2);
+  if (candidatePool.length > 0) {
+    const fresh = candidatePool.filter(t => !recentCats.includes(t[0]));
+    const pool = fresh.length > 0 ? fresh : candidatePool;
+    // Pick dynamically at random so every interview has a unique progression!
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // Fallback to modern software engineering pool
-  const unusedFallbacks = TAX.filter(t => !st.used[t[1]]);
-  const pool = unusedFallbacks.length > 0 ? unusedFallbacks : TAX;
-  const recentCats = st.cats.slice(-2);
+  // Dynamic fallback based on role domain if all direct skills exhausted
+  const roleTitle = (cand?.job?.title || cand?.role || 'Software Engineering').toLowerCase();
+  const dynamicFallbacks = [
+    [/backend|api|server|microservice|distributed/i, [
+      ["Backend Architecture", "RESTful & microservices API design"],
+      ["Databases & Storage", "SQL query optimization & indexing"],
+      ["System Scalability", "Caching & concurrency control"],
+      ["Resilience", "Error handling, retries & circuit breakers"]
+    ]],
+    [/frontend|ui|web|react|angular|vue/i, [
+      ["Frontend Architecture", "Component state management & data flow"],
+      ["UI Performance", "Rendering optimization & lazy loading"],
+      ["Web Security", "Cross-origin requests, CORS & auth tokens"],
+      ["API Integration", "Asynchronous data fetching & caching"]
+    ]],
+    [/data|ml|ai|machine learning|analytics/i, [
+      ["Data Pipelines", "Batch vs stream processing trade-offs"],
+      ["Data Modeling", "Schema design & feature engineering"],
+      ["Model Architecture", "Training, validation & overfitting strategies"],
+      ["System Performance", "Optimizing data pipeline throughput"]
+    ]],
+    [/devops|cloud|sre|infrastructure/i, [
+      ["Infrastructure", "Container orchestration & Docker/Kubernetes"],
+      ["CI/CD Automation", "Deployment strategies & zero-downtime releases"],
+      ["Cloud Architecture", "Scalability, load balancing & cloud security"],
+      ["Observability", "Logging, metrics & incident monitoring"]
+    ]]
+  ];
+
+  let matchedFallbacks = [];
+  for (const [regex, topics] of dynamicFallbacks) {
+    if (regex.test(roleTitle)) {
+      matchedFallbacks = topics;
+      break;
+    }
+  }
+  const fallbackList = matchedFallbacks.length > 0 ? matchedFallbacks : TAX;
+  const unusedList = fallbackList.filter(t => !st.used[t[1]]);
+  const pool = unusedList.length > 0 ? unusedList : fallbackList;
   const fresh = pool.filter(t => !recentCats.includes(t[0]));
   const from = fresh.length > 0 ? fresh : pool;
   return from[Math.floor(Math.random() * from.length)];
