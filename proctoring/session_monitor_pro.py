@@ -11,6 +11,7 @@ from datetime import datetime
 from collections import defaultdict
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
+import base64
 
 import cv2
 import numpy as np
@@ -284,6 +285,9 @@ class ProctorServerState:
         self.lock = threading.Lock()
         self.summary_data = None
         self.preview_frame = None
+        self.incoming_frame = None
+        self.incoming_frame_time = 0.0
+        self.use_virtual_stream = False
         self.monitor = None
         self.server_mode = False
 
@@ -365,6 +369,25 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
 
+        path_clean = self.path.split("?", 1)[0]
+        if path_clean in ("/frame", "/process_frame", "/stream_frame"):
+            frame_b64 = body.get("frame")
+            if frame_b64:
+                try:
+                    if "," in frame_b64:
+                        frame_b64 = frame_b64.split(",", 1)[1]
+                    raw_bytes = base64.b64decode(frame_b64)
+                    np_arr = np.frombuffer(raw_bytes, np.uint8)
+                    decoded_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                    if decoded_img is not None and decoded_img.size > 0:
+                        with server_state.lock:
+                            server_state.incoming_frame = decoded_img
+                            server_state.incoming_frame_time = time.time()
+                except Exception:
+                    pass
+            self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
+            return
+
         if self.path == "/start":
             attempt_id = body.get("attemptId")
             stage = body.get("stage", "APTITUDE").upper()
@@ -393,15 +416,18 @@ class ProctoringHTTPHandler(BaseHTTPRequestHandler):
 
         elif self.path == "/stop":
             with server_state.lock:
-                if server_state.monitor:
-                    try:
-                        server_state.monitor.running = False
-                    except Exception:
-                        pass
-                server_state.stop_requested = True
+                if server_state.is_monitoring:
+                    if server_state.monitor:
+                        try:
+                            server_state.monitor.running = False
+                        except Exception:
+                            pass
+                    server_state.stop_requested = True
+                else:
+                    server_state.stop_requested = False
 
             # Wait for monitoring loop to terminate and set summary_data
-            retries = 50  # 5 seconds
+            retries = 30  # 3 seconds max
             while retries > 0:
                 with server_state.lock:
                     if not server_state.is_monitoring:
@@ -899,7 +925,7 @@ class SessionMonitorPro:
             # UNKNOWN - allow small flicker tolerance
             if self.pupil_unknown_start_time is None:
                 self.pupil_unknown_start_time = now
-            elif now - self.pupil_unknown_start_time > 0.8:
+            elif self.pupil_unknown_start_time is not None and (now - self.pupil_unknown_start_time > 0.8):
                 self.pupil_away_start_time = None
                 self.pupil_alert_triggered = False
                 if self.eye_left_start_time is not None:
@@ -1146,12 +1172,13 @@ class SessionMonitorPro:
     # ------------------------------------------------------------------
     def run(self):
         cap = self._open_camera()
+        use_virtual = False
         if cap is None:
-            print("Cannot access camera.")
-            self.total_camera_unavailable_time += 1.0
-            self.camera_disconnects += 1
-            self.print_summary()
-            return
+            print("  [PROCTOR NOTICE] Physical camera index busy or locked by browser.")
+            print("  [PROCTOR NOTICE] Operating in Web Video Ingestion Mode (active via browser stream).")
+            use_virtual = True
+            with server_state.lock:
+                server_state.use_virtual_stream = True
 
         self.yolo_model = init_yolo_detector()
         os.makedirs(DIR_PERSON_SS, exist_ok=True)
@@ -1173,7 +1200,19 @@ class SessionMonitorPro:
                     with server_state.lock:
                         if server_state.stop_requested:
                             break
-                ok, frame = cap.read()
+
+                if use_virtual:
+                    with server_state.lock:
+                        v_frame = server_state.incoming_frame
+                        v_time = server_state.incoming_frame_time
+                    if v_frame is None or (time.time() - v_time > 4.5):
+                        time.sleep(0.08)
+                        continue
+                    frame = v_frame.copy()
+                    ok = True
+                else:
+                    ok, frame = cap.read()
+
                 now = time.time()
                 dt = now - prev_time
                 prev_time = now
@@ -1477,7 +1516,11 @@ class SessionMonitorPro:
                         notify=False
                     )
 
-            cap.release()
+            if cap is not None:
+                try:
+                    cap.release()
+                except Exception:
+                    pass
             if not server_state.server_mode:
                 cv2.destroyAllWindows()
             self.log_event("Interview session stopped", "info")
@@ -1661,6 +1704,8 @@ if __name__ == "__main__":
             if start:
                 print(
                     f"\n[PROCTOR ACTIVE] Attempt: {server_state.attempt_id}, Stage: {server_state.stage}")
+                with server_state.lock:
+                    server_state.stop_requested = False
                 monitor = SessionMonitorPro(camera_index=0)
                 with server_state.lock:
                     server_state.monitor = monitor

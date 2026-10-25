@@ -8,7 +8,11 @@ const INTERNAL_SECRET = 'hiresense-internal-2024';
  * Uses raw SQL to avoid Prisma client version mismatch.
  */
 async function upsertReport(data, studentId) {
-  const { interviewSessionId, applicationId, percentage, selected, highestLevel, endedEarly, turns, screenViolations, candidateName, candidateEmail, jobTitle } = data;
+  const {
+    interviewSessionId, applicationId, percentage, selected, highestLevel,
+    endedEarly, turns, screenViolations, candidateName, candidateEmail, jobTitle,
+    candidatePhotoUrl, idProofUrl, impersonationDetected, impersonationReason
+  } = data;
 
   // Try to find existing report for this session
   let existing = null;
@@ -34,7 +38,18 @@ async function upsertReport(data, studentId) {
   const hl = highestLevel || 1;
   const ee = Boolean(endedEarly);
   const sv = screenViolations || 0;
-  const turnsJson = JSON.stringify(turns || []);
+
+  // Preserve calibration metadata inside JSONB turns so it's always persisted
+  const calibMeta = {
+    type: 'identity_calibration',
+    candidatePhotoUrl: candidatePhotoUrl || '',
+    idProofUrl: idProofUrl || '',
+    impersonationDetected: Boolean(impersonationDetected),
+    impersonationReason: impersonationReason || ''
+  };
+  const rawTurns = Array.isArray(turns) ? turns.filter(t => t && t.type !== 'identity_calibration') : [];
+  const turnsWithMeta = [calibMeta, ...rawTurns];
+  const turnsJson = JSON.stringify(turnsWithMeta);
   const now = new Date();
 
   if (existing) {
@@ -54,6 +69,16 @@ async function upsertReport(data, studentId) {
           "updatedAt"         = ${now}
       WHERE id = ${existing.id}
     `;
+    try {
+      await prisma.$executeRaw`
+        UPDATE "AIInterviewReport"
+        SET "candidatePhotoUrl" = COALESCE(${candidatePhotoUrl || null}, "candidatePhotoUrl"),
+            "idProofUrl" = COALESCE(${idProofUrl || null}, "idProofUrl"),
+            "impersonationDetected" = ${Boolean(impersonationDetected)},
+            "impersonationReason" = COALESCE(${impersonationReason || null}, "impersonationReason")
+        WHERE id = ${existing.id}
+      `;
+    } catch (_) {}
     const rows = await prisma.$queryRaw`SELECT * FROM "AIInterviewReport" WHERE id = ${existing.id} LIMIT 1`;
     return rows[0];
   }
@@ -93,7 +118,8 @@ const internalSubmitReport = async (req, res) => {
     const {
       candidateName, candidateEmail, jobTitle,
       interviewSessionId, percentage, selected,
-      highestLevel, endedEarly, turns, screenViolations
+      highestLevel, endedEarly, turns, screenViolations,
+      candidatePhotoUrl, idProofUrl, impersonationDetected, impersonationReason
     } = req.body;
 
     if (percentage === undefined) {
@@ -119,7 +145,11 @@ const internalSubmitReport = async (req, res) => {
     }
 
     const report = await upsertReport(
-      { candidateName, candidateEmail, jobTitle, interviewSessionId, percentage, selected, highestLevel, endedEarly, turns, screenViolations },
+      {
+        candidateName, candidateEmail, jobTitle, interviewSessionId, percentage,
+        selected, highestLevel, endedEarly, turns, screenViolations,
+        candidatePhotoUrl, idProofUrl, impersonationDetected, impersonationReason
+      },
       studentId
     );
 
@@ -147,7 +177,8 @@ const submitInterviewReport = async (req, res) => {
 
     const {
       candidateName, candidateEmail, jobTitle, interviewSessionId,
-      applicationId, percentage, selected, highestLevel, endedEarly, turns, screenViolations
+      applicationId, percentage, selected, highestLevel, endedEarly, turns, screenViolations,
+      candidatePhotoUrl, idProofUrl, impersonationDetected, impersonationReason
     } = req.body;
 
     if (percentage === undefined || !turns) {
@@ -181,7 +212,8 @@ const submitInterviewReport = async (req, res) => {
         jobTitle: jobTitle || application.job.title,
         interviewSessionId,
         applicationId,
-        percentage, selected, highestLevel, endedEarly, turns, screenViolations
+        percentage, selected, highestLevel, endedEarly, turns, screenViolations,
+        candidatePhotoUrl, idProofUrl, impersonationDetected, impersonationReason
       },
       student.id
     );
@@ -280,34 +312,43 @@ const getAllInterviewReports = async (req, res) => {
       ORDER BY r."createdAt" DESC
     `;
 
-    const formatted = reports.map(r => ({
-      id: r.id,
-      studentId: r.studentId,
-      applicationId: r.applicationId,
-      jobId: r.jobId,
-      applicationJobTitle: r.applicationJobTitle,
-      candidateName: r.candidateName,
-      candidateEmail: r.candidateEmail,
-      jobTitle: r.jobTitle,
-      percentage: r.percentage,
-      selected: r.selected,
-      highestLevel: r.highestLevel,
-      endedEarly: r.endedEarly,
-      screenViolations: r.screenViolations,
-      status: r.status,
-      recruiterDecision: r.recruiterDecision,
-      recruiterNote: r.recruiterNote,
-      decidedAt: r.decidedAt,
-      completedAt: r.completedAt,
-      createdAt: r.createdAt,
-      turns: r.turns || [],
-      turnsCount: Array.isArray(r.turns) ? r.turns.length : 0,
-      student: r.userFullName ? {
-        fullName: r.userFullName,
-        email: r.userEmail,
-        profilePicture: r.userProfilePicture
-      } : null
-    }));
+    const formatted = reports.map(r => {
+      const turnsArr = Array.isArray(r.turns) ? r.turns : [];
+      const calib = turnsArr.find(t => t && t.type === 'identity_calibration') || {};
+      const actualTurns = turnsArr.filter(t => !t || t.type !== 'identity_calibration');
+      return {
+        id: r.id,
+        studentId: r.studentId,
+        applicationId: r.applicationId,
+        jobId: r.jobId,
+        applicationJobTitle: r.applicationJobTitle,
+        candidateName: r.candidateName,
+        candidateEmail: r.candidateEmail,
+        jobTitle: r.jobTitle,
+        percentage: r.percentage,
+        selected: r.selected,
+        highestLevel: r.highestLevel,
+        endedEarly: r.endedEarly,
+        screenViolations: r.screenViolations,
+        status: r.status,
+        recruiterDecision: r.recruiterDecision,
+        recruiterNote: r.recruiterNote,
+        decidedAt: r.decidedAt,
+        completedAt: r.completedAt,
+        createdAt: r.createdAt,
+        candidatePhotoUrl: r.candidatePhotoUrl || calib.candidatePhotoUrl || null,
+        idProofUrl: r.idProofUrl || calib.idProofUrl || null,
+        impersonationDetected: r.impersonationDetected != null ? Boolean(r.impersonationDetected) : Boolean(calib.impersonationDetected),
+        impersonationReason: r.impersonationReason || calib.impersonationReason || '',
+        turns: actualTurns,
+        turnsCount: actualTurns.length,
+        student: r.userFullName ? {
+          fullName: r.userFullName,
+          email: r.userEmail,
+          profilePicture: r.userProfilePicture
+        } : null
+      };
+    });
 
     res.json(formatted);
   } catch (error) {
@@ -340,9 +381,17 @@ const getInterviewReportById = async (req, res) => {
     `;
     if (!rows || rows.length === 0) return res.status(404).json({ message: 'Report not found' });
     const r = rows[0];
+    const turnsArr = Array.isArray(r.turns) ? r.turns : [];
+    const calib = turnsArr.find(t => t && t.type === 'identity_calibration') || {};
+    const actualTurns = turnsArr.filter(t => !t || t.type !== 'identity_calibration');
     res.json({
       ...r,
-      turns: r.turns || [],
+      candidatePhotoUrl: r.candidatePhotoUrl || calib.candidatePhotoUrl || null,
+      idProofUrl: r.idProofUrl || calib.idProofUrl || null,
+      impersonationDetected: r.impersonationDetected != null ? Boolean(r.impersonationDetected) : Boolean(calib.impersonationDetected),
+      impersonationReason: r.impersonationReason || calib.impersonationReason || '',
+      turns: actualTurns,
+      turnsCount: actualTurns.length,
       student: r.userFullName ? { fullName: r.userFullName, email: r.userEmail, profilePicture: r.userProfilePicture } : null
     });
   } catch (error) {
