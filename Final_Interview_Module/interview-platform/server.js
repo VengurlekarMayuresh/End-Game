@@ -238,12 +238,14 @@ async function llm(kind, prompt, valid) {
 }
 
 /* ---------- prompts ---------- */
+const cleanProjects = p => (Array.isArray(p) ? p : []).filter(x => x && x.name && !/capstone/i.test(x.name)).slice(0, 4);
+
 const profile = c => JSON.stringify({
   candidate_name: (c.name || 'Candidate').split(' ')[0],
   role_applied: c.role || (c.job && c.job.title) || 'Software Engineer',
   experience: c.exp || 'Fresher / Early Career',
   skills_on_resume: c.skills || [],
-  projects: (c.projects || []).slice(0, 4),
+  projects: cleanProjects(c.projects),
   resume_summary: c.summary || (c.resume_text ? c.resume_text.slice(0, 500) : ''),
   job_requirements: {
     title: c.job?.title || c.role || 'Software Development Engineer',
@@ -284,10 +286,11 @@ function genPrompt(s, next, g) {
   // Target turn guidance
   let turnGuidance = '';
   if (isFirst) {
-    turnGuidance = `TURN 1 - OPENING & RESUME PROJECT ANCHOR:
+    const firstJdSkill = (s.cand.job?.required_skills || s.cand.skills || ['core software engineering'])[0];
+    turnGuidance = `TURN 1 - OPENING & GREETING:
 - Greet ${candFirstName} warmly by name and welcome them to the technical interview for the ${targetRole} position.
-- Mention a specific project or core technology listed on their resume (if available) and ask a friendly, open-ended question about how they designed it, why they chose that approach, or what technical challenge they solved.
-- If no project is listed, ask an encouraging question about their experience with the primary skill from the Job Description.
+- If the candidate has genuine projects listed on their resume, pick one authentic project and ask how they designed it, why they chose that architecture, or what technical challenge they solved.
+- If NO projects are listed on their resume, DO NOT invent or assume any project (specifically, NEVER mention "capstone" or assume an unlisted project). Instead, ask an open, welcoming question about their hands-on experience with the primary technical skill from the Job Description (${firstJdSkill}).
 - Tone: Welcoming, conversational, and encouraging to help the candidate settle in.`;
   } else if (isFollowUp) {
     const prevQ = s.cur ? s.cur.question : '';
@@ -353,7 +356,7 @@ Name: ${s.cand.name}
 Role Applied: ${targetRole}
 Experience: ${s.cand.exp || 'Fresher / Early Career'}
 Skills on Resume: ${(s.cand.skills || []).join(', ')}
-Projects on Resume: ${JSON.stringify((s.cand.projects || []).slice(0, 4))}
+Projects on Resume: ${JSON.stringify(cleanProjects(s.cand.projects))}
 Resume Summary: ${s.cand.summary || (s.cand.resume_text ? s.cand.resume_text.slice(0, 400) : 'Not specified')}
 
 CURRENT INTERVIEW PROGRESS:
@@ -368,12 +371,13 @@ TURN INSTRUCTIONS:
 ${turnGuidance}
 
 MANDATORY RULES:
-1. Ground the question deeply in the Job Description requirements, with appropriate touches on the candidate's resume.
-2. Stick strictly to FREQUENTLY ASKED interview questions from basic to advanced.
-3. Sound exactly like an empathetic, seasoned senior human interviewer.
-4. Output 1-3 spoken conversational sentences ending with exactly ONE question.
-5. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
-6. JSON ONLY: {"question":"..."}`;
+1. Ground the question deeply in the Job Description requirements, with appropriate touches on the candidate's actual resume.
+2. STRICT PROHIBITION: NEVER use or mention the word "capstone", and NEVER invent a "capstone project". Base the questions strictly on the Job Description and genuine resume details provided.
+3. Stick strictly to FREQUENTLY ASKED interview questions from basic to advanced.
+4. Sound exactly like an empathetic, seasoned senior human interviewer.
+5. Output 1-3 spoken conversational sentences ending with exactly ONE question.
+6. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
+7. JSON ONLY: {"question":"..."}`;
 }
 
 const grade = async (s, cur, answer) => {
@@ -428,14 +432,18 @@ function chooseTopic(st, cand) {
   const candSkills = Array.isArray(cand?.skills) ? cand.skills.filter(Boolean) : [];
   const jdSkills = (cand?.job && Array.isArray(cand.job.required_skills)) ? cand.job.required_skills.filter(Boolean) : [];
   const allSkills = [...new Set([...jdSkills, ...candSkills])];
+  const realProjects = cleanProjects(cand?.projects);
 
-  // Turn 0: Opening / Resume Anchor
+  // Turn 0: Opening / Resume Anchor or Primary JD Requirement
   if (st.mainDone === 0) {
-    if (cand?.projects && cand.projects.length > 0 && cand.projects[0].name) {
-      return ['Resume Projects', cand.projects[0].name];
+    if (realProjects.length > 0 && realProjects[0].name) {
+      return ['Resume Projects', realProjects[0].name];
     }
     if (jdSkills.length > 0) {
       return [skillCat(jdSkills[0]), jdSkills[0]];
+    }
+    if (candSkills.length > 0) {
+      return [skillCat(candSkills[0]), candSkills[0]];
     }
     return ['Software Engineering', 'Technical Architecture'];
   }

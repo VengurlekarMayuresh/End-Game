@@ -48,7 +48,10 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
     const j = c.job_id ? db.prepare('SELECT * FROM jobs WHERE id=?').get(c.job_id) : null;
     let skills = [], projects = [];
     try { skills = JSON.parse(c.skills); } catch (_) { skills = []; }
-    try { projects = JSON.parse(c.projects); } catch (_) { projects = []; }
+    try {
+      const parsedProjects = JSON.parse(c.projects);
+      projects = (Array.isArray(parsedProjects) ? parsedProjects : []).filter(p => p && p.name && !/capstone/i.test(p.name));
+    } catch (_) { projects = []; }
     let reqSkills = [], niceSkills = [];
     if (j) {
       try { reqSkills = JSON.parse(j.required_skills); } catch (_) { reqSkills = []; }
@@ -111,7 +114,7 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
           experience_label: str(b.experience, 100) || 'Technical Candidate',
           education: str(b.education, 120) || 'Computer Science & Engineering',
           skills: effectiveSkills,
-          projects: Array.isArray(b.projects) && b.projects.length ? b.projects : [{ name: 'Technical Capstone Project', summary: 'Architected and built full stack software systems.' }],
+          projects: Array.isArray(b.projects) && b.projects.length ? b.projects.filter(p => p && p.name && !/capstone/i.test(p.name)) : [],
           summary: str(b.summary || b.resumeText || 'Verified technical profile from candidate assessment.', 500)
         };
         job = {
@@ -138,7 +141,7 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
             experience_label: 'Technical Candidate',
             education: 'Computer Science & Engineering',
             skills: effectiveSkills,
-            projects: [{ name: 'Core Project Implementation', summary: 'Architected and built full stack software systems.' }],
+            projects: [],
             summary: 'Verified technical profile from HireSense AI candidate assessment.'
           };
           job = {
