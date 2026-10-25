@@ -244,12 +244,70 @@ const getStudentInterviewStatus = async (req, res) => {
     const student = await prisma.student.findUnique({ where: { userId: studentUserId } });
     if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
+    let applicationContext = null;
     if (applicationId) {
-      const application = await prisma.jobApplication.findFirst({
-        where: { id: applicationId, studentId: student.id },
-        select: { id: true }
-      });
-      if (!application) return res.status(404).json({ message: 'Student job application not found' });
+      try {
+        const application = await prisma.jobApplication.findFirst({
+          where: { id: applicationId, studentId: student.id },
+          include: {
+            job: {
+              include: {
+                recruiter: { select: { companyName: true, companyLogo: true } }
+              }
+            }
+          }
+        });
+        if (!application) return res.status(404).json({ message: 'Student job application not found' });
+
+        if (application.job) {
+          const studentDetails = await prisma.student.findUnique({
+            where: { id: student.id },
+            include: {
+              skills: true,
+              projects: true,
+              education: true,
+              experiences: true
+            }
+          });
+
+          const job = application.job;
+          const jdParts = [];
+          if (job.title) jdParts.push(`Job Title: ${job.title}`);
+          if (job.recruiter?.companyName) jdParts.push(`Company: ${job.recruiter.companyName}`);
+          if (job.description) jdParts.push(`Job Description:\n${job.description}`);
+          if (job.requirements) jdParts.push(`Key Requirements:\n${job.requirements}`);
+          if (job.responsibilities) jdParts.push(`Key Responsibilities:\n${job.responsibilities}`);
+          if (job.skills && job.skills.length > 0) jdParts.push(`Required Technical Skills: ${job.skills.join(', ')}`);
+
+          const resumeParts = [];
+          if (user?.fullName) resumeParts.push(`Candidate Name: ${user.fullName}`);
+          if (studentDetails?.summary) resumeParts.push(`Professional Summary:\n${studentDetails.summary}`);
+          if (studentDetails?.skills && studentDetails.skills.length > 0) {
+            resumeParts.push(`Technical Skills: ${studentDetails.skills.map(s => s.name || s.skillName || s).join(', ')}`);
+          }
+          if (studentDetails?.projects && studentDetails.projects.length > 0) {
+            resumeParts.push(`Key Projects:\n` + studentDetails.projects.map(p => `- ${p.title || p.name}: ${p.description || p.summary || ''} (Tech: ${p.technologies || p.techStack || 'Software Engineering'})`).join('\n'));
+          }
+          if (studentDetails?.experiences && studentDetails.experiences.length > 0) {
+            resumeParts.push(`Experience:\n` + studentDetails.experiences.map(e => `- ${e.title || e.role} at ${e.company}: ${e.description || ''}`).join('\n'));
+          }
+
+          applicationContext = {
+            jobTitle: job.title,
+            companyName: job.recruiter?.companyName || '',
+            jobDescription: jdParts.join('\n\n'),
+            requiredSkills: job.skills && job.skills.length > 0 ? job.skills : ['Software Engineering', 'Problem Solving', 'Data Structures', 'System Design'],
+            candidateSkills: studentDetails?.skills?.map(s => s.name || s.skillName || s) || [],
+            candidateProjects: (studentDetails?.projects || []).map(p => ({
+              name: p.title || p.name || 'Core Project',
+              summary: p.description || p.summary || 'Engineered software solution.'
+            })),
+            resumeText: resumeParts.join('\n\n')
+          };
+        }
+      } catch (appErr) {
+        console.warn('[getStudentInterviewStatus] applicationContext fetch error:', appErr.message);
+      }
     }
 
     // Step 2: get user email separately (avoids include issues)
@@ -284,7 +342,7 @@ const getStudentInterviewStatus = async (req, res) => {
       `;
     }
 
-    res.json({ hasCompleted: !!report, report: report || null });
+    res.json({ hasCompleted: !!report, report: report || null, applicationContext });
   } catch (error) {
     console.error('[getStudentInterviewStatus]', error);
     res.status(500).json({ message: 'Failed to fetch interview status', error: error.message });

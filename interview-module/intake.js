@@ -46,9 +46,35 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
     const c = db.prepare('SELECT * FROM candidates WHERE id=?').get(String(id));
     if (!c) return null;
     const j = c.job_id ? db.prepare('SELECT * FROM jobs WHERE id=?').get(c.job_id) : null;
-    return { id: c.id, name: c.name, email: c.email || '', role: c.role, exp: c.experience, edu: c.education, skills: JSON.parse(c.skills), projects: JSON.parse(c.projects),
-      candidatePhotoUrl: c.candidate_photo_url || '', idProofUrl: c.id_proof_url || '',
-      job: j ? { title: j.title, required_skills: JSON.parse(j.required_skills), summary: j.summary } : null };
+    let skills = [], projects = [];
+    try { skills = JSON.parse(c.skills); } catch (_) { skills = []; }
+    try { projects = JSON.parse(c.projects); } catch (_) { projects = []; }
+    let reqSkills = [], niceSkills = [];
+    if (j) {
+      try { reqSkills = JSON.parse(j.required_skills); } catch (_) { reqSkills = []; }
+      try { niceSkills = JSON.parse(j.nice_skills); } catch (_) { niceSkills = []; }
+    }
+    return {
+      id: c.id,
+      name: c.name,
+      email: c.email || '',
+      role: c.role,
+      exp: c.experience,
+      edu: c.education,
+      skills,
+      projects,
+      summary: c.summary || '',
+      resume_text: c.resume_text || '',
+      candidatePhotoUrl: c.candidate_photo_url || '',
+      idProofUrl: c.id_proof_url || '',
+      job: j ? {
+        title: j.title,
+        required_skills: reqSkills,
+        nice_to_have: niceSkills,
+        summary: j.summary,
+        jd_text: j.jd_text
+      } : null
+    };
   }
 
   function saveCandidateCalibration(candidateId, candidatePhotoUrl, idProofUrl) {
@@ -86,7 +112,7 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
           education: str(b.education, 120) || 'Computer Science & Engineering',
           skills: effectiveSkills,
           projects: Array.isArray(b.projects) && b.projects.length ? b.projects : [{ name: 'Technical Capstone Project', summary: 'Architected and built full stack software systems.' }],
-          summary: 'Verified technical profile from HireSense AI candidate assessment.'
+          summary: str(b.summary || b.resumeText || 'Verified technical profile from candidate assessment.', 500)
         };
         job = {
           title: str(b.jobTitle || b.role, 100) || 'Software Development Engineer',

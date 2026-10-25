@@ -1366,8 +1366,9 @@ async function startInterviewSession() {
 
   // Welcome speech and first question
   var first = (cand.name || 'Candidate').split(' ')[0];
+  var role = (cand.role || 'Software Engineering');
   var fd = { v: false };
-  say('Hello ' + first + ', welcome to your technical interview. All hardware and identity checks have been validated. I will start with a fundamental question, and we will adjust dynamically from there.', function() {
+  say('Hello ' + first + ', welcome to your technical interview for the ' + role + ' position. It is great to speak with you today. Let us get started with our first question.', function() {
     fd.v = true;
   });
 
@@ -1670,7 +1671,7 @@ $('submit').onclick = async function() {
   $('meText').textContent = ans;
   lockControls();
   var fd = { v: false };
-  say(['Thank you.', 'Noted.', 'Understood.'][Math.floor(Math.random() * 3)] + ' Processing your response.', function() { fd.v = true; });
+  say(['Thank you.', 'Noted.', 'Understood.', 'Got it.'][Math.floor(Math.random() * 4)], function() { fd.v = true; });
   var res;
   try { res = await api('/api/interview/turn', { sessionId: SID, answer: ans }); }
   catch (e) { alert('Communication error: ' + (e.message || 'Server timeout')); unlockControls(); return; }

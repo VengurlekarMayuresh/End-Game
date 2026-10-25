@@ -35,6 +35,8 @@ const AIInterview = () => {
   const [jobDescription, setJobDescription] = useState(
     'Full Stack Software Development Engineer. Required skills: Data Structures & Algorithms, React, Node.js, RESTful APIs, System Architecture, Database Design (SQL/PostgreSQL).'
   );
+  const [candidateProjects, setCandidateProjects] = useState([]);
+  const [candidateResumeText, setCandidateResumeText] = useState('');
 
   const [candidateId, setCandidateId] = useState(null);
   const [activeFrameUrl, setActiveFrameUrl] = useState('');
@@ -149,6 +151,16 @@ const AIInterview = () => {
           return;
         }
         const res = await api.get('/student/interview/status', { params: { applicationId } });
+        if (res.data?.applicationContext) {
+          const ctx = res.data.applicationContext;
+          if (ctx.jobTitle) setJobTitle(ctx.jobTitle);
+          if (ctx.jobDescription) setJobDescription(ctx.jobDescription);
+          if (ctx.requiredSkills && ctx.requiredSkills.length > 0) {
+            setSkills(ctx.requiredSkills.join(', '));
+          }
+          if (ctx.candidateProjects) setCandidateProjects(ctx.candidateProjects);
+          if (ctx.resumeText) setCandidateResumeText(ctx.resumeText);
+        }
         if (res.data.hasCompleted) {
           setAlreadyCompleted(true);
           setExistingReport(res.data.report);
@@ -424,7 +436,8 @@ const AIInterview = () => {
         email: candidateEmail,
         role: jobTitle,
         skills: skillsArray,
-        resumeText: `Candidate: ${candidateName}\nEmail: ${candidateEmail}\nTarget Role: ${jobTitle}\nSkills: ${skillsArray.join(', ')}`,
+        projects: candidateProjects,
+        resumeText: candidateResumeText || `Candidate: ${candidateName}\nEmail: ${candidateEmail}\nTarget Role: ${jobTitle}\nSkills: ${skillsArray.join(', ')}`,
         jdText: jobDescription
       });
 
@@ -486,7 +499,8 @@ const AIInterview = () => {
           email: candidateEmail,
           role: jobTitle,
           skills: skillsArray,
-          resumeText: `Candidate: ${candidateName}\nEmail: ${candidateEmail}\nTarget Role: ${jobTitle}`,
+          projects: candidateProjects,
+          resumeText: candidateResumeText || `Candidate: ${candidateName}\nEmail: ${candidateEmail}\nTarget Role: ${jobTitle}\nSkills: ${skillsArray.join(', ')}`,
           jdText: jobDescription,
           candidatePhotoUrl,
           idProofUrl
