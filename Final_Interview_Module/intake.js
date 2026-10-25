@@ -143,6 +143,31 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
     return projects;
   }
 
+  function deriveSkillsFromRoleAndText(role, jdText, resumeText) {
+    const text = ((jdText || '') + '\n' + (resumeText || '')).trim();
+    const skills = new Set();
+    
+    // Look for dedicated skill sections in the text
+    const skillSectionRegex = /(?:skills|requirements|tech stack|technologies|proficiencies|tools|qualifications)[:\s]*\n?([\s\S]*?)(?=\n\s*(?:experience|education|projects|summary|responsibilities|about|certifications)|\n\s*\n\s*\n|$)/gi;
+    let match;
+    while ((match = skillSectionRegex.exec(text)) !== null) {
+      const block = match[1] || '';
+      const items = block.split(/[\n,;•·|\-\*]/)
+        .map(s => s.trim().replace(/^[^a-zA-Z0-9#+]+/, ''))
+        .filter(s => s.length >= 2 && s.length <= 35 && !/^(skills|requirements|technologies|tools|and|the|with|for|must have|strong knowledge|experience with)\b/i.test(s));
+      for (const item of items) skills.add(item);
+    }
+
+    // Extract dynamic skills from the role title itself if nothing found
+    if (skills.size === 0 && role) {
+      const cleanRole = role.replace(/senior|junior|lead|intern|staff|principal|developer|engineer|specialist|architect|software/gi, '').trim();
+      if (cleanRole.length >= 2) skills.add(cleanRole);
+      skills.add(role);
+    }
+
+    return [...skills].slice(0, 10);
+  }
+
   const handleCandidateCreation = async (req, res, b, f) => {
     try {
       const consentGiven = b.consent === 'true' || b.consent === true || b.consent === '1' || b.consent === 1;
@@ -167,7 +192,8 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
         try {
           const effectiveResume = resume.length >= 20 ? resume : `Candidate: ${b.name || 'Candidate'}\nRole: ${dynamicRole}\nSkills: ${[...new Set([...parsedSkills, ...resumeExtractedSkills])].join(', ')}`;
           const effectiveJd = jd.length >= 20 ? jd : `${dynamicRole} role requiring: ${[...new Set([...jdExtractedSkills, ...parsedSkills])].join(', ')}`;
-          const j = await llm('grade', extractPrompt(effectiveJd, effectiveResume), x => x && x.candidate && x.job);
+          const INTAKE_SYSTEM_PROMPT = 'You are a precise data extraction specialist. Extract structured hiring information from candidate documents. Output valid JSON only.';
+          const j = await llm('grade', extractPrompt(effectiveJd, effectiveResume), x => x && x.candidate && x.job, INTAKE_SYSTEM_PROMPT);
           c = j.candidate;
           job = j.job;
         } catch (e) {
@@ -175,12 +201,17 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
         }
       }
 
-      // 3. Fallback dynamically to text-extracted data (never static dummy lists!)
+      // 3. Fallback dynamically to text-extracted data (strictly from JD/resume/role - never generic dummy lists!)
       if (!job) {
-        const reqSkills = [...new Set([...jdExtractedSkills, ...parsedSkills])];
+        const directSkills = [...new Set([...jdExtractedSkills, ...parsedSkills])];
+        const roleAndTextSkills = deriveSkillsFromRoleAndText(dynamicRole, jd, resume);
+        const resolvedSkills = directSkills.length > 0
+          ? directSkills
+          : (resumeExtractedSkills.length > 0 ? resumeExtractedSkills : (roleAndTextSkills.length > 0 ? roleAndTextSkills : [dynamicRole]));
+
         job = {
           title: dynamicRole,
-          required_skills: reqSkills.length > 0 ? reqSkills : (resumeExtractedSkills.length ? resumeExtractedSkills : [dynamicRole, 'System Architecture', 'Core Problem Solving']),
+          required_skills: resolvedSkills,
           nice_to_have: jdExtractedSkills.slice(4, 9),
           seniority: 'Technical Round',
           summary: jd ? jd.slice(0, 300) : `Technical interview assessment for ${dynamicRole} role.`
@@ -195,7 +226,7 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
           phone: str(b.phone, 30) || '',
           role_applied: dynamicRole,
           experience_label: str(b.experience, 100) || 'Technical Candidate',
-          education: str(b.education, 120) || 'Computer Science & Engineering',
+          education: str(b.education, 120) || 'Engineering / Technical Discipline',
           skills: candSkills.length > 0 ? candSkills : job.required_skills,
           projects: resumeExtractedProjects,
           summary: str(b.summary || (resume ? resume.slice(0, 400) : `Profile for ${dynamicRole} assessment.`), 500)

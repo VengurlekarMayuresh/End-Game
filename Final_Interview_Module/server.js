@@ -93,7 +93,16 @@ function cleanAndParseJson(rawText, messageObj) {
   }
 }
 
-const SYSTEM_PROMPT = `You are a real, friendly, and highly experienced Senior Technical Interviewer conducting a live spoken 1-on-1 interview with a candidate for a software engineering position.
+function buildInterviewSystemPrompt(cand) {
+  const role = cand?.role || cand?.job?.title || 'the open position';
+  const jdSkills = (cand?.job?.required_skills || cand?.skills || []).join(', ');
+  const jdSummary = cand?.job?.jd_text ? cand.job.jd_text.slice(0, 600) : (cand?.job?.summary || '');
+  return `You are a real, friendly, and highly experienced Senior Technical Interviewer conducting a live spoken 1-on-1 interview with a candidate for the ${role} position.
+
+JOB CONTEXT YOU MUST USE:
+- Role: ${role}
+- Key Technologies & Skills from JD: ${jdSkills || 'as specified in the job description'}
+- JD Summary: ${jdSummary || 'Standard technical role'}
 
 YOUR PERSONA & BEHAVIORAL EXCELLENCE:
 1. NATURAL HUMAN CONVERSATION:
@@ -102,9 +111,11 @@ YOUR PERSONA & BEHAVIORAL EXCELLENCE:
    - NEVER use robotic preambles like "As an AI...", "Here is your next question:", "Difficulty level 2:", or "Based on your answer, I will now ask...".
    - Address the candidate directly using conversational phrasing ("you", "your experience").
 2. HEAVILY GROUNDED IN THE JOB DESCRIPTION:
-   - Most questions (70-80%) MUST be derived directly from the Job Description: the core technologies, required programming languages/frameworks, tools, and everyday engineering duties.
+   - Most questions (70-80%) MUST be derived directly from the Job Description above: the core technologies, required programming languages/frameworks, tools, and everyday engineering duties.
+   - NEVER ask about technologies that are NOT in the Job Description or the candidate's Resume. If Python is not mentioned, do NOT ask Python questions. If React is not mentioned, do NOT ask React questions.
 3. THOUGHTFUL RESUME ANCHORS:
    - Include 1-2 targeted questions drawn from the candidate's actual resume (e.g. asking how they built a specific project, why they picked that stack, or how they tackled a technical challenge in their past work).
+   - NEVER invent or assume projects, technologies, or experience the candidate did not list.
 4. CLEAR PROGRESSION FROM BASIC TO ADVANCED:
    - Start with classic, foundational, frequently asked questions (definitions, differences, basic mechanisms).
    - Advance steadily to intermediate practical application (real-world scenarios, debugging, error handling).
@@ -123,9 +134,13 @@ YOUR PERSONA & BEHAVIORAL EXCELLENCE:
 OUTPUT FORMAT:
 Reply with ONLY a valid JSON object without markdown fences:
 {"question":"<Your exact spoken words to the candidate>"}`;
+}
 
-async function call(p, model, prompt, temperature) {
+const GRADE_SYSTEM_PROMPT = `You are an expert technical interview evaluator. Your job is to objectively grade a candidate's spoken answer. Output valid JSON only.`;
+
+async function call(p, model, prompt, temperature, systemPrompt) {
   if (!p || !p.key) throw new Error('No API key configured for Google Gemini. Please set GEMINI_API_KEY in your .env file.');
+  const sysPrompt = systemPrompt || GRADE_SYSTEM_PROMPT;
 
   const isGemini = (p.url && p.url.includes('generativelanguage.googleapis.com')) || (!p.url.includes('openrouter.ai') && !p.url.includes('groq.com'));
 
@@ -136,7 +151,7 @@ async function call(p, model, prompt, temperature) {
       const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(p.key)}`;
       const nativeReq = {
         systemInstruction: {
-          parts: [{ text: SYSTEM_PROMPT }]
+          parts: [{ text: sysPrompt }]
         },
         contents: [
           { role: 'user', parts: [{ text: prompt }] }
@@ -181,7 +196,7 @@ async function call(p, model, prompt, temperature) {
     model,
     temperature,
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: sysPrompt },
       { role: 'user', content: prompt }
     ]
   };
@@ -208,7 +223,7 @@ async function call(p, model, prompt, temperature) {
   throw new Error('LLM HTTP ' + r.status + ' [' + model + '] ' + b);
 }
 
-async function llm(kind, prompt, valid) {
+async function llm(kind, prompt, valid, systemPrompt) {
   const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? (0.75 + Math.random() * 0.1) : 0.2;
   const modelsToTry = [
     [PRIMARY, model || 'gemini-2.5-flash'],
@@ -219,7 +234,7 @@ async function llm(kind, prompt, valid) {
   let last;
   for (const [p, m] of modelsToTry) {
     try {
-      const j = await call(p, m, prompt, temp);
+      const j = await call(p, m, prompt, temp, systemPrompt);
       if (valid(j)) return j;
       last = new Error('invalid JSON shape from ' + m);
     } catch (e) {
@@ -265,6 +280,7 @@ function genPrompt(s, next, g) {
   const isFollowUp = next.kind === 'follow';
   const candFirstName = (s.cand.name || 'Candidate').split(' ')[0];
   const targetRole = s.cand.role || (s.cand.job && s.cand.job.title) || 'Software Development Engineer';
+  const avoid = (next && next.sub && recent && recent[next.sub]) ? recent[next.sub].slice(-5) : [];
 
   // Build interview conversation transcript
   const history = turns.map((t, i) => ({
@@ -357,6 +373,7 @@ Experience: ${s.cand.exp || 'Fresher / Early Career'}
 Skills on Resume: ${(s.cand.skills || []).join(', ')}
 Projects on Resume: ${JSON.stringify(cleanProjects(s.cand.projects))}
 Resume Summary: ${s.cand.summary || (s.cand.resume_text ? s.cand.resume_text.slice(0, 400) : 'Not specified')}
+Full Resume Excerpt: ${(s.cand.resume_text || '').slice(0, 1200)}
 
 CURRENT INTERVIEW PROGRESS:
 Turn ${turnIndex + 1} of ${TOTAL} | Main Questions Finished: ${s.st.mainDone}
@@ -370,19 +387,20 @@ TURN INSTRUCTIONS:
 ${turnGuidance}
 
 MANDATORY RULES:
-1. FULLY DYNAMIC & UNIQUE: Formulate a completely fresh, novel question directly tailored to the specific details in the Job Description and Candidate Resume. NEVER repeat questions.
-2. Direct Angle for this turn: ${dynamicAngle}
-3. STRICT PROHIBITION: NEVER use or mention the word "capstone", and NEVER invent a "capstone project". Base the questions strictly on the Job Description and genuine resume details provided.
-4. Stick strictly to standard technical interview questions from basic to advanced.
-5. Sound exactly like an empathetic, seasoned senior human interviewer having a natural conversation.
-6. Output 1-3 spoken conversational sentences ending with exactly ONE question.
-7. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
-8. JSON ONLY: {"question":"..."}`;
+1. FULLY DYNAMIC & UNIQUE: Formulate a completely fresh, novel question directly tailored to the specific details in the Job Description and Candidate Resume above. NEVER repeat questions.
+2. STRICT TECHNOLOGY BOUNDARY: ONLY ask questions about languages, tools, and skills explicitly listed in the Job Description or Candidate Resume above. NEVER ask about unlisted technologies (e.g., if Python is NOT in the JD/Resume, DO NOT ask Python questions).
+3. Direct Angle for this turn: ${dynamicAngle}
+4. STRICT PROHIBITION: NEVER use or mention the word "capstone", and NEVER invent a "capstone project". Base the questions strictly on the Job Description and genuine resume details provided.
+5. Stick strictly to standard technical interview questions from basic to advanced.
+6. Sound exactly like an empathetic, seasoned senior human interviewer having a natural conversation.
+7. Output 1-3 spoken conversational sentences ending with exactly ONE question.
+8. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
+9. JSON ONLY: {"question":"..."}`;
 }
 
 const grade = async (s, cur, answer) => {
   try {
-    const g = await llm('grade', gradePrompt(s, cur, answer), j => typeof j.score !== 'undefined');
+    const g = await llm('grade', gradePrompt(s, cur, answer), j => typeof j.score !== 'undefined', GRADE_SYSTEM_PROMPT);
     g.score = Math.max(0, Math.min(10, +g.score || 0)); g.answer = answer; return g;
   } catch (err) {
     console.warn('[grade fallback]', err.message);
@@ -404,7 +422,8 @@ const grade = async (s, cur, answer) => {
 const genQ = async (s, next, g) => {
   const previouslyAsked = (s.turns || []).map(t => t.question).concat(s.cur && s.cur.question ? [s.cur.question] : []);
   try {
-    const q = (await llm('gen', genPrompt(s, next, g), j => typeof j.question === 'string' && j.question.length > 10)).question;
+    const interviewSysPrompt = buildInterviewSystemPrompt(s.cand);
+    const q = (await llm('gen', genPrompt(s, next, g), j => typeof j.question === 'string' && j.question.length > 10, interviewSysPrompt)).question;
     if (q && !previouslyAsked.includes(q)) return q;
   } catch (err) {
     console.warn('[genQ fallback]', err.message);
@@ -486,48 +505,23 @@ function chooseTopic(st, cand) {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // Dynamic fallback based on role domain if all direct skills exhausted
-  const roleTitle = (cand?.job?.title || cand?.role || 'Software Engineering').toLowerCase();
-  const dynamicFallbacks = [
-    [/backend|api|server|microservice|distributed/i, [
-      ["Backend Architecture", "RESTful & microservices API design"],
-      ["Databases & Storage", "SQL query optimization & indexing"],
-      ["System Scalability", "Caching & concurrency control"],
-      ["Resilience", "Error handling, retries & circuit breakers"]
-    ]],
-    [/frontend|ui|web|react|angular|vue/i, [
-      ["Frontend Architecture", "Component state management & data flow"],
-      ["UI Performance", "Rendering optimization & lazy loading"],
-      ["Web Security", "Cross-origin requests, CORS & auth tokens"],
-      ["API Integration", "Asynchronous data fetching & caching"]
-    ]],
-    [/data|ml|ai|machine learning|analytics/i, [
-      ["Data Pipelines", "Batch vs stream processing trade-offs"],
-      ["Data Modeling", "Schema design & feature engineering"],
-      ["Model Architecture", "Training, validation & overfitting strategies"],
-      ["System Performance", "Optimizing data pipeline throughput"]
-    ]],
-    [/devops|cloud|sre|infrastructure/i, [
-      ["Infrastructure", "Container orchestration & Docker/Kubernetes"],
-      ["CI/CD Automation", "Deployment strategies & zero-downtime releases"],
-      ["Cloud Architecture", "Scalability, load balancing & cloud security"],
-      ["Observability", "Logging, metrics & incident monitoring"]
-    ]]
-  ];
-
-  let matchedFallbacks = [];
-  for (const [regex, topics] of dynamicFallbacks) {
-    if (regex.test(roleTitle)) {
-      matchedFallbacks = topics;
-      break;
-    }
+  // If all direct skills have been used once, deepen into JD skills with advanced engineering angles
+  if (allSkills.length > 0) {
+    const jdPool = jdSkills.length > 0 ? jdSkills : allSkills;
+    const skill = jdPool[Math.floor(Math.random() * jdPool.length)];
+    const deepAngles = [
+      'Production Architecture & Scalability',
+      'Debugging & Edge Case Handling',
+      'System Performance & Optimization',
+      'Resilience & Fault Tolerance'
+    ];
+    const angle = deepAngles[st.mainDone % deepAngles.length];
+    return [angle, skill];
   }
-  const fallbackList = matchedFallbacks.length > 0 ? matchedFallbacks : TAX;
-  const unusedList = fallbackList.filter(t => !st.used[t[1]]);
-  const pool = unusedList.length > 0 ? unusedList : fallbackList;
-  const fresh = pool.filter(t => !recentCats.includes(t[0]));
-  const from = fresh.length > 0 ? fresh : pool;
-  return from[Math.floor(Math.random() * from.length)];
+
+  // Strict role-focused fallback if absolutely no skills were present
+  const targetRole = cand?.job?.title || cand?.role || 'Software Engineering';
+  return [targetRole, targetRole];
 }
 function skillCat(k) { k = String(k || '').toLowerCase(); return /sql|postgres|mysql|oracle/.test(k) ? 'SQL' : k.charAt(0).toUpperCase() + k.slice(1); }
 function calcLv(st, sc, first) { let l = st.level; if (sc >= 7) l += (first && sc >= 9) ? 2 : 1; else if (sc < 4) l -= 1; return Math.max(1, Math.min(st.cap, l)); }
