@@ -244,6 +244,13 @@ const getStudentInterviewStatus = async (req, res) => {
     const student = await prisma.student.findUnique({ where: { userId: studentUserId } });
     if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
+    // Fetch user EARLY so it's available inside the applicationContext block below
+    const user = await prisma.user.findUnique({
+      where: { id: studentUserId },
+      select: { email: true, fullName: true }
+    });
+    const email = user?.email || '';
+
     let applicationContext = null;
     if (applicationId) {
       try {
@@ -310,12 +317,6 @@ const getStudentInterviewStatus = async (req, res) => {
       }
     }
 
-    // Step 2: get user email separately (avoids include issues)
-    const user = await prisma.user.findUnique({
-      where: { id: studentUserId },
-      select: { email: true }
-    });
-    const email = user?.email || '';
 
     // Step 3: raw SQL — prioritise SELECTED/REJECTED over PENDING_REVIEW
     const rows = await prisma.$queryRawUnsafe(
