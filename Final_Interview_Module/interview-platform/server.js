@@ -11,21 +11,16 @@ const GEN = process.env.GEN_MODEL || defaultModel, GRADE = process.env.GRADE_MOD
 const FALLBACK = process.env.FALLBACK_API_KEY && process.env.FALLBACK_MODEL
   ? { url: process.env.FALLBACK_BASE_URL, key: process.env.FALLBACK_API_KEY, model: process.env.FALLBACK_MODEL } : null;
 
+// TAX is now built dynamically from the candidate's resume + JD in chooseTopic().
+// This empty array acts as a last-resort safety net only.
 const TAX = [
-  ["Frontend & UI", "Component state & lifecycle"],
-  ["Frontend & UI", "Performance & DOM rendering"],
-  ["Backend & APIs", "RESTful API design & HTTP methods"],
-  ["Backend & APIs", "Asynchronous execution & event loop"],
-  ["Databases & Storage", "SQL querying & JOINs vs subqueries"],
-  ["Databases & Storage", "Database indexing & query execution"],
-  ["Databases & Storage", "Transactions, ACID & concurrency"],
-  ["System Architecture", "Caching strategies & Redis"],
-  ["System Architecture", "Authentication, JWT & session security"],
-  ["System Architecture", "Microservices vs monolithic trade-offs"],
-  ["Problem Solving & DSA", "Hash tables & dictionary lookups"],
-  ["Problem Solving & DSA", "Time & space complexity trade-offs"],
-  ["Software Engineering", "Error handling & resilient architectures"],
-  ["Software Engineering", "Unit testing & code maintainability"]
+  ["Software Engineering", "System Design & Architecture"],
+  ["Software Engineering", "API Design & RESTful Services"],
+  ["Software Engineering", "Testing & Code Quality"],
+  ["Databases & Storage", "SQL Querying & JOINs"],
+  ["Databases & Storage", "Indexing & Query Optimisation"],
+  ["Problem Solving", "Time & Space Complexity"],
+  ["Problem Solving", "Error Handling & Edge Cases"]
 ];
 const LV = [
   "Foundational Basics",
@@ -185,11 +180,13 @@ const profile = c => JSON.stringify({
   experience: c.exp || 'Fresher / Early Career',
   skills_on_resume: c.skills || [],
   projects: (c.projects || []).slice(0, 4),
-  resume_summary: c.summary || (c.resume_text ? c.resume_text.slice(0, 500) : ''),
+  resume_full_text_snippet: c.resume_text ? c.resume_text.slice(0, 800) : (c.summary || ''),
+  resume_summary: c.summary || (c.resume_text ? c.resume_text.slice(0, 300) : ''),
   job_requirements: {
     title: c.job?.title || c.role || 'Software Development Engineer',
     required_skills: c.job?.required_skills || c.skills || [],
-    job_description: c.job?.jd_text ? c.job.jd_text.slice(0, 1500) : (c.job?.summary || '')
+    nice_to_have: c.job?.nice_to_have || [],
+    job_description_text: c.job?.jd_text ? c.job.jd_text.slice(0, 2000) : (c.job?.summary || '')
   }
 });
 
@@ -225,11 +222,15 @@ function genPrompt(s, next, g) {
   // Target turn guidance
   let turnGuidance = '';
   if (isFirst) {
-    turnGuidance = `TURN 1 - OPENING & RESUME PROJECT ANCHOR:
+    const hasRealProjects = Array.isArray(s.cand.projects) && s.cand.projects.length > 0 && s.cand.projects[0]?.name;
+    const firstProject = hasRealProjects ? s.cand.projects[0].name : null;
+    const topJdSkill = (s.cand.job?.required_skills || s.cand.skills || [])[0] || targetRole;
+    turnGuidance = `TURN 1 - OPENING:
 - Greet ${candFirstName} warmly by name and welcome them to the technical interview for the ${targetRole} position.
-- Mention a specific project or core technology listed on their resume (if available) and ask a friendly, open-ended question about how they designed it, why they chose that approach, or what technical challenge they solved.
-- If no project is listed, ask an encouraging question about their experience with the primary skill from the Job Description.
-- Tone: Welcoming, conversational, and encouraging to help the candidate settle in.`;
+${hasRealProjects
+  ? `- They have real projects on their resume. Reference "${firstProject}" specifically and ask an open-ended question about how they built it, their choice of tech stack, or what technical challenge they solved in it.`
+  : `- They have NO listed projects. Ask a warm, encouraging question about their hands-on experience or work with "${topJdSkill}" based on the job requirements. Do NOT invent or mention any project names that are not on their resume.`}
+- Tone: Welcoming, conversational, and encouraging.`;
   } else if (isFollowUp) {
     const prevQ = s.cur ? s.cur.question : '';
     const candAns = g ? g.answer : '';
@@ -281,38 +282,36 @@ function genPrompt(s, next, g) {
   }
 
   const avoid = recent[next.sub] || [];
+  const resumeSnippet = s.cand.resume_text ? s.cand.resume_text.slice(0, 1200) : '';
+  const jdSnippet = s.cand.job?.jd_text ? s.cand.job.jd_text.slice(0, 2000) : (s.cand.job?.summary || '');
 
   return `Generate the interviewer's next spoken turn.
 
-JOB DESCRIPTION CONTEXT:
-Role: ${s.cand.job?.title || targetRole}
-Required Skills: ${(s.cand.job?.required_skills || s.cand.skills || []).join(', ')}
-Summary / Responsibilities: ${s.cand.job?.jd_text ? s.cand.job.jd_text.slice(0, 1500) : (s.cand.job?.summary || 'Standard Software Engineering')}
+FULL JOB DESCRIPTION (use this as the PRIMARY source for question topics):
+${jdSnippet || `${s.cand.job?.title || targetRole} — requires: ${(s.cand.job?.required_skills || s.cand.skills || []).join(', ')}`}
 
-CANDIDATE RESUME CONTEXT:
-Name: ${s.cand.name}
-Role Applied: ${targetRole}
-Experience: ${s.cand.exp || 'Fresher / Early Career'}
-Skills on Resume: ${(s.cand.skills || []).join(', ')}
-Projects on Resume: ${JSON.stringify((s.cand.projects || []).slice(0, 4))}
-Resume Summary: ${s.cand.summary || (s.cand.resume_text ? s.cand.resume_text.slice(0, 400) : 'Not specified')}
+CANDIDATE RESUME (use actual projects, technologies and experiences for personalised questions):
+Name: ${s.cand.name} | Role Applied: ${targetRole} | Experience: ${s.cand.exp || 'Fresher / Early Career'}
+Skills: ${(s.cand.skills || []).join(', ')}
+Projects: ${JSON.stringify((s.cand.projects || []).slice(0, 4))}
+${resumeSnippet ? `Resume Text:\n${resumeSnippet}` : `Summary: ${s.cand.summary || 'Technical candidate'}`}
 
 CURRENT INTERVIEW PROGRESS:
-Turn ${turnIndex + 1} of ${TOTAL} | Main Questions Finished: ${s.st.mainDone}
+Turn ${turnIndex + 1} of ${TOTAL} | Main Questions Done: ${s.st.mainDone}
 Target Category: ${next.cat} | Subtopic: ${next.sub} | Target Level: Level ${next.level}/5
-Recently Asked to Other Candidates on this Subtopic (Avoid repeating exact phrasing): ${JSON.stringify(avoid)}
+Recently Asked on This Subtopic (Do NOT repeat): ${JSON.stringify(avoid)}
 
-INTERVIEW CONVERSATION TRANSCRIPT SO FAR:
+INTERVIEW CONVERSATION SO FAR:
 ${history.length > 0 ? JSON.stringify(history, null, 2) : 'None yet (First turn)'}
 
 TURN INSTRUCTIONS:
 ${turnGuidance}
 
 MANDATORY RULES:
-1. Ground the question deeply in the Job Description requirements, with appropriate touches on the candidate's resume.
-2. Stick strictly to FREQUENTLY ASKED interview questions from basic to advanced.
+1. Every question MUST be directly derived from either the Job Description requirements or the candidate's actual resume (their projects, skills, past technologies).
+2. NEVER ask generic textbook questions unrelated to this specific JD or candidate. Ground every question in their actual context.
 3. Sound exactly like an empathetic, seasoned senior human interviewer.
-4. Output 1-3 spoken conversational sentences ending with exactly ONE question.
+4. Output 1-3 spoken conversational sentences ending with exactly ONE clear question.
 5. NO MARKDOWN, NO BULLETS, NO CODE BLOCKS, NO STAGE DIRECTIONS.
 6. JSON ONLY: {"question":"..."}`;
 }
@@ -368,39 +367,41 @@ const genQ = async (s, next, g) => {
 function chooseTopic(st, cand) {
   const candSkills = Array.isArray(cand?.skills) ? cand.skills.filter(Boolean) : [];
   const jdSkills = (cand?.job && Array.isArray(cand.job.required_skills)) ? cand.job.required_skills.filter(Boolean) : [];
+  const projectTopics = (cand?.projects || []).slice(0, 4).map(p => p.name).filter(Boolean);
+
+  // Merge: JD skills first (highest priority), then resume skills, then project names
   const allSkills = [...new Set([...jdSkills, ...candSkills])];
 
-  // Turn 0: Opening / Resume Anchor
+  // Turn 0: Open with a specific project or the top JD skill
   if (st.mainDone === 0) {
     if (cand?.projects && cand.projects.length > 0 && cand.projects[0].name) {
       return ['Resume Projects', cand.projects[0].name];
     }
-    if (jdSkills.length > 0) {
-      return [skillCat(jdSkills[0]), jdSkills[0]];
-    }
+    if (jdSkills.length > 0) return [skillCat(jdSkills[0]), jdSkills[0]];
+    if (candSkills.length > 0) return [skillCat(candSkills[0]), candSkills[0]];
     return ['Software Engineering', 'Technical Architecture'];
   }
 
-  // Build candidate & JD skill topic pairs: [Category, Subtopic, isFromJD/Resume]
-  const skillTopics = allSkills
-    .map(skill => [skillCat(skill), skill, 1])
-    .filter(t => !st.used[t[1]]);
+  // Build prioritised topic list: [Category, Subtopic]
+  // JD skills → resume skills → project names → TAX fallback
+  const candidateTopics = [
+    ...jdSkills.map(s => [skillCat(s), s]),
+    ...candSkills.filter(s => !jdSkills.includes(s)).map(s => [skillCat(s), s]),
+    ...projectTopics.filter(p => !allSkills.includes(p)).map(p => ['Resume Projects', p])
+  ].filter(t => !st.used[t[1]]);
 
-  // If we have unused JD / Resume skills, ALWAYS pick from them first!
-  if (skillTopics.length > 0) {
+  if (candidateTopics.length > 0) {
     const recentCats = st.cats.slice(-2);
-    const fresh = skillTopics.filter(t => !recentCats.includes(t[0]));
-    const pool = fresh.length > 0 ? fresh : skillTopics;
-    return pool[0];
+    const fresh = candidateTopics.filter(t => !recentCats.includes(t[0]));
+    return (fresh.length > 0 ? fresh : candidateTopics)[0];
   }
 
-  // Fallback to modern software engineering pool
+  // Last resort: generic fallback topics
   const unusedFallbacks = TAX.filter(t => !st.used[t[1]]);
   const pool = unusedFallbacks.length > 0 ? unusedFallbacks : TAX;
   const recentCats = st.cats.slice(-2);
   const fresh = pool.filter(t => !recentCats.includes(t[0]));
-  const from = fresh.length > 0 ? fresh : pool;
-  return from[Math.floor(Math.random() * from.length)];
+  return (fresh.length > 0 ? fresh : pool)[Math.floor(Math.random() * pool.length)];
 }
 function skillCat(k) { k = String(k || '').toLowerCase(); return /sql|postgres|mysql|oracle/.test(k) ? 'SQL' : k.charAt(0).toUpperCase() + k.slice(1); }
 function calcLv(st, sc, first) { let l = st.level; if (sc >= 7) l += (first && sc >= 9) ? 2 : 1; else if (sc < 4) l -= 1; return Math.max(1, Math.min(st.cap, l)); }

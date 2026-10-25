@@ -258,8 +258,13 @@ const getStudentInterviewStatus = async (req, res) => {
           }
         });
         if (!application) return res.status(404).json({ message: 'Student job application not found' });
-
         if (application.job) {
+          // IMPORTANT: fetch user FIRST before building resume parts
+          const userRecord = await prisma.user.findUnique({
+            where: { id: studentUserId },
+            select: { email: true, fullName: true }
+          });
+
           const studentDetails = await prisma.student.findUnique({
             where: { id: student.id },
             include: {
@@ -280,16 +285,44 @@ const getStudentInterviewStatus = async (req, res) => {
           if (job.skills && job.skills.length > 0) jdParts.push(`Required Technical Skills: ${job.skills.join(', ')}`);
 
           const resumeParts = [];
-          if (user?.fullName) resumeParts.push(`Candidate Name: ${user.fullName}`);
+          if (userRecord?.fullName) resumeParts.push(`Candidate Name: ${userRecord.fullName}`);
           if (studentDetails?.summary) resumeParts.push(`Professional Summary:\n${studentDetails.summary}`);
           if (studentDetails?.skills && studentDetails.skills.length > 0) {
             resumeParts.push(`Technical Skills: ${studentDetails.skills.map(s => s.name || s.skillName || s).join(', ')}`);
           }
           if (studentDetails?.projects && studentDetails.projects.length > 0) {
-            resumeParts.push(`Key Projects:\n` + studentDetails.projects.map(p => `- ${p.title || p.name}: ${p.description || p.summary || ''} (Tech: ${p.technologies || p.techStack || 'Software Engineering'})`).join('\n'));
+            resumeParts.push(
+              `Key Projects:\n` +
+              studentDetails.projects
+                .slice(0, 6)
+                .map(p => [
+                  `- ${p.title || p.name}`,
+                  p.description || p.summary ? `  Description: ${p.description || p.summary}` : '',
+                  (p.technologies || p.techStack) ? `  Technologies: ${p.technologies || p.techStack}` : '',
+                  p.link ? `  Link: ${p.link}` : ''
+                ].filter(Boolean).join('\n'))
+                .join('\n')
+            );
           }
           if (studentDetails?.experiences && studentDetails.experiences.length > 0) {
-            resumeParts.push(`Experience:\n` + studentDetails.experiences.map(e => `- ${e.title || e.role} at ${e.company}: ${e.description || ''}`).join('\n'));
+            resumeParts.push(
+              `Work Experience:\n` +
+              studentDetails.experiences
+                .slice(0, 4)
+                .map(e => [
+                  `- ${e.title || e.role} at ${e.company || e.companyName}`,
+                  e.description ? `  ${e.description}` : ''
+                ].filter(Boolean).join('\n'))
+                .join('\n')
+            );
+          }
+          if (studentDetails?.education && studentDetails.education.length > 0) {
+            resumeParts.push(
+              `Education:\n` +
+              studentDetails.education
+                .map(e => `- ${e.degree || ''} at ${e.institution || e.school || ''}${e.field ? `, ${e.field}` : ''}`)
+                .join('\n')
+            );
           }
 
           applicationContext = {
@@ -298,9 +331,9 @@ const getStudentInterviewStatus = async (req, res) => {
             jobDescription: jdParts.join('\n\n'),
             requiredSkills: job.skills && job.skills.length > 0 ? job.skills : ['Software Engineering', 'Problem Solving', 'Data Structures', 'System Design'],
             candidateSkills: studentDetails?.skills?.map(s => s.name || s.skillName || s) || [],
-            candidateProjects: (studentDetails?.projects || []).map(p => ({
-              name: p.title || p.name || 'Core Project',
-              summary: p.description || p.summary || 'Engineered software solution.'
+            candidateProjects: (studentDetails?.projects || []).slice(0, 6).map(p => ({
+              name: p.title || p.name || 'Project',
+              summary: [p.description || p.summary, p.technologies || p.techStack].filter(Boolean).join(' | ') || 'Software engineering project.'
             })),
             resumeText: resumeParts.join('\n\n')
           };

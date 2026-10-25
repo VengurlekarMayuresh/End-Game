@@ -101,54 +101,69 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
       const effectiveSkills = parsedSkills.length ? parsedSkills : defaultSkills;
 
       let c = null, job = null;
-      // If skills and name are already provided (e.g., from portal or pre-filled form), skip long LLM wait!
-      if (b.name && parsedSkills.length > 0) {
+
+      // Always try LLM extraction so questions are grounded in the actual resume & JD
+      const effectiveResume = resume.length >= 20
+        ? resume
+        : [
+            b.name ? `Candidate Name: ${b.name}` : '',
+            b.role ? `Role Applied: ${b.role}` : '',
+            b.experience ? `Experience: ${b.experience}` : '',
+            b.education ? `Education: ${b.education}` : '',
+            effectiveSkills.length ? `Skills: ${effectiveSkills.join(', ')}` : '',
+            Array.isArray(b.projects) && b.projects.length
+              ? `Projects:\n${b.projects.map(p => `- ${p.name || p}: ${p.summary || ''}`).join('\n')}`
+              : '',
+            b.summary ? `Summary: ${b.summary}` : ''
+          ].filter(Boolean).join('\n');
+
+      const effectiveJd = jd.length >= 20
+        ? jd
+        : `${b.jobTitle || b.role || 'Software Development Engineer'} role requiring core CS, data structures, algorithms, system design, databases and backend engineering.`;
+
+      try {
+        const j = await llm('grade', extractPrompt(effectiveJd, effectiveResume), x => x && x.candidate && x.job);
+        c = j.candidate;
+        job = j.job;
+        // Override with portal-supplied identity fields (they are authoritative)
+        if (b.name) c.name = str(b.name, 80);
+        if (b.email) c.email = str(b.email, 120);
+        if (b.phone) c.phone = str(b.phone, 30);
+        if (b.experience) c.experience_label = str(b.experience, 100);
+        if (b.education) c.education = str(b.education, 120);
+        // Prefer portal projects if they have real names; LLM extraction takes priority
+        if (!(Array.isArray(c.projects) && c.projects.length) && Array.isArray(b.projects) && b.projects.length) {
+          const realProjects = b.projects.filter(p => p && (p.name || p) && String(p.name || p).length > 3);
+          if (realProjects.length) {
+            c.projects = realProjects.slice(0, 6).map(p => ({ name: str(p.name || p, 80), summary: str(p.summary || '', 200) }));
+          }
+        }
+      } catch (e) {
+        // Graceful fallback — use portal data directly, NO hardcoded placeholder projects
         c = {
-          name: str(b.name, 80),
+          name: str(b.name, 80) || 'Candidate',
           email: str(b.email, 120) || 'candidate@hiresense.ai',
           phone: str(b.phone, 30) || '',
           role_applied: str(b.role || b.jobTitle, 100) || 'Software Engineer',
           experience_label: str(b.experience, 100) || 'Technical Candidate',
           education: str(b.education, 120) || 'Computer Science & Engineering',
           skills: effectiveSkills,
-          projects: Array.isArray(b.projects) && b.projects.length ? b.projects : [{ name: 'Technical Capstone Project', summary: 'Architected and built full stack software systems.' }],
-          summary: str(b.summary || b.resumeText || 'Verified technical profile from candidate assessment.', 500)
+          // Only use real projects; empty array is better than fake placeholder
+          projects: Array.isArray(b.projects) && b.projects.length
+            ? b.projects
+                .filter(p => p && String(p.name || p).length > 3)
+                .slice(0, 6)
+                .map(p => ({ name: str(p.name || p, 80), summary: str(p.summary || '', 200) }))
+            : [],
+          summary: str(b.summary || resume.slice(0, 600) || '', 500)
         };
         job = {
           title: str(b.jobTitle || b.role, 100) || 'Software Development Engineer',
           required_skills: effectiveSkills,
-          nice_to_have: ['Cloud & Distributed Systems'],
-          seniority: 'Technical Round',
-          summary: jd ? jd.slice(0, 300) : 'Evaluation of foundational and applied computer science principles.'
+          nice_to_have: [],
+          seniority: str(b.experience, 40) || 'Technical Round',
+          summary: str(jd.slice(0, 600) || (b.jobTitle ? `${b.jobTitle} role.` : ''), 600)
         };
-      } else {
-        const effectiveResume = resume.length >= 20 ? resume : `Candidate Name: ${b.name || 'Candidate'}\nRole: ${b.role || 'Software Engineer'}\nSkills: ${effectiveSkills.join(', ')}`;
-        const effectiveJd = jd.length >= 20 ? jd : 'Software Development Engineer role requiring core CS, data structures, algorithms, system design, databases and backend engineering.';
-        try {
-          const j = await llm('grade', extractPrompt(effectiveJd, effectiveResume), x => x && x.candidate && x.job);
-          c = j.candidate;
-          job = j.job;
-        } catch (e) {
-          console.warn('[intake LLM fallback]', e.message);
-          c = {
-            name: str(b.name, 80) || 'Candidate',
-            email: str(b.email, 120) || 'candidate@hiresense.ai',
-            phone: str(b.phone, 30) || '',
-            role_applied: str(b.role || b.jobTitle, 100) || 'Software Engineer',
-            experience_label: 'Technical Candidate',
-            education: 'Computer Science & Engineering',
-            skills: effectiveSkills,
-            projects: [{ name: 'Core Project Implementation', summary: 'Architected and built full stack software systems.' }],
-            summary: 'Verified technical profile from HireSense AI candidate assessment.'
-          };
-          job = {
-            title: str(b.jobTitle || b.role, 100) || 'Software Development Engineer',
-            required_skills: effectiveSkills,
-            nice_to_have: ['Cloud & Distributed Systems'],
-            seniority: 'Technical Round',
-            summary: 'Evaluation of foundational and applied computer science principles.'
-          };
-        }
       }
 
       const id = 'C-' + crypto.randomBytes(5).toString('hex').toUpperCase();
