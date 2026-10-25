@@ -7,7 +7,7 @@ import { useHardwareMonitor } from '../../hooks/useHardwareMonitor';
 import { 
   Clock, ShieldAlert, ShieldCheck, Video, Award, FileText, CheckCircle2, 
   ChevronLeft, ChevronRight, X, Sparkles, XCircle, AlertTriangle,
-  Play, Send, RefreshCw, Code, Terminal, Check, Lock
+  Play, Send, RefreshCw, Code, Terminal, Check, Lock, Building2
 } from 'lucide-react';
 
 const DIFFICULTY_BADGES = {
@@ -614,12 +614,17 @@ const CodingTestInterface = () => {
   // 1. INSTRUCTIONS PHASE
   if (phase === 'INSTRUCTIONS') {
     const isResuming = attempt !== null;
+    const companyName = assessment.companyName || assessment.jobs?.[0]?.companyName || 'Hiring Company';
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 md:p-8 animate-in fade-in duration-300">
         <div className="max-w-2xl w-full bg-card border border-border rounded-3xl p-8 shadow-sm space-y-6">
           <div className="space-y-2 border-b border-border/50 pb-4">
-            <div className="flex items-center gap-2 text-primary font-bold text-sm">
-              <Sparkles size={16} /> Coding Assessment
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-xl text-xs font-bold">
+                <Building2 size={14} />
+                <span>{companyName}</span>
+              </span>
+              <span className="text-xs text-muted-foreground font-semibold">Official Coding Assessment</span>
             </div>
             <h1 className="text-3xl font-extrabold text-foreground">{assessment.name}</h1>
             {assessment.description && <p className="text-sm text-muted-foreground leading-relaxed">{assessment.description}</p>}
@@ -763,9 +768,15 @@ const CodingTestInterface = () => {
 
         {/* Workspace Header */}
         <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-40 shadow-sm shrink-0">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            {(assessment.companyName || assessment.jobs?.[0]?.companyName) && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold shrink-0">
+                <Building2 size={13} />
+                <span>{assessment.companyName || assessment.jobs?.[0]?.companyName}</span>
+              </span>
+            )}
             <h2 className="font-extrabold text-sm sm:text-base text-foreground truncate">{assessment.name}</h2>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted rounded-lg border">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-muted rounded-lg border shrink-0">
               <span className={`h-2 w-2 rounded-full ${
                 pythonProctorStatus === 'active' 
                   ? 'bg-green-500 animate-pulse' 
@@ -1127,8 +1138,8 @@ const CodingTestInterface = () => {
                       <div>
                         <span className="text-zinc-400">Tests Passed:</span> {submissionResult.testsPassed} / {submissionResult.totalTests}
                       </div>
-                      <div className="text-green-500">
-                        Score Obtained: {submissionResult.marksObtained} marks
+                      <div className="text-amber-400">
+                        Results will be declared soon
                       </div>
                     </div>
 
@@ -1245,15 +1256,15 @@ const CodingTestInterface = () => {
             
             <h1 className="text-3xl font-extrabold text-foreground">Assessment Completed!</h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Your source code solutions have been securely compiled, executed against all grading private test suites, and evaluated.
+              Your source code solutions {(assessment?.companyName || assessment?.jobs?.[0]?.companyName) ? <>for <strong className="text-foreground">{assessment?.companyName || assessment?.jobs?.[0]?.companyName}</strong></> : null} have been securely compiled, executed against all grading private test suites, and submitted.
             </p>
           </div>
 
-          {/* Scores Overview */}
+          {/* Status Overview */}
           <div className="grid grid-cols-2 gap-4 text-xs font-semibold pt-2">
-            <div className="p-4 bg-muted/20 border rounded-2xl text-center">
-              <p className="text-muted-foreground uppercase text-[10px] tracking-wider font-bold">Coding Score</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1.5">{attempt.score} marks</p>
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-center">
+              <p className="text-amber-600 uppercase text-[10px] tracking-wider font-bold">Assessment Status</p>
+              <p className="text-base sm:text-lg font-extrabold text-amber-600 mt-1.5">Results will be declared soon</p>
             </div>
             <div className="p-4 bg-muted/20 border rounded-2xl text-center">
               <p className="text-muted-foreground uppercase text-[10px] tracking-wider font-bold">Total Time Taken</p>
@@ -1273,7 +1284,7 @@ const CodingTestInterface = () => {
               onClick={() => navigate('/student/dashboard')} 
               className="w-full px-8 py-3.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
-              Return to Student Dashboard
+              Return to Candidate Dashboard
             </button>
           </div>
         </div>

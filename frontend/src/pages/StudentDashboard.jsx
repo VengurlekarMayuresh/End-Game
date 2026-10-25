@@ -161,9 +161,7 @@ const StudentDashboard = () => {
                   )}
                   {latestInterviewReport && (
                     <span className="text-xs text-muted-foreground text-center">
-                      Score: <strong className="text-foreground">{latestInterviewReport.percentage}/100</strong>
-                      {' · '}
-                      {latestInterviewReport.status === 'PENDING_REVIEW' ? '⏳ Awaiting recruiter decision' :
+                      {latestInterviewReport.status === 'PENDING_REVIEW' ? 'Results will be declared soon' :
                        latestInterviewReport.status === 'SELECTED' ? '✓ Recruiter selected you' : '✕ Recruiter decision: Rejected'}
                     </span>
                   )}

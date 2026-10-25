@@ -1150,7 +1150,7 @@ const TestInterface = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground font-medium">Status</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">Results Pending</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">Results will be declared soon</span>
             </div>
           </div>
 
@@ -1165,7 +1165,7 @@ const TestInterface = () => {
               onClick={() => navigate('/student/dashboard')}
               className="w-full px-8 py-3.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:bg-primary/90 transition-all shadow-sm cursor-pointer"
             >
-              Return to Student Dashboard
+              Return to Candidate Dashboard
             </button>
           </div>
         </div>

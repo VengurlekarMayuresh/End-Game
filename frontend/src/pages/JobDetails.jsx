@@ -643,7 +643,7 @@ const JobDetails = () => {
                   </div>
                   <h4 className="text-lg font-bold">Application Submitted!</h4>
                   <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    The recruiter has received your candidate profile. Check your Student Dashboard for AI interview and test links.
+                    The recruiter has received your candidate profile. Check your Candidate Dashboard for AI interview and test links.
                   </p>
                 </div>
               ) : (

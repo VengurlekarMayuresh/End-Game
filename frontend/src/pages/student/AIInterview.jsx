@@ -775,32 +775,26 @@ const AIInterview = () => {
           </div>
 
           {existingReport && (
-            <div className="grid sm:grid-cols-3 gap-4 mt-4">
-              <div className="bg-muted/40 rounded-2xl p-4 border border-border text-center">
-                <p className="text-3xl font-extrabold text-foreground">{existingReport.percentage}<span className="text-base font-semibold text-muted-foreground">/100</span></p>
-                <p className="text-xs text-muted-foreground mt-1 font-medium">Overall Score</p>
-              </div>
-              <div className={`rounded-2xl p-4 border text-center ${existingReport.selected ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                <p className={`text-lg font-extrabold ${existingReport.selected ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {existingReport.selected ? '✓ AI Pass' : '✕ Below Threshold'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 font-medium">AI Recommendation</p>
+            <div className="grid sm:grid-cols-2 gap-4 mt-4">
+              <div className="bg-amber-500/10 rounded-2xl p-4 border border-amber-500/20 text-center">
+                <p className="text-lg font-extrabold text-amber-600">Results will be declared soon</p>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">Assessment Status</p>
               </div>
               <div className={`rounded-2xl p-4 border text-center ${
                 existingReport.status === 'SELECTED' ? 'bg-emerald-500/10 border-emerald-500/20' :
                 existingReport.status === 'REJECTED' ? 'bg-destructive/10 border-destructive/20' :
-                'bg-amber-500/10 border-amber-500/20'
+                'bg-muted/40 border-border'
               }`}>
                 <p className={`text-base font-extrabold ${
                   existingReport.status === 'SELECTED' ? 'text-emerald-600' :
                   existingReport.status === 'REJECTED' ? 'text-destructive' :
-                  'text-amber-600'
+                  'text-foreground'
                 }`}>
-                  {existingReport.status === 'PENDING_REVIEW' ? '⏳ Awaiting Review' :
-                   existingReport.status === 'SELECTED' ? '🎉 Selected!' :
-                   '✕ Rejected'}
+                  {existingReport.status === 'SELECTED' ? '🎉 Selected!' :
+                   existingReport.status === 'REJECTED' ? '✕ Not Selected' :
+                   '⏳ Under Review'}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1 font-medium">Recruiter Decision</p>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">Recruiter Review</p>
               </div>
             </div>
           )}
@@ -862,19 +856,11 @@ const AIInterview = () => {
                   : 'Your responses have been recorded and sent to the recruiter panel.'}
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-5xl font-extrabold">{interviewReport.percentage}</span>
-              <span className="text-white/70 text-xl font-semibold">/ 100</span>
-            </div>
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
-              interviewReport.endedEarly
-                ? 'bg-black/30 text-red-200 border border-white/20'
-                : interviewReport.selected
-                ? 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
-                : 'bg-white/10 text-white/80 border border-white/20'
-            }`}>
-              {interviewReport.endedEarly ? <XCircle size={16} /> : interviewReport.selected ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-              AI Recommendation: {interviewReport.endedEarly ? 'Terminated (Proctoring Violation)' : interviewReport.selected ? 'Selected ✓' : 'Not Selected'}
+            <div className="pt-2">
+              <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-extrabold text-base border border-white/30 shadow-lg">
+                <Sparkles size={18} className="text-yellow-300" />
+                <span>Results will be declared soon</span>
+              </div>
             </div>
           </div>
         </div>
@@ -884,18 +870,14 @@ const AIInterview = () => {
             <Award size={18} className="text-primary" /> Assessment Summary
           </h2>
 
-          <div className="grid sm:grid-cols-3 gap-3 text-center text-xs">
-            <div className="p-3.5 bg-muted/40 rounded-2xl border border-border">
-              <p className="text-2xl font-extrabold text-foreground">{interviewReport.percentage}<span className="text-xs text-muted-foreground">/100</span></p>
-              <p className="text-muted-foreground font-medium mt-1">Overall Score</p>
-            </div>
-            <div className="p-3.5 bg-muted/40 rounded-2xl border border-border">
-              <p className="text-2xl font-extrabold text-foreground">{interviewReport.highestLevel}<span className="text-xs text-muted-foreground">/5</span></p>
-              <p className="text-muted-foreground font-medium mt-1">Highest Level</p>
+          <div className="grid sm:grid-cols-2 gap-3 text-center text-xs">
+            <div className="p-3.5 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+              <p className="text-base font-extrabold text-amber-600">Results will be declared soon</p>
+              <p className="text-muted-foreground font-medium mt-1">Evaluation Status</p>
             </div>
             <div className="p-3.5 bg-muted/40 rounded-2xl border border-border">
               <p className="text-2xl font-extrabold text-foreground">{Array.isArray(interviewReport.turns) ? interviewReport.turns.length : '—'}</p>
-              <p className="text-muted-foreground font-medium mt-1">Questions Asked</p>
+              <p className="text-muted-foreground font-medium mt-1">Questions Completed</p>
             </div>
           </div>
 
@@ -919,7 +901,7 @@ const AIInterview = () => {
             onClick={() => navigate('/student')}
             className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-extrabold text-sm rounded-2xl hover:opacity-95 transition-all shadow-lg flex items-center justify-center gap-2.5 cursor-pointer"
           >
-            <Home size={18} /> Return to Student Dashboard
+            <Home size={18} /> Return to Candidate Dashboard
           </button>
         </div>
       </div>

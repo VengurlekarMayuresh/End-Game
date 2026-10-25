@@ -226,30 +226,19 @@ const ResumeAptitudeTestInterface = () => {
     }
   };
 
-  // Real-time typing handler with 600ms debounced autosave
+  // Explicit answer saving (no autosave)
   const handleInputChange = (q, value) => {
     setAnswersMap(prev => ({ ...prev, [q.id]: value }));
-    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'typing' }));
-
-    if (autosaveTimerRef.current[q.id]) clearTimeout(autosaveTimerRef.current[q.id]);
-    autosaveTimerRef.current[q.id] = setTimeout(() => {
-      saveAnswerToServer(q, value);
-    }, 600);
+    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'unsaved' }));
   };
 
   const handleSqlDraftChange = (q, value) => {
     setSqlDraft(value);
     setAnswersMap(prev => ({ ...prev, [q.id]: value }));
-    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'typing' }));
-
-    if (autosaveTimerRef.current[q.id]) clearTimeout(autosaveTimerRef.current[q.id]);
-    autosaveTimerRef.current[q.id] = setTimeout(() => {
-      saveAnswerToServer(q, value);
-    }, 800);
+    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'unsaved' }));
   };
 
   const handleSubmitAnswer = async (q) => {
-    if (autosaveTimerRef.current[q.id]) clearTimeout(autosaveTimerRef.current[q.id]);
     const studentAnswer = q.category === 'SQL' ? sqlDraft : (answersMap[q.id] || '');
     await saveAnswerToServer(q, studentAnswer);
   };
@@ -276,24 +265,10 @@ const ResumeAptitudeTestInterface = () => {
     }
   };
 
-  // DSA Code: autosave draft to server (without running)
+  // DSA Code: update code state only (autosave completely disabled)
   const handleCodeChange = (q, value) => {
     setCodeMap(prev => ({ ...prev, [q.id]: value }));
-    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'typing' }));
-
-    if (autosaveTimerRef.current[q.id]) clearTimeout(autosaveTimerRef.current[q.id]);
-    autosaveTimerRef.current[q.id] = setTimeout(async () => {
-      try {
-        setSaveStatusMap(prev => ({ ...prev, [q.id]: 'saving' }));
-        await api.post(`/student/resume-aptitude/session/${attempt.id}/submit-answer`, {
-          questionId: q.id,
-          studentAnswer: value
-        });
-        setSaveStatusMap(prev => ({ ...prev, [q.id]: 'saved' }));
-      } catch (e) {
-        setSaveStatusMap(prev => ({ ...prev, [q.id]: 'unsaved' }));
-      }
-    }, 1200);
+    setSaveStatusMap(prev => ({ ...prev, [q.id]: 'unsaved' }));
   };
 
   // DSA Code: Run against sample test cases
@@ -413,6 +388,19 @@ const ResumeAptitudeTestInterface = () => {
   const handleFinishTest = async () => {
     setIsSubmittingTest(true);
     try {
+      // Save current question if entered but not saved yet
+      const activeQ = visibleQuestions[currentIdx];
+      if (activeQ && activeQ.category !== 'DSA_CODE') {
+        const currentAns = activeQ.category === 'SQL' ? sqlDraft : (answersMap[activeQ.id] || '');
+        if (currentAns && currentAns.trim()) {
+          try {
+            await api.post(`/student/resume-aptitude/session/${attempt?.id}/submit-answer`, {
+              questionId: activeQ.id,
+              studentAnswer: currentAns
+            });
+          } catch (e) {}
+        }
+      }
       await api.post(`/student/resume-aptitude/session/${attempt?.id}/submit`);
       setIsFinished(true);
     } catch (err) {
@@ -564,7 +552,7 @@ const ResumeAptitudeTestInterface = () => {
     const status = saveStatusMap[qId];
     if (status === 'saved') return <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1"><CheckCircle2 size={13} /> Saved</span>;
     if (status === 'saving') return <span className="text-primary text-xs font-semibold flex items-center gap-1 animate-pulse"><Sparkles size={13} /> Saving...</span>;
-    if (status === 'typing') return <span className="text-amber-600 text-xs font-semibold flex items-center gap-1"><Clock size={13} /> Typing...</span>;
+    if (status === 'unsaved') return <span className="text-amber-600 text-xs font-semibold flex items-center gap-1"><Clock size={13} /> Unsaved</span>;
     return null;
   };
 
@@ -1013,7 +1001,6 @@ const ResumeAptitudeTestInterface = () => {
                       handleRunSqlSandbox(currentQ.id);
                     }
                   }}
-                  onBlur={() => handleSubmitAnswer(currentQ)}
                   placeholder="SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department... (Pasting disabled)"
                   className="w-full p-3 font-mono text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 leading-relaxed"
                   spellCheck={false}
@@ -1097,7 +1084,6 @@ const ResumeAptitudeTestInterface = () => {
                     value={answersMap[currentQ.id] || ''}
                     onChange={e => handleInputChange(currentQ, e.target.value)}
                     onPaste={handleBlockPaste}
-                    onBlur={() => handleSubmitAnswer(currentQ)}
                     placeholder="e.g. O(log n) or Hash Map (Pasting disabled)"
                     className="w-full px-4 py-2.5 text-sm rounded-xl bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary/40 pr-20"
                   />
@@ -1106,7 +1092,7 @@ const ResumeAptitudeTestInterface = () => {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  Auto-saved as you type. Flexible matching: "hash map" = "hashmap" = "hash-map". Case-insensitive.
+                  Click "Save Answer" to record your response. Flexible matching: "hash map" = "hashmap" = "hash-map". Case-insensitive.
                 </p>
               </div>
 

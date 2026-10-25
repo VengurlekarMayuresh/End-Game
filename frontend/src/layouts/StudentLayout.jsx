@@ -17,6 +17,7 @@ const StudentLayout = () => {
 
   const navItems = [
     { name: 'Dashboard',      path: '/student',               icon: <LayoutDashboard size={20} />, end: true },
+    { name: 'Browse Jobs',    path: '/jobs',                  icon: <Briefcase size={20} /> },
     { name: 'My Profile',     path: '/student/profile',       icon: <UserCircle size={20} /> },
     { name: 'Resume',         path: '/student/resume',        icon: <FileText size={20} /> },
     { name: 'Education',      path: '/student/education',     icon: <GraduationCap size={20} /> },
@@ -117,7 +118,16 @@ const StudentLayout = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Browse Jobs in Top Navbar */}
+            <Link
+              to="/jobs"
+              className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            >
+              <Briefcase size={14} />
+              <span>Browse Jobs</span>
+            </Link>
+
             {/* Theme toggle */}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

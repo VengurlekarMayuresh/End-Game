@@ -173,38 +173,48 @@ const Profile = () => {
           </p>
         </div>
 
-        {/* Tab Selector */}
-        <div className="flex items-center gap-1.5 p-1 bg-muted rounded-2xl shrink-0">
-          <button
-            onClick={() => handleTabChange('PROFILE')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'PROFILE'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <Link
+            to="/jobs"
+            className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
           >
-            <User size={15} />
-            <span>Profile Details</span>
-          </button>
+            <Briefcase size={15} />
+            <span>Browse Jobs</span>
+          </Link>
 
-          <button
-            onClick={() => handleTabChange('INTERVIEWS')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'INTERVIEWS'
-                ? 'bg-violet-600 text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Mic size={15} />
-            <span>Assigned Interviews</span>
-            {assignedInterviews.length > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                activeTab === 'INTERVIEWS' ? 'bg-white text-violet-700' : 'bg-emerald-500 text-white animate-pulse'
-              }`}>
-                {assignedInterviews.length}
-              </span>
-            )}
-          </button>
+          {/* Tab Selector */}
+          <div className="flex items-center gap-1.5 p-1 bg-muted rounded-2xl shrink-0">
+            <button
+              onClick={() => handleTabChange('PROFILE')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'PROFILE'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <User size={15} />
+              <span>Profile Details</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('INTERVIEWS')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'INTERVIEWS'
+                  ? 'bg-violet-600 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Mic size={15} />
+              <span>Assigned Interviews</span>
+              {assignedInterviews.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  activeTab === 'INTERVIEWS' ? 'bg-white text-violet-700' : 'bg-emerald-500 text-white animate-pulse'
+                }`}>
+                  {assignedInterviews.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -440,10 +450,9 @@ const Profile = () => {
                           </div>
                           {appReport && (
                             <span className="text-[11px] text-muted-foreground text-center">
-                              Score: <strong className="text-foreground">{appReport.percentage}/100</strong>
-                              {' · '}
-                              {appReport.status === 'PENDING_REVIEW' ? '⏳ Pending review' :
-                               appReport.status === 'SELECTED' ? '🎉 Selected!' : '✕ Rejected'}
+                              {appReport.status === 'SELECTED' ? '🎉 Recruiter: Selected!' :
+                               appReport.status === 'REJECTED' ? '✕ Recruiter: Not Selected' :
+                               'Results will be declared soon'}
                             </span>
                           )}
                         </div>

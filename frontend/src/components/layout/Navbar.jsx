@@ -41,7 +41,7 @@ const Navbar = () => {
   };
 
   const getDashboardLabel = () => {
-    if (user?.role === 'STUDENT') return 'Student Dashboard';
+    if (user?.role === 'STUDENT') return 'Candidate Dashboard';
     if (user?.role === 'RECRUITER') return 'Recruiter Dashboard';
     if (user?.role === 'ADMIN') return 'Admin Panel';
     return 'Dashboard';
@@ -126,6 +126,14 @@ const Navbar = () => {
                     >
                       <UserCircle size={15} className="text-muted-foreground" />
                       My Profile
+                    </Link>
+                    <Link
+                      to="/jobs"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl hover:bg-muted transition-colors"
+                    >
+                      <Briefcase size={15} className="text-muted-foreground" />
+                      Browse Jobs
                     </Link>
                   </div>
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../lib/axios';
 import { 
   ClipboardList, Clock, CheckCircle2, XCircle, Play, 
-  AlertCircle, ShieldAlert, Award, Calendar, RefreshCw, Lock, Terminal
+  AlertCircle, ShieldAlert, Award, Calendar, RefreshCw, Lock, Terminal, Building2
 } from 'lucide-react';
 
 const StudentTests = () => {
@@ -270,6 +270,11 @@ const StudentTests = () => {
                               {ass.description && <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{ass.description}</p>}
                               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium">
                                 <span className="flex items-center gap-1"><Clock size={13} />{ass.duration} minutes</span>
+                                {(ass.companyName || ass.jobs?.[0]?.companyName) && (
+                                  <span className="flex items-center gap-1 font-bold text-primary">
+                                    <Building2 size={13} /> {ass.companyName || ass.jobs?.[0]?.companyName}
+                                  </span>
+                                )}
                               </div>
                               {ass.jobs?.length > 0 && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium pt-1">
@@ -303,11 +308,11 @@ const StudentTests = () => {
                             <div className="flex items-center gap-2 flex-wrap">
                               {ass.prerequisite?.passed ? (
                                 <span className="flex items-center gap-1 text-green-600 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
-                                  ✓ Aptitude Passed {ass.prerequisite.percentage && `(${ass.prerequisite.percentage}%)`}
+                                  ✓ Aptitude Cleared
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1 text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
-                                  ✗ Aptitude Not Passed {ass.prerequisite?.details && `(${ass.prerequisite.details})`}
+                                  ✗ Aptitude Pending
                                 </span>
                               )}
                               <span>→</span>
@@ -429,19 +434,13 @@ const StudentTests = () => {
                           <h3 className="font-bold text-lg text-foreground">Role-Specific Aptitude Round</h3>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium">
                             <span className="flex items-center gap-1"><Clock size={13} />45 minutes</span>
-                            <span>Score: {att.score?.toFixed(1) || 0} / {att.maxScore || 15} ({att.percentage?.toFixed(1) || 0}%)</span>
+                            <span className="text-amber-600 font-semibold">Results will be declared soon</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap shrink-0">
-                          <span className="w-full sm:w-auto px-4 py-2 bg-emerald-500/10 text-emerald-600 font-bold text-xs rounded-xl border border-emerald-500/20 text-center flex items-center justify-center gap-1.5">
-                            <CheckCircle2 size={13} /> Assessment Completed (Under Review)
+                          <span className="w-full sm:w-auto px-4 py-2 bg-amber-500/10 text-amber-600 font-bold text-xs rounded-xl border border-amber-500/20 text-center flex items-center justify-center gap-1.5">
+                            <CheckCircle2 size={13} /> Results will be declared soon
                           </span>
-                          <Link
-                            to={`/recruiter/resume-aptitude/${att.id}/results`}
-                            className="w-full sm:w-auto px-4 py-2 bg-primary/10 text-primary font-bold text-xs rounded-xl hover:bg-primary/20 transition-all text-center flex items-center justify-center gap-1.5"
-                          >
-                            <Award size={13} /> View Breakdown
-                          </Link>
                         </div>
                       </div>
                     ))}
@@ -483,22 +482,9 @@ const StudentTests = () => {
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0 text-sm">
-                          <div className="text-right">
-                            <p className="font-bold text-base">{att.score} marks</p>
-                            <p className="text-xs text-muted-foreground">{att.percentage.toFixed(1)}%</p>
-                          </div>
-
-                          <div className="font-bold text-xs shrink-0 flex items-center gap-2">
-                            {att.passed ? (
-                              <span className="flex items-center gap-1 px-3 py-1 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
-                                <CheckCircle2 size={13} /> Pass
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 px-3 py-1 bg-red-500/10 text-red-600 rounded-full border border-red-500/20">
-                                <XCircle size={13} /> Fail
-                              </span>
-                            )}
-                          </div>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-xs font-semibold border border-amber-500/20">
+                            Results will be declared soon
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -529,15 +515,9 @@ const StudentTests = () => {
                         </div>
 
                         <div className="flex items-center gap-4 shrink-0 text-sm">
-                          <div className="text-right">
-                            <p className="font-bold text-base">{att.score} marks</p>
-                          </div>
-                          
-                          <div className="font-bold text-xs shrink-0">
-                            <span className="flex items-center gap-1 px-3 py-1 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
-                              <CheckCircle2 size={13} /> Submitted
-                            </span>
-                          </div>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-xs font-semibold border border-amber-500/20">
+                            Results will be declared soon
+                          </span>
                         </div>
                       </div>
                     ))}

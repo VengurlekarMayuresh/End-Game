@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getImageUrl } from '../../lib/utils';
 import {
-  LayoutDashboard, UserCircle, LogOut, ChevronDown, ChevronUp
+  LayoutDashboard, UserCircle, LogOut, ChevronDown, ChevronUp, Briefcase
 } from 'lucide-react';
 
 const UserMenu = () => {
@@ -20,7 +20,7 @@ const UserMenu = () => {
   };
 
   const getDashboardLabel = () => {
-    if (user?.role === 'STUDENT') return 'Student Dashboard';
+    if (user?.role === 'STUDENT') return 'Candidate Dashboard';
     if (user?.role === 'RECRUITER') return 'Recruiter Dashboard';
     if (user?.role === 'ADMIN') return 'Admin Panel';
     return 'Dashboard';
@@ -93,6 +93,14 @@ const UserMenu = () => {
             >
               <UserCircle size={15} className="text-muted-foreground" />
               My Profile
+            </Link>
+            <Link
+              to="/jobs"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl hover:bg-muted transition-colors"
+            >
+              <Briefcase size={15} className="text-muted-foreground" />
+              Browse Jobs
             </Link>
           </div>
 

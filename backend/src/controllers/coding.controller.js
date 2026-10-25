@@ -429,7 +429,15 @@ const getStudentCodingAssessments = async (req, res, next) => {
     const assessments = await prisma.codingAssessment.findMany({
       where: { id: { in: assessmentIds }, status: { in: ['PUBLISHED', 'DRAFT'] } },
       include: {
-        jobs: { where: { id: { in: jobIds } }, select: { id: true, title: true } },
+        recruiter: { select: { id: true, companyName: true, companyLogo: true } },
+        jobs: { 
+          where: { id: { in: jobIds } }, 
+          select: { 
+            id: true, 
+            title: true,
+            recruiter: { select: { companyName: true, companyLogo: true } }
+          } 
+        },
         attempts: { where: { studentId: student.id }, orderBy: { startedAt: 'desc' } }
       }
     });
@@ -437,9 +445,13 @@ const getStudentCodingAssessments = async (req, res, next) => {
     const enriched = [];
     for (const ass of assessments) {
       const job = ass.jobs[0];
-      const prerequisite = await checkAptitudePrerequisite(student.id, job.id);
+      const prerequisite = job?.id ? await checkAptitudePrerequisite(student.id, job.id) : { passed: true };
+      const companyName = job?.recruiter?.companyName || ass.recruiter?.companyName || 'Hiring Company';
+      const companyLogo = job?.recruiter?.companyLogo || ass.recruiter?.companyLogo || null;
       enriched.push({
         ...ass,
+        companyName,
+        companyLogo,
         prerequisite
       });
     }
@@ -458,6 +470,7 @@ const getStudentCodingAssessmentById = async (req, res, next) => {
     const assessment = await prisma.codingAssessment.findUnique({
       where: { id },
       include: {
+        recruiter: { select: { id: true, companyName: true, companyLogo: true } },
         problems: {
           where: { status: 'ACTIVE' },
           orderBy: { order: 'asc' },
@@ -496,7 +509,14 @@ const getStudentCodingAssessmentById = async (req, res, next) => {
         studentId: student.id,
         job: { codingAssessment: { isNot: null }, codingAssessmentId: id }
       },
-      include: { job: { select: { title: true } } }
+      include: { 
+        job: { 
+          select: { 
+            title: true,
+            recruiter: { select: { companyName: true, companyLogo: true } }
+          } 
+        } 
+      }
     });
 
     if (!applied) {
@@ -513,7 +533,17 @@ const getStudentCodingAssessmentById = async (req, res, next) => {
       });
     }
 
-    assessment.jobs = [{ id: applied.jobId, title: applied.job.title }];
+    const companyName = applied?.job?.recruiter?.companyName || assessment.recruiter?.companyName || 'Hiring Company';
+    const companyLogo = applied?.job?.recruiter?.companyLogo || assessment.recruiter?.companyLogo || null;
+
+    assessment.companyName = companyName;
+    assessment.companyLogo = companyLogo;
+    assessment.jobs = [{ 
+      id: applied.jobId, 
+      title: applied.job.title,
+      companyName,
+      companyLogo
+    }];
     res.json(assessment);
   } catch (error) { next(error); }
 };
