@@ -7,9 +7,10 @@ const crypto = require('crypto');
  */
 
 function getLlmConfig() {
-  const url = process.env.LLM_BASE_URL || (process.env.OPENROUTER_API_KEY && !process.env.LLM_API_KEY ? 'https://openrouter.ai/api/v1' : 'https://openrouter.ai/api/v1');
-  const key = process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
-  const model = process.env.GEN_MODEL || 'openrouter/free';
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  const url = process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai';
+  const key = geminiKey;
+  const model = process.env.GEN_MODEL || 'gemini-2.0-flash';
   return { url, key, model };
 }
 
@@ -65,8 +66,10 @@ function cleanAndParseJson(rawText, messageObj) {
 async function callLlm(prompt, temperature = 0.5) {
   const { url, key, model } = getLlmConfig();
   if (!key) {
-    throw new Error('No LLM API key configured');
+    throw new Error('No LLM API key configured. Please set GEMINI_API_KEY in your .env file.');
   }
+
+  const isGemini = (url && url.includes('generativelanguage.googleapis.com')) || (!url.includes('openrouter.ai') && !url.includes('groq.com'));
 
   const endpoint = url.endsWith('/chat/completions')
     ? url
@@ -74,24 +77,27 @@ async function callLlm(prompt, temperature = 0.5) {
 
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${key}`,
-    'HTTP-Referer': 'https://hiresense.ai',
-    'X-Title': 'HireSense'
+    'Authorization': `Bearer ${key}`
   };
+
+  if (url.includes('openrouter.ai')) {
+    headers['HTTP-Referer'] = 'https://hiresense.ai';
+    headers['X-Title'] = 'HireSense';
+  }
 
   const modelsToTry = Array.from(new Set([
     model,
-    'openrouter/free',
-    'google/gemma-4-31b-it:free',
-    'nvidia/nemotron-3.5-lightning:free'
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
   ]));
 
   let lastError = null;
 
-  for (const model of modelsToTry) {
+  for (const currentModel of modelsToTry) {
     try {
       const body = {
-        model,
+        model: currentModel,
         temperature,
         messages: [
           {
@@ -112,18 +118,51 @@ async function callLlm(prompt, temperature = 0.5) {
         body: JSON.stringify(body)
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`LLM HTTP ${res.status} [${model}]: ${errText.slice(0, 150)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const choice = data.choices?.[0];
+        const msg = choice?.message;
+        return cleanAndParseJson(msg?.content, msg);
       }
 
-      const data = await res.json();
-      const choice = data.choices?.[0];
-      const msg = choice?.message;
-      return cleanAndParseJson(msg?.content, msg);
+      if (!isGemini) {
+        const errText = await res.text();
+        throw new Error(`LLM HTTP ${res.status} [${currentModel}]: ${errText.slice(0, 150)}`);
+      }
     } catch (err) {
       lastError = err;
-      console.warn(`[llmAssessmentGenerator] Model ${model} failed: ${err.message}. Trying next candidate...`);
+      console.warn(`[llmAssessmentGenerator] OpenAI endpoint for ${currentModel} failed: ${err.message}.`);
+    }
+
+    // Direct Gemini native fallback
+    if (isGemini) {
+      try {
+        const cleanModel = currentModel.replace(/^models\//, '').replace(/^google\//, '');
+        const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(key)}`;
+        const nativeReq = {
+          systemInstruction: {
+            parts: [{ text: 'You are an expert technical interviewer and hiring architect. Output ONLY valid, parsable JSON without markdown ticks or preambles.' }]
+          },
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature, responseMimeType: 'application/json' }
+        };
+
+        const nativeRes = await fetch(nativeUrl, {
+          method: 'POST',
+          signal: AbortSignal.timeout(28000),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(nativeReq)
+        });
+
+        if (nativeRes.ok) {
+          const nativeData = await nativeRes.json();
+          const cand = nativeData.candidates && nativeData.candidates[0];
+          const text = cand?.content?.parts?.[0]?.text || '';
+          return cleanAndParseJson(text, cand);
+        }
+      } catch (nativeErr) {
+        lastError = nativeErr;
+      }
     }
   }
 

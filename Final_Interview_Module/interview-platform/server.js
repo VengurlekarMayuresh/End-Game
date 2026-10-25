@@ -3,13 +3,13 @@ const express = require('express'), rateLimit = require('express-rate-limit');
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 
 const TOTAL = +process.env.MAIN_QUESTIONS || 6, PASS = +process.env.PASS_MARK || 60;
-const defaultUrl = process.env.OPENROUTER_API_KEY && !process.env.LLM_API_KEY ? 'https://openrouter.ai/api/v1' : 'https://api.groq.com/openai/v1';
-const defaultKey = process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
-const PRIMARY = { url: process.env.LLM_BASE_URL || defaultUrl, key: defaultKey };
-const defaultModel = (PRIMARY.url.includes('openrouter.ai')) ? 'openrouter/free' : 'llama-3.3-70b-versatile';
+const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
+const defaultUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
+const PRIMARY = { url: process.env.LLM_BASE_URL || defaultUrl, key: geminiKey };
+const defaultModel = 'gemini-2.0-flash';
 const GEN = process.env.GEN_MODEL || defaultModel, GRADE = process.env.GRADE_MODEL || defaultModel;
-const FALLBACK = process.env.FALLBACK_API_KEY && process.env.FALLBACK_MODEL
-  ? { url: process.env.FALLBACK_BASE_URL, key: process.env.FALLBACK_API_KEY, model: process.env.FALLBACK_MODEL } : null;
+const FALLBACK = (process.env.FALLBACK_API_KEY || geminiKey) && (process.env.FALLBACK_MODEL || 'gemini-1.5-flash')
+  ? { url: process.env.FALLBACK_BASE_URL || defaultUrl, key: process.env.FALLBACK_API_KEY || geminiKey, model: process.env.FALLBACK_MODEL || 'gemini-1.5-flash' } : null;
 
 const TAX = [
   ["Frontend & UI", "Component state & lifecycle"],
@@ -125,43 +125,102 @@ Reply with ONLY a valid JSON object without markdown fences:
 {"question":"<Your exact spoken words to the candidate>"}`;
 
 async function call(p, model, prompt, temperature) {
-  if (!p || !p.key) throw new Error('No API key configured for LLM');
+  if (!p || !p.key) throw new Error('No API key configured for Google Gemini. Please set GEMINI_API_KEY in your .env file.');
+
+  const isGemini = (p.url && p.url.includes('generativelanguage.googleapis.com')) || (!p.url.includes('openrouter.ai') && !p.url.includes('groq.com'));
+
+  // Method 1: Google Gemini official OpenAI-compatible endpoint
+  // https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + p.key,
-    'HTTP-Referer': 'https://hiresense.ai',
-    'X-Title': 'HireSense'
+    'Authorization': 'Bearer ' + p.key
   };
+
+  if (p.url.includes('openrouter.ai')) {
+    headers['HTTP-Referer'] = 'https://hiresense.ai';
+    headers['X-Title'] = 'HireSense';
+  }
+
   const baseReq = {
-    model, temperature,
+    model,
+    temperature,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ]
   };
 
-  const r = await fetch(p.url + '/chat/completions', {
-    method: 'POST', signal: AbortSignal.timeout(22000),
-    headers,
-    body: JSON.stringify(baseReq)
+  const endpoint = p.url.endsWith('/chat/completions')
+    ? p.url
+    : `${p.url.replace(/\/+$/, '')}/chat/completions`;
+
+  try {
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      signal: AbortSignal.timeout(25000),
+      headers,
+      body: JSON.stringify(baseReq)
+    });
+
+    if (r.ok) {
+      const data = await r.json();
+      const choice = data.choices && data.choices[0];
+      const msg = choice && choice.message;
+      return cleanAndParseJson(msg && msg.content, msg);
+    }
+
+    if (!isGemini) {
+      const b = (await r.text()).slice(0, 300);
+      throw new Error('LLM HTTP ' + r.status + ' [' + model + '] ' + b);
+    }
+  } catch (err) {
+    if (!isGemini) throw err;
+    console.warn('[Gemini endpoint retry]', err.message);
+  }
+
+  // Method 2: Direct Google Gemini REST API (Native fallback)
+  // https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}
+  const cleanModel = model.replace(/^models\//, '').replace(/^google\//, '');
+  const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(p.key)}`;
+
+  const nativeReq = {
+    systemInstruction: {
+      parts: [{ text: SYSTEM_PROMPT }]
+    },
+    contents: [
+      { role: 'user', parts: [{ text: prompt }] }
+    ],
+    generationConfig: {
+      temperature,
+      responseMimeType: 'application/json'
+    }
+  };
+
+  const nativeRes = await fetch(nativeUrl, {
+    method: 'POST',
+    signal: AbortSignal.timeout(25000),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(nativeReq)
   });
 
-  if (!r.ok) {
-    const b = (await r.text()).slice(0, 300);
-    throw new Error('LLM HTTP ' + r.status + ' [' + model + '] ' + b);
+  if (!nativeRes.ok) {
+    const b = (await nativeRes.text()).slice(0, 300);
+    throw new Error('Google Gemini API HTTP ' + nativeRes.status + ' [' + cleanModel + '] ' + b);
   }
-  const data = await r.json();
-  const choice = data.choices && data.choices[0];
-  const msg = choice && choice.message;
-  return cleanAndParseJson(msg && msg.content, msg);
+
+  const nativeData = await nativeRes.json();
+  const cand = nativeData.candidates && nativeData.candidates[0];
+  const text = cand?.content?.parts?.[0]?.text || '';
+  return cleanAndParseJson(text, cand);
 }
 
 async function llm(kind, prompt, valid) {
   const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? 0.7 : 0.2;
   const modelsToTry = [
     [PRIMARY, model],
-    [PRIMARY, 'google/gemma-4-31b-it:free'],
-    [PRIMARY, 'nvidia/nemotron-3.5-lightning:free']
+    [PRIMARY, 'gemini-2.0-flash'],
+    [PRIMARY, 'gemini-1.5-flash'],
+    [PRIMARY, 'gemini-1.5-pro']
   ].concat(FALLBACK ? [[FALLBACK, FALLBACK.model]] : []);
 
   let last;
