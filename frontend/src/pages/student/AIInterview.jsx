@@ -27,14 +27,12 @@ const AIInterview = () => {
   const [serverOnline, setServerOnline] = useState(null);
   const [serverMeta, setServerMeta] = useState(null);
 
-  // Candidate Data (automatically loaded from user profile & job application, no manual form inputs)
-  const [candidateName, setCandidateName] = useState(user?.fullName || 'Student Candidate');
-  const [candidateEmail, setCandidateEmail] = useState(user?.email || 'candidate@hiresense.ai');
-  const [jobTitle, setJobTitle] = useState('Software Development Engineer');
-  const [skills, setSkills] = useState('React, Node.js, Python, SQL, Data Structures, Algorithms, System Design');
-  const [jobDescription, setJobDescription] = useState(
-    'Full Stack Software Development Engineer. Required skills: Data Structures & Algorithms, React, Node.js, RESTful APIs, System Architecture, Database Design (SQL/PostgreSQL).'
-  );
+  // Candidate Data (dynamically loaded from user profile & job application, zero hardcoded defaults)
+  const [candidateName, setCandidateName] = useState(user?.fullName || 'Candidate');
+  const [candidateEmail, setCandidateEmail] = useState(user?.email || '');
+  const [jobTitle, setJobTitle] = useState('');
+  const [skills, setSkills] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
   const [candidateProjects, setCandidateProjects] = useState([]);
   const [candidateResumeText, setCandidateResumeText] = useState('');
 
@@ -145,18 +143,18 @@ const AIInterview = () => {
     const checkStatus = async () => {
       try {
         setCheckingStatus(true);
-        if (!applicationId) {
-          setAlreadyCompleted(false);
-          setExistingReport(null);
-          return;
-        }
-        const res = await api.get('/student/interview/status', { params: { applicationId } });
+        const params = applicationId ? { applicationId } : {};
+        const res = await api.get('/student/interview/status', { params });
         if (res.data?.applicationContext) {
           const ctx = res.data.applicationContext;
           if (ctx.jobTitle) setJobTitle(ctx.jobTitle);
           if (ctx.jobDescription) setJobDescription(ctx.jobDescription);
           if (ctx.requiredSkills && ctx.requiredSkills.length > 0) {
             setSkills(ctx.requiredSkills.join(', '));
+          } else if (ctx.candidateSkills && ctx.candidateSkills.length > 0) {
+            setSkills(ctx.candidateSkills.join(', '));
+          } else if (ctx.jobTitle) {
+            setSkills(ctx.jobTitle);
           }
           if (ctx.candidateProjects) setCandidateProjects(ctx.candidateProjects);
           if (ctx.resumeText) setCandidateResumeText(ctx.resumeText);
@@ -492,16 +490,40 @@ const AIInterview = () => {
     try {
       let activeCandId = candidateId;
       if (!activeCandId) {
-        const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean);
+        let currentRole = jobTitle;
+        let currentJd = jobDescription;
+        let currentSkills = skills;
+        let currentProjects = candidateProjects;
+        let currentResume = candidateResumeText;
+
+        if (!currentRole || !currentJd) {
+          try {
+            const params = applicationId ? { applicationId } : {};
+            const ctxRes = await api.get('/student/interview/status', { params });
+            if (ctxRes.data?.applicationContext) {
+              const ctx = ctxRes.data.applicationContext;
+              currentRole = ctx.jobTitle || currentRole;
+              currentJd = ctx.jobDescription || currentJd;
+              currentSkills = (ctx.requiredSkills && ctx.requiredSkills.length > 0)
+                ? ctx.requiredSkills.join(', ')
+                : (ctx.candidateSkills?.join(', ') || currentRole);
+              currentProjects = ctx.candidateProjects || currentProjects;
+              currentResume = ctx.resumeText || currentResume;
+            }
+          } catch (_) {}
+        }
+
+        const effectiveRole = currentRole || 'Technical Candidate';
+        const skillsArray = currentSkills ? currentSkills.split(',').map(s => s.trim()).filter(Boolean) : [effectiveRole];
         const res = await axios.post(`${INTERVIEW_BASE_URL}/api/candidates`, {
           consent: 'true',
           name: candidateName,
           email: candidateEmail,
-          role: jobTitle,
+          role: effectiveRole,
           skills: skillsArray,
-          projects: candidateProjects,
-          resumeText: candidateResumeText || `Candidate: ${candidateName}\nEmail: ${candidateEmail}\nTarget Role: ${jobTitle}\nSkills: ${skillsArray.join(', ')}`,
-          jdText: jobDescription,
+          projects: currentProjects,
+          resumeText: currentResume || `Candidate: ${candidateName}\nEmail: ${candidateEmail}\nTarget Role: ${effectiveRole}\nSkills: ${skillsArray.join(', ')}`,
+          jdText: currentJd || `Technical interview assessment for ${effectiveRole}`,
           candidatePhotoUrl,
           idProofUrl
         });

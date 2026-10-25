@@ -3,13 +3,27 @@ const express = require('express'), rateLimit = require('express-rate-limit');
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 
 const TOTAL = +process.env.MAIN_QUESTIONS || 6, PASS = +process.env.PASS_MARK || 60;
-const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '';
-const defaultUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
-const PRIMARY = { url: process.env.LLM_BASE_URL || defaultUrl, key: geminiKey };
-const defaultModel = 'gemini-2.5-flash';
-const GEN = process.env.GEN_MODEL || defaultModel, GRADE = process.env.GRADE_MODEL || defaultModel;
-const FALLBACK = (process.env.FALLBACK_API_KEY || geminiKey) && (process.env.FALLBACK_MODEL || 'gemini-2.5-flash')
-  ? { url: process.env.FALLBACK_BASE_URL || defaultUrl, key: process.env.FALLBACK_API_KEY || geminiKey, model: process.env.FALLBACK_MODEL || 'gemini-2.5-flash' } : null;
+const rawKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY || '';
+const customUrl = process.env.LLM_BASE_URL;
+
+let detectedUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
+let detectedModel = 'gemini-2.5-flash';
+if (customUrl) {
+  detectedUrl = customUrl;
+  if (customUrl.includes('groq.com')) detectedModel = 'llama-3.3-70b-versatile';
+  else if (customUrl.includes('openrouter.ai')) detectedModel = 'openrouter/free';
+} else if (rawKey.startsWith('gsk_')) {
+  detectedUrl = 'https://api.groq.com/openai/v1';
+  detectedModel = 'llama-3.3-70b-versatile';
+} else if (rawKey.startsWith('sk-or-')) {
+  detectedUrl = 'https://openrouter.ai/api/v1';
+  detectedModel = 'openrouter/free';
+}
+
+const PRIMARY = { url: detectedUrl, key: rawKey };
+const GEN = process.env.GEN_MODEL || detectedModel, GRADE = process.env.GRADE_MODEL || detectedModel;
+const FALLBACK = (process.env.FALLBACK_API_KEY || rawKey) && (process.env.FALLBACK_MODEL || detectedModel)
+  ? { url: process.env.FALLBACK_BASE_URL || detectedUrl, key: process.env.FALLBACK_API_KEY || rawKey, model: process.env.FALLBACK_MODEL || detectedModel } : null;
 
 const TAX = [
   ["Frontend & UI", "Component state & lifecycle"],
@@ -139,10 +153,10 @@ Reply with ONLY a valid JSON object without markdown fences:
 const GRADE_SYSTEM_PROMPT = `You are an expert technical interview evaluator. Your job is to objectively grade a candidate's spoken answer. Output valid JSON only.`;
 
 async function call(p, model, prompt, temperature, systemPrompt) {
-  if (!p || !p.key) throw new Error('No API key configured for Google Gemini. Please set GEMINI_API_KEY in your .env file.');
+  if (!p || !p.key) throw new Error('No API key configured for LLM. Please set GEMINI_API_KEY, GROQ_API_KEY, or LLM_API_KEY in your .env file.');
   const sysPrompt = systemPrompt || GRADE_SYSTEM_PROMPT;
 
-  const isGemini = (p.url && p.url.includes('generativelanguage.googleapis.com')) || (!p.url.includes('openrouter.ai') && !p.url.includes('groq.com'));
+  const isGemini = p.key && !p.key.startsWith('gsk_') && !p.key.startsWith('sk-or-') && ((p.url && p.url.includes('generativelanguage.googleapis.com')) || (!p.url.includes('openrouter.ai') && !p.url.includes('groq.com')));
 
   // Method 1: Direct Google Gemini REST API (Native - fastest & most reliable)
   if (isGemini) {
@@ -181,7 +195,7 @@ async function call(p, model, prompt, temperature, systemPrompt) {
     }
   }
 
-  // Method 2: OpenAI-compatible endpoint (Secondary or non-Gemini)
+  // Method 2: OpenAI-compatible endpoint (Groq, OpenRouter, or Gemini OpenAI endpoint)
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ' + p.key
@@ -225,10 +239,16 @@ async function call(p, model, prompt, temperature, systemPrompt) {
 
 async function llm(kind, prompt, valid, systemPrompt) {
   const model = kind === 'gen' ? GEN : GRADE, temp = kind === 'gen' ? (0.75 + Math.random() * 0.1) : 0.2;
+  const isGroq = PRIMARY.key && PRIMARY.key.startsWith('gsk_');
+  const isOpenRouter = PRIMARY.key && PRIMARY.key.startsWith('sk-or-');
+  const defaultFallbacks = isGroq
+    ? ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
+    : (isOpenRouter ? ['openrouter/free', 'google/gemma-2-9b-it:free'] : ['gemini-2.5-flash', 'gemini-2.5-pro']);
+
   const modelsToTry = [
-    [PRIMARY, model || 'gemini-2.5-flash'],
-    [PRIMARY, 'gemini-2.5-flash'],
-    [PRIMARY, 'gemini-2.5-pro']
+    [PRIMARY, model || defaultFallbacks[0]],
+    [PRIMARY, defaultFallbacks[0]],
+    [PRIMARY, defaultFallbacks[1] || defaultFallbacks[0]]
   ].concat(FALLBACK ? [[FALLBACK, FALLBACK.model]] : []);
 
   let last;

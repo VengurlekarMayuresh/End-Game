@@ -176,15 +176,22 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
       const resume = str((await fileText(f.resume && f.resume[0])) || b.resumeText || b.resume || '', 20000);
       const jd = str((await fileText(f.jdFile && f.jdFile[0])) || b.jdText || b.jd || '', 12000);
 
-      const parsedSkills = Array.isArray(b.skills) ? b.skills : (b.skills ? String(b.skills).split(',').map(s => s.trim()).filter(Boolean) : []);
+      const rawParsedSkills = Array.isArray(b.skills) ? b.skills : (b.skills ? String(b.skills).split(',').map(s => s.trim()).filter(Boolean) : []);
       const parsedProjects = (Array.isArray(b.projects) ? b.projects : []).filter(p => p && p.name && !/capstone/i.test(p.name));
+
+      const dynamicRole = str(b.jobTitle || b.role, 100) || (jd.match(/(?:title|position|role):\s*([^\n\r]+)/i)?.[1]?.trim()) || 'Technical Specialist';
+
+      // Guard: strictly filter parsed skills so skills NOT present in the JD, Resume, or Role are purged
+      const combinedCorpus = ((jd || '') + ' ' + (resume || '') + ' ' + (dynamicRole || '')).toLowerCase();
+      const parsedSkills = rawParsedSkills.filter(s => {
+        if (!s || s.length < 2) return false;
+        return combinedCorpus.includes(s.toLowerCase());
+      });
 
       // 1. Dynamic Extraction from actual documents
       const jdExtractedSkills = extractDynamicSkills(jd);
       const resumeExtractedSkills = extractDynamicSkills(resume);
       const resumeExtractedProjects = parsedProjects.length ? parsedProjects : extractDynamicProjects(resume);
-
-      const dynamicRole = str(b.jobTitle || b.role, 100) || (jd.match(/(?:title|position|role):\s*([^\n\r]+)/i)?.[1]?.trim()) || 'Software Engineer';
 
       let c = null, job = null;
       // 2. Try LLM extraction when documents have content

@@ -240,15 +240,32 @@ const getStudentInterviewStatus = async (req, res) => {
     const studentUserId = req.user.userId;
     const { applicationId } = req.query;
 
-    // Step 1: get the student record
+    // Step 1: get the student record and user profile
     const student = await prisma.student.findUnique({ where: { userId: studentUserId } });
     if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
+    const user = await prisma.user.findUnique({
+      where: { id: studentUserId },
+      select: { id: true, email: true, fullName: true }
+    });
+    const email = user?.email || '';
+
+    // Step 2: Auto-resolve application: use provided applicationId or student's latest application
+    let targetAppId = applicationId;
+    if (!targetAppId) {
+      const latestApp = await prisma.jobApplication.findFirst({
+        where: { studentId: student.id },
+        orderBy: { appliedAt: 'desc' },
+        select: { id: true }
+      });
+      if (latestApp) targetAppId = latestApp.id;
+    }
+
     let applicationContext = null;
-    if (applicationId) {
+    if (targetAppId) {
       try {
         const application = await prisma.jobApplication.findFirst({
-          where: { id: applicationId, studentId: student.id },
+          where: { id: targetAppId, studentId: student.id },
           include: {
             job: {
               include: {
@@ -257,9 +274,8 @@ const getStudentInterviewStatus = async (req, res) => {
             }
           }
         });
-        if (!application) return res.status(404).json({ message: 'Student job application not found' });
 
-        if (application.job) {
+        if (application && application.job) {
           const studentDetails = await prisma.student.findUnique({
             where: { id: student.id },
             include: {
@@ -286,21 +302,29 @@ const getStudentInterviewStatus = async (req, res) => {
             resumeParts.push(`Technical Skills: ${studentDetails.skills.map(s => s.name || s.skillName || s).join(', ')}`);
           }
           if (studentDetails?.projects && studentDetails.projects.length > 0) {
-            resumeParts.push(`Key Projects:\n` + studentDetails.projects.map(p => `- ${p.title || p.name}: ${p.description || p.summary || ''} (Tech: ${p.technologies || p.techStack || 'Software Engineering'})`).join('\n'));
+            resumeParts.push(`Key Projects:\n` + studentDetails.projects.map(p => `- ${p.title || p.name}: ${p.description || p.summary || ''} (Tech: ${p.technologies || p.techStack || 'Technical Domain'})`).join('\n'));
           }
           if (studentDetails?.experiences && studentDetails.experiences.length > 0) {
             resumeParts.push(`Experience:\n` + studentDetails.experiences.map(e => `- ${e.title || e.role} at ${e.company}: ${e.description || ''}`).join('\n'));
           }
 
+          // Dynamically derive skills from JD if job.skills is empty
+          let effectiveJdSkills = Array.isArray(job.skills) && job.skills.length > 0 ? job.skills : [];
+          if (effectiveJdSkills.length === 0 && job.title) {
+            const cleanTitle = job.title.replace(/developer|engineer|specialist|lead|junior|senior|intern/gi, '').trim();
+            if (cleanTitle) effectiveJdSkills.push(cleanTitle);
+            effectiveJdSkills.push(job.title);
+          }
+
           applicationContext = {
-            jobTitle: job.title,
+            jobTitle: job.title || 'Technical Specialist',
             companyName: job.recruiter?.companyName || '',
-            jobDescription: jdParts.join('\n\n'),
-            requiredSkills: job.skills && job.skills.length > 0 ? job.skills : ['Software Engineering', 'Problem Solving', 'Data Structures', 'System Design'],
+            jobDescription: jdParts.join('\n\n') || `Job Assessment for ${job.title}`,
+            requiredSkills: effectiveJdSkills,
             candidateSkills: studentDetails?.skills?.map(s => s.name || s.skillName || s) || [],
             candidateProjects: (studentDetails?.projects || []).map(p => ({
               name: p.title || p.name || 'Core Project',
-              summary: p.description || p.summary || 'Engineered software solution.'
+              summary: p.description || p.summary || 'Technical implementation.'
             })),
             resumeText: resumeParts.join('\n\n')
           };
@@ -309,13 +333,6 @@ const getStudentInterviewStatus = async (req, res) => {
         console.warn('[getStudentInterviewStatus] applicationContext fetch error:', appErr.message);
       }
     }
-
-    // Step 2: get user email separately (avoids include issues)
-    const user = await prisma.user.findUnique({
-      where: { id: studentUserId },
-      select: { email: true }
-    });
-    const email = user?.email || '';
 
     // Step 3: raw SQL — prioritise SELECTED/REJECTED over PENDING_REVIEW
     const rows = await prisma.$queryRawUnsafe(
