@@ -11,9 +11,17 @@ module.exports = function (app, llm) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, title TEXT, jd_text TEXT, required_skills TEXT, nice_skills TEXT, seniority TEXT, summary TEXT, created_at TEXT);
     CREATE TABLE IF NOT EXISTS candidates(id TEXT PRIMARY KEY, name TEXT, email TEXT, phone TEXT, role TEXT, experience TEXT, education TEXT, skills TEXT, projects TEXT, summary TEXT,
-      resume_text TEXT, resume_filename TEXT, job_id TEXT, consent_at TEXT, created_at TEXT);
+      resume_text TEXT, resume_filename TEXT, job_id TEXT, consent_at TEXT, created_at TEXT, candidate_photo_url TEXT, id_proof_url TEXT);
     CREATE TABLE IF NOT EXISTS interviews(id TEXT PRIMARY KEY, candidate_id TEXT, started_at TEXT, finished_at TEXT, done INTEGER, percentage INTEGER, selected INTEGER,
-      highest_level INTEGER, ended_early INTEGER, turns TEXT, decision TEXT);`);
+      highest_level INTEGER, ended_early INTEGER, turns TEXT, decision TEXT, candidate_photo_url TEXT, id_proof_url TEXT, impersonation_detected INTEGER, impersonation_reason TEXT);`);
+
+  // Ensure columns exist on already-created SQLite tables
+  try { db.exec('ALTER TABLE candidates ADD COLUMN candidate_photo_url TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE candidates ADD COLUMN id_proof_url TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE interviews ADD COLUMN candidate_photo_url TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE interviews ADD COLUMN id_proof_url TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE interviews ADD COLUMN impersonation_detected INTEGER DEFAULT 0;'); } catch (_) {}
+  try { db.exec('ALTER TABLE interviews ADD COLUMN impersonation_reason TEXT;'); } catch (_) {}
   const now = () => new Date().toISOString();
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 2 } }).fields([{ name: 'resume', maxCount: 1 }, { name: 'jdFile', maxCount: 1 }]);
 
@@ -39,7 +47,19 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
     if (!c) return null;
     const j = c.job_id ? db.prepare('SELECT * FROM jobs WHERE id=?').get(c.job_id) : null;
     return { id: c.id, name: c.name, email: c.email || '', role: c.role, exp: c.experience, edu: c.education, skills: JSON.parse(c.skills), projects: JSON.parse(c.projects),
+      candidatePhotoUrl: c.candidate_photo_url || '', idProofUrl: c.id_proof_url || '',
       job: j ? { title: j.title, required_skills: JSON.parse(j.required_skills), summary: j.summary } : null };
+  }
+
+  function saveCandidateCalibration(candidateId, candidatePhotoUrl, idProofUrl) {
+    try {
+      db.prepare('UPDATE candidates SET candidate_photo_url=?, id_proof_url=? WHERE id=?')
+        .run(str(candidatePhotoUrl, 1000), str(idProofUrl, 1000), String(candidateId));
+      return true;
+    } catch (e) {
+      console.warn('[saveCandidateCalibration]', e.message);
+      return false;
+    }
   }
 
   const handleCandidateCreation = async (req, res, b, f) => {
@@ -109,10 +129,16 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
       const finalJd = jd || 'Software Development Engineer role requiring core CS, data structures, algorithms, system design, databases and backend engineering.';
       const jobId = 'J-' + crypto.createHash('sha256').update(finalJd).digest('hex').slice(0, 10);
       db.prepare('INSERT OR IGNORE INTO jobs VALUES(?,?,?,?,?,?,?,?)').run(jobId, str(job.title, 100), finalJd, JSON.stringify(arr(job.required_skills, 15)), JSON.stringify(arr(job.nice_to_have, 15)), str(job.seniority, 40), str(job.summary, 500), now());
-      db.prepare('INSERT INTO candidates VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id, str(b.name, 80) || str(c.name, 80) || 'Candidate', str(b.email, 120) || str(c.email, 120), str(b.phone, 30) || str(c.phone, 30),
+      db.prepare(`INSERT INTO candidates(
+        id, name, email, phone, role, experience, education, skills, projects, summary,
+        resume_text, resume_filename, job_id, consent_at, created_at, candidate_photo_url, id_proof_url
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+        id, str(b.name, 80) || str(c.name, 80) || 'Candidate', str(b.email, 120) || str(c.email, 120), str(b.phone, 30) || str(c.phone, 30),
         str(c.role_applied, 100) || str(job.title, 100) || 'Software Engineer', str(c.experience_label, 100), str(c.education, 120), JSON.stringify(arr(c.skills, 12)),
         JSON.stringify((Array.isArray(c.projects) ? c.projects : []).slice(0, 4).map(p => ({ name: str(p.name, 80), summary: str(p.summary, 200) }))), str(c.summary, 500),
-        resume, f.resume ? str(f.resume[0].originalname, 120) : 'portal-profile', jobId, now(), now());
+        resume, f.resume ? str(f.resume[0].originalname, 120) : 'portal-profile', jobId, now(), now(),
+        b.candidatePhotoUrl || null, b.idProofUrl || null
+      );
       res.json({ candidateId: id, profile: getCandidate(id), interviewUrl: '/index.html?candidate=' + id });
     } catch (e) {
       console.error('[intake]', e.message);
@@ -140,13 +166,32 @@ Only list skills actually evidenced in the resume (max 12) and at most 4 project
 
   function saveInterview(s) {
     const t = s.turns, pct = t.length ? Math.round(t.reduce((a, x) => a + x.score, 0) / t.length * 10) : 0;
-    db.prepare(`INSERT INTO interviews(id,candidate_id,started_at,finished_at,done,percentage,selected,highest_level,ended_early,turns) VALUES(?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id) DO UPDATE SET finished_at=excluded.finished_at, done=excluded.done, percentage=excluded.percentage, selected=excluded.selected, highest_level=excluded.highest_level, ended_early=excluded.ended_early, turns=excluded.turns`)
-      .run(s.id, s.cand.id, new Date(s.t0).toISOString(), s.done ? now() : null, s.done ? 1 : 0, pct, pct >= PASS ? 1 : 0, s.st.maxLv, s.endedEarly ? 1 : 0, JSON.stringify(t));
+    const photo = s.candidatePhotoUrl || (s.cand && s.cand.candidatePhotoUrl) || '';
+    const idProof = s.idProofUrl || (s.cand && s.cand.idProofUrl) || '';
+    const impersonation = s.impersonationDetected ? 1 : 0;
+    const reason = s.impersonationReason || '';
+    db.prepare(`INSERT INTO interviews(id,candidate_id,started_at,finished_at,done,percentage,selected,highest_level,ended_early,turns,candidate_photo_url,id_proof_url,impersonation_detected,impersonation_reason)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET finished_at=excluded.finished_at, done=excluded.done, percentage=excluded.percentage, selected=excluded.selected, highest_level=excluded.highest_level, ended_early=excluded.ended_early, turns=excluded.turns, candidate_photo_url=COALESCE(excluded.candidate_photo_url, candidate_photo_url), id_proof_url=COALESCE(excluded.id_proof_url, id_proof_url), impersonation_detected=excluded.impersonation_detected, impersonation_reason=excluded.impersonation_reason`)
+      .run(s.id, s.cand.id, new Date(s.t0).toISOString(), s.done ? now() : null, s.done ? 1 : 0, pct, pct >= PASS ? 1 : 0, s.st.maxLv, s.endedEarly ? 1 : 0, JSON.stringify(t), photo, idProof, impersonation, reason);
   }
+
   function loadReport(id) {
-    const r = db.prepare('SELECT i.*, c.name FROM interviews i JOIN candidates c ON c.id=i.candidate_id WHERE i.id=?').get(String(id));
-    return r && { candidate: r.name, candidateId: r.candidate_id, percentage: r.percentage, selected: !!r.selected, highestLevel: r.highest_level, endedEarly: !!r.ended_early, turns: JSON.parse(r.turns) };
+    const r = db.prepare('SELECT i.*, c.name, c.candidate_photo_url as c_photo, c.id_proof_url as c_id_proof FROM interviews i JOIN candidates c ON c.id=i.candidate_id WHERE i.id=?').get(String(id));
+    return r && {
+      candidate: r.name,
+      candidateId: r.candidate_id,
+      percentage: r.percentage,
+      selected: !!r.selected,
+      highestLevel: r.highest_level,
+      endedEarly: !!r.ended_early,
+      candidatePhotoUrl: r.candidate_photo_url || r.c_photo || '',
+      idProofUrl: r.id_proof_url || r.c_id_proof || '',
+      impersonationDetected: !!r.impersonation_detected,
+      impersonationReason: r.impersonation_reason || '',
+      turns: JSON.parse(r.turns)
+    };
   }
-  return { getCandidate, saveInterview, loadReport };
+
+  return { getCandidate, saveInterview, loadReport, saveCandidateCalibration };
 };

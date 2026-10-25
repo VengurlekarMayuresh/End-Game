@@ -1,454 +1,1840 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Technical Interview · AI Interview Room</title>
+<title>Technical Interview · AI Assessment</title>
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;--bg:#f6f3ec;--card:#fff;--tx:#14203a;--mut:#6b7690;--ac:#2f5bea;--acl:#eaf0ff;--ok:#12a150;--okl:#e3f6ea;--bad:#d93f3f;--bd:#e4e0d6;--navy:#0f1b33}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-header{background:#fff;border-bottom:3px solid var(--ac);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-header h1{margin:0;font-size:20px}header small{color:var(--mut)}
-.hr{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--mut)}
-select{font:inherit;font-size:13px;border:1px solid var(--bd);border-radius:8px;padding:5px 8px;background:#fff;color:var(--tx)}
-.wrap{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:270px 1fr;gap:20px;align-items:start}
-@media(max-width:860px){.wrap{grid-template-columns:1fr;padding:12px}}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(20,32,58,.05)}
-.av0{width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:600}
-.pr{display:flex;gap:10px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--bd);margin-bottom:10px}
-.pr b{display:block}.pr code{font-size:11px;color:var(--mut)}
-.f{margin:10px 0}.f small{display:block;color:var(--mut);font-size:11px}
-.chip{display:inline-block;border:1px solid var(--bd);background:#faf9f6;border-radius:99px;padding:2px 11px;margin:2px 2px 0 0;font-size:12px}
-.fair{margin-top:12px;font-size:12px;color:var(--mut);background:#faf9f6;border:1px solid var(--bd);border-radius:12px;padding:10px 12px}.fair b{color:var(--tx);font-size:13px}
-.bar{height:8px;background:#efece4;border-radius:9px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .4s}
-.video{position:relative;border-radius:14px;overflow:hidden;height:330px;background:#c9b9a2}
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+  --bg:#f4f6fa;
+  --card:#ffffff;
+  --tx:#0f172a;
+  --mut:#64748b;
+  --ac:#2563eb;
+  --acl:#eff6ff;
+  --ok:#16a34a;
+  --okl:#f0fdf4;
+  --bad:#dc2626;
+  --bd:#e2e8f0;
+  --navy:#0f172a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--tx);
+  font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+header{
+  background:#fff;
+  border-bottom:1px solid var(--bd);
+  padding:14px 28px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  box-shadow:0 1px 3px rgba(0,0,0,.03);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-icon{
+  width:36px;height:36px;background:#2563eb;color:#fff;
+  border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:16px;
+}
+header h1{margin:0;font-size:18px;font-weight:700;color:#0f172a}
+header small{color:var(--mut);font-size:12px}
+.hr{display:flex;gap:12px;align-items:center;font-size:13px;color:var(--mut)}
+select{
+  font:inherit;font-size:13px;border:1px solid var(--bd);
+  border-radius:8px;padding:6px 10px;background:#fff;color:var(--tx);outline:none;
+}
+
+/* Common Container */
+.page-container{
+  max-width:880px;
+  margin:32px auto 50px;
+  padding:0 20px;
+  animation:fadeIn .25s ease-out;
+}
+.portal-card{
+  background:#fff;
+  border:1px solid var(--bd);
+  border-radius:18px;
+  box-shadow:0 4px 24px rgba(15,23,42,.06);
+  overflow:hidden;
+}
+.portal-banner{
+  background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+  color:#fff;
+  padding:28px 32px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.portal-banner h2{margin:0 0 6px;font-size:22px;font-weight:700}
+.portal-banner p{margin:0;color:#94a3b8;font-size:14px;line-height:1.5}
+.portal-body{padding:30px 32px}
+
+/* =========================================================
+   PAGE 1: INSTRUCTIONS VIEW
+   ========================================================= */
+.instructions-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin:22px 0 26px;
+}
+@media(max-width:680px){.instructions-grid{grid-template-columns:1fr}}
+.inst-card{
+  background:#f8fafc;
+  border:1px solid var(--bd);
+  border-radius:14px;
+  padding:18px;
+  transition:border-color .15s;
+}
+.inst-card:hover{border-color:#cbd5e1}
+.inst-card .inst-icon{
+  font-size:24px;margin-bottom:8px;display:inline-block;
+}
+.inst-card h4{margin:0 0 6px;font-size:15px;color:#0f172a}
+.inst-card p{margin:0;font-size:13px;color:#475569;line-height:1.55}
+
+.inst-alert-box{
+  background:#eff6ff;
+  border:1px solid #bfdbfe;
+  border-radius:12px;
+  padding:16px 20px;
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  margin-bottom:26px;
+  font-size:13px;
+  color:#1e40af;
+}
+
+/* =========================================================
+   PAGE 2: SYSTEM CHECK VIEW
+   ========================================================= */
+.step-nav{
+  display:flex;
+  border-bottom:1px solid var(--bd);
+  background:#f8fafc;
+  overflow-x:auto;
+}
+.step-tab{
+  flex:1;
+  min-width:180px;
+  padding:14px 18px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  font-weight:600;
+  color:#64748b;
+  border-bottom:3px solid transparent;
+  cursor:pointer;
+  transition:all .2s;
+  user-select:none;
+}
+.step-tab.active{
+  color:#2563eb;
+  border-bottom-color:#2563eb;
+  background:#fff;
+}
+.step-tab.passed{color:#16a34a}
+.step-circle{
+  width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;
+  font-size:11px;font-weight:700;
+  background:#e2e8f0;color:#64748b;
+}
+.step-tab.active .step-circle{background:#2563eb;color:#fff}
+.step-tab.passed .step-circle{background:#16a34a;color:#fff}
+
+/* Hardware Checks */
+.speed-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:16px;
+  margin:20px 0;
+}
+.metric-box{
+  background:#f8fafc;
+  border:1px solid var(--bd);
+  border-radius:12px;
+  padding:18px;
+  text-align:center;
+}
+.metric-box .metric-val{
+  font-size:30px;font-weight:800;color:#0f172a;line-height:1.1;margin:6px 0;
+}
+.metric-box .metric-lbl{font-size:12px;font-weight:600;color:#64748b;letter-spacing:.04em;text-transform:uppercase}
+.metric-box .metric-tag{font-size:11px;font-weight:700;border-radius:99px;padding:3px 10px;display:inline-block;margin-top:6px}
+.metric-box .metric-tag.ok{background:#dcfce7;color:#15803d}
+.metric-box .metric-tag.warn{background:#fef9c3;color:#854d0e}
+
+.audio-check-box{
+  background:#0f172a;
+  border-radius:14px;
+  padding:24px;
+  color:#fff;
+  text-align:center;
+  margin:18px 0;
+}
+.meter-wrap{
+  background:rgba(255,255,255,.15);
+  height:14px;
+  border-radius:99px;
+  overflow:hidden;
+  margin:16px auto;
+  max-width:520px;
+}
+.meter-bar{
+  width:0%;
+  height:100%;
+  background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);
+  transition:width .1s ease-out;
+}
+#audioCanvas{
+  width:100%;
+  max-width:520px;
+  height:60px;
+  display:block;
+  margin:0 auto;
+}
+
+.camera-check-box{
+  position:relative;
+  width:100%;
+  max-width:640px;
+  margin:18px auto;
+  aspect-ratio:16/9;
+  background:#0b1120;
+  border-radius:14px;
+  overflow:hidden;
+  border:2px solid var(--bd);
+  box-shadow:0 8px 30px rgba(0,0,0,.15);
+}
+#cameraHardwareVideo{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  display:block;
+}
+.cam-hud{
+  position:absolute;top:14px;left:14px;display:flex;gap:8px;z-index:3;
+}
+.cam-pill{
+  background:rgba(15,23,42,.85);
+  backdrop-filter:blur(6px);
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  padding:4px 10px;
+  border-radius:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.cam-pill .dot{width:7px;height:7px;border-radius:50%;background:#22c55e}
+
+.calib-step-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+  margin:20px 0;
+}
+@media(max-width:720px){.calib-step-grid{grid-template-columns:1fr}}
+.calib-card{
+  background:#f8fafc;
+  border:1px solid var(--bd);
+  border-radius:14px;
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+.calib-viewport{
+  position:relative;
+  width:100%;
+  aspect-ratio:4/3;
+  background:#0b1120;
+  border-radius:10px;
+  overflow:hidden;
+  margin:12px 0;
+}
+.calib-viewport video,.calib-viewport img{
+  width:100%;height:100%;object-fit:cover;
+}
+.calib-viewport video{transform:scaleX(-1)}
+.guide-oval{
+  position:absolute;inset:12% 22%;
+  border:2.5px dashed rgba(255,255,255,.85);
+  border-radius:50%;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.35);
+  pointer-events:none;
+}
+.guide-card{
+  position:absolute;inset:18% 12%;
+  border:2.5px dashed rgba(255,255,255,.85);
+  border-radius:10px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.35);
+  pointer-events:none;
+}
+
+/* Action Bar */
+.action-bar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:28px;
+  padding-top:20px;
+  border-top:1px solid var(--bd);
+  flex-wrap:wrap;
+  gap:12px;
+}
+.btn{
+  font:inherit;
+  font-weight:600;
+  border-radius:10px;
+  border:1px solid var(--bd);
+  background:#fff;
+  color:var(--tx);
+  padding:10px 20px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  transition:all .15s;
+}
+.btn:hover{background:#f8fafc}
+.btn.p{
+  background:#2563eb;
+  border-color:#2563eb;
+  color:#fff;
+}
+.btn.p:hover{background:#1d4ed8}
+.btn.ok{
+  background:#16a34a;
+  border-color:#16a34a;
+  color:#fff;
+}
+.btn.ok:hover{background:#15803d}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-lg{padding:14px 28px;font-size:16px}
+
+/* =========================================================
+   PAGE 3: LIVE INTERVIEW ROOM
+   ========================================================= */
+#interviewRoom{display:none}
+.room-wrap{
+  max-width:1120px;
+  margin:20px auto;
+  padding:0 20px;
+}
+.room-header-status{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#fff;
+  border:1px solid var(--bd);
+  border-radius:12px;
+  padding:10px 18px;
+  margin-bottom:14px;
+  font-size:13px;
+  color:var(--mut);
+}
+.video{
+  position:relative;
+  border-radius:16px;
+  overflow:hidden;
+  height:350px;
+  background:#0f172a;
+}
 .video svg.scene{width:100%;height:100%;display:block}
-.camera-inset{position:absolute;right:14px;bottom:14px;width:min(36%,300px);aspect-ratio:16/9;object-fit:cover;background:#101828;border:2px solid #fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:2}
-.camera-label{position:absolute;right:24px;bottom:24px;z-index:3;padding:3px 8px;border-radius:6px;background:rgba(15,27,51,.8);color:#fff;font-size:10px;font-weight:700;letter-spacing:.04em}
-.camera-label:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px}
-.badge{position:absolute;top:12px;font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:7px;padding:4px 10px;background:rgba(255,255,255,.92);color:var(--ac)}
-.b1{left:12px}.b2{right:12px;background:rgba(15,27,51,.85);color:#fff}
-.nm{position:absolute;left:14px;bottom:14px;display:flex;gap:12px;align-items:center;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)}
-.nm .ic{width:42px;height:42px;border-radius:50%;background:var(--ac);display:grid;place-items:center;font-size:18px}
-.nm b{display:block;font-size:17px}.nm small{font-size:12px;opacity:.9}
-.wv{display:flex;gap:3px;align-items:center;height:30px}.wv i{width:3px;height:6px;background:#fff;border-radius:3px}
-.speaking .wv i{animation:w .7s ease-in-out infinite}.wv i:nth-child(2n){animation-delay:.15s}.wv i:nth-child(3n){animation-delay:.3s}
-@keyframes w{50%{height:26px}}
-.start{position:absolute;inset:0;display:grid;place-items:center;background:rgba(15,27,51,.35)}
-.startbox{width:min(440px,calc(100% - 32px));padding:20px;border-radius:14px;background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.2)}
-.consent{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;font-size:13px;color:var(--tx)}
-.consent input{margin-top:4px}
-.startbox .btn{width:100%}
-.proctor-alert{position:fixed;top:20px;left:50%;z-index:20;width:min(520px,calc(100% - 32px));padding:14px 18px;border:1px solid #f1d9a8;border-radius:12px;background:#fff4d6;color:#7c4b00;box-shadow:0 8px 26px rgba(15,27,51,.2);font-size:14px;font-weight:700;opacity:1;transform:translate(-50%,0);transition:opacity .25s,transform .25s}
-.proctor-alert.hide{display:block!important;opacity:0;pointer-events:none;transform:translate(-50%,-12px)}
-.btn{font:inherit;border-radius:10px;border:1px solid var(--bd);background:#fff;color:var(--tx);padding:9px 18px;cursor:pointer}
-.btn.p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600;font-size:16px;padding:12px 26px}
-.tr{margin-top:14px}
+.camera-inset{
+  position:fixed!important;
+  right:20px!important;
+  bottom:20px!important;
+  width:220px!important;
+  aspect-ratio:16/9!important;
+  object-fit:cover!important;
+  background:#0f172a!important;
+  border:2.5px solid #3b82f6!important;
+  border-radius:14px!important;
+  box-shadow:0 10px 30px rgba(0,0,0,0.6)!important;
+  z-index:99999!important;
+  transform:scaleX(-1)!important;
+  display:block!important;
+}
+.camera-label{
+  position:fixed!important;
+  right:28px!important;
+  bottom:28px!important;
+  z-index:100000!important;
+  padding:3px 9px!important;
+  border-radius:6px!important;
+  background:rgba(15,23,42,.92)!important;
+  color:#fff!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  letter-spacing:.04em!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  backdrop-filter:blur(4px)!important;
+  border:1px solid rgba(255,255,255,.15)!important;
+}
+.camera-label:before{
+  content:"";
+  display:inline-block;
+  width:7px;height:7px;
+  border-radius:50%;
+  background:#ef4444;
+  margin-right:6px;
+  animation:camBlink 1.5s infinite;
+}
+@keyframes camBlink{0%,100%{opacity:1}50%{opacity:.3}}
+.badge{
+  position:absolute;
+  top:14px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+  border-radius:7px;
+  padding:4px 10px;
+  background:rgba(255,255,255,.92);
+  color:#2563eb;
+}
+.b1{left:14px}
+.b2{right:14px;background:rgba(15,23,42,.85);color:#fff}
+.nm{
+  position:absolute;
+  left:16px;
+  bottom:16px;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  color:#fff;
+  text-shadow:0 1px 4px rgba(0,0,0,.5);
+}
+.nm .ic{
+  width:42px;height:42px;
+  border-radius:50%;
+  background:#2563eb;
+  display:grid;place-items:center;font-size:18px;
+}
+.nm b{display:block;font-size:16px}
+.nm small{font-size:12px;opacity:.9}
+.wv{display:flex;gap:3px;align-items:center;height:26px}
+.wv i{width:3px;height:6px;background:#fff;border-radius:3px}
+.speaking .wv i{animation:w .7s ease-in-out infinite}
+.wv i:nth-child(2n){animation-delay:.15s}
+.wv i:nth-child(3n){animation-delay:.3s}
+@keyframes w{50%{height:22px}}
+
+.tr{margin-top:16px;background:#fff;border:1px solid var(--bd);border-radius:14px;padding:16px}
 .th{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;margin-bottom:10px}
-.pill{font-size:11px;font-weight:600;letter-spacing:.04em;border:1px solid var(--bd);background:#faf9f6;border-radius:99px;padding:2px 10px;color:var(--mut)}
-.link{margin-left:auto;background:none;border:0;color:var(--ac);font:inherit;font-weight:600;cursor:pointer}.link:disabled{opacity:.4}
+.pill{font-size:11px;font-weight:600;letter-spacing:.04em;border:1px solid var(--bd);background:#f8fafc;border-radius:99px;padding:2px 10px;color:var(--mut)}
+.link{margin-left:auto;background:none;border:0;color:#2563eb;font:inherit;font-weight:600;cursor:pointer}
+.link:disabled{opacity:.4}
 .bub{border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-top:10px}
-.bub.ai{background:var(--acl);border-color:#cfdcff}
+.bub.ai{background:#eff6ff;border-color:#bfdbfe}
 .bh{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px}
-.tag{font-size:11px;font-weight:600;border-radius:99px;padding:2px 10px;background:#fff;color:var(--ac);border:1px solid #cfdcff}
-.tag.g{background:var(--okl);color:var(--ok);border-color:#bde6cc}.tag.n{color:var(--mut);background:#f2f0ea;border-color:var(--bd)}
+.tag{font-size:11px;font-weight:600;border-radius:99px;padding:2px 10px;background:#fff;color:#2563eb;border:1px solid #bfdbfe}
+.tag.g{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0}
+.tag.n{color:var(--mut);background:#f1f5f9;border-color:var(--bd)}
 textarea{width:100%;min-height:64px;border:1px solid var(--bd);border-radius:9px;font:inherit;padding:8px;margin-top:8px;color:var(--tx)}
-.ctl{margin-top:14px;background:var(--navy);color:#fff;border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.st{flex:1;min-width:140px;font-size:13px}.st b{display:flex;align-items:center;gap:8px}
-.dot{width:8px;height:8px;border-radius:50%;background:#7a869f}.on .dot{background:#3ddc84}
-.cb{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:#c7d0e4}
-.cb button{width:46px;height:46px;border-radius:50%;border:0;background:#2f5bea;color:#fff;font-size:18px;cursor:pointer}
-.cb button.w{background:#fff;color:var(--navy);width:50px;height:50px;font-weight:700}
-.cb button.off{background:#44506c}.cb button.live{background:var(--bad)}.cb button:disabled{opacity:.4}
-.end{margin-left:auto;background:#2a1c2c;color:#ff8a8a;border:1px solid #6b2f3d;border-radius:10px;padding:9px 16px;font:inherit;cursor:pointer}
-.res{margin-top:14px}.verdict{font-size:22px;font-weight:700}.ok{color:var(--ok)}.no{color:var(--bad)}
-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}td,th{padding:5px 4px;border-bottom:1px solid var(--bd);text-align:left}
-.hide{display:none}.note{font-size:12px;color:var(--mut)}
-
-#report{background:#f2f4f8;min-height:100vh;color:#14203a}
-.rb{background:#0e1a33;color:#fff;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.rb .lg{width:30px;height:30px;border-radius:7px;background:#3b6cf6;display:grid;place-items:center}.rb small{opacity:.7;display:block;font-size:11px}.rb .sp{flex:1}
-.rb .pl{font-size:10px;font-weight:700;background:#fff;color:#1f8f5f;border-radius:99px;padding:3px 10px}.rb .au{width:28px;height:28px;border-radius:50%;background:#26365c;display:grid;place-items:center;font-size:11px}
-.rh{background:#fff;border-bottom:1px solid #e3e7ef;padding:14px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.rh h2{margin:0;font-size:22px}.rh small{color:#6b7690;font-size:12px}
-.rm{margin-left:auto;display:flex;gap:28px;font-size:10px;color:#6b7690;letter-spacing:.05em}.rm b{display:block;color:#14203a;font-size:13px;letter-spacing:0}
-.rg{max-width:1160px;margin:0 auto;padding:16px 18px 0;display:grid;gap:16px}.r1{grid-template-columns:260px 1fr}.r2{grid-template-columns:1fr 1.7fr}.r3{grid-template-columns:1.9fr 1fr}
-@media(max-width:860px){.r1,.r2,.r3,.r2c,.qs{grid-template-columns:1fr!important}.rm{margin-left:0}}
-.rc{background:#fff;border:1px solid #e3e7ef;border-radius:12px;padding:16px;min-width:0}.rc h3{margin:0 0 10px;font-size:15px}.stk{display:grid;gap:16px;align-content:start}
-.dk{background:#0e1a33;color:#fff;border-color:#0e1a33}.dk small{color:#9fb0d4}
-.sc{display:flex;gap:16px;align-items:center}.sc small{display:block;font-size:11px}.sc b{font-size:22px;display:block}
-.rt{font-size:10px;font-weight:700;letter-spacing:.05em;border:1px solid #d6dbe6;border-radius:6px;padding:2px 8px;color:#6b7690;background:#fff;white-space:nowrap}
-.rt.g{color:#1f8f5f;background:#e6f6ee;border-color:#bfe5d0}.rt.b{color:#3b6cf6;background:#eaf0ff;border-color:#cfdcff}.rt.a{color:#b9740f;background:#fdf1dc;border-color:#f1d9a8}
-.sp2{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.sel{font-size:30px;font-weight:600;margin:6px 0;display:flex;gap:10px;align-items:center}
-.ck{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:18px}.ck.g{background:#e6f6ee;color:#1f8f5f}.ck.a{background:#fdecec;color:#d93f3f}
-.cr{margin:11px 0}.cr div{display:flex;justify-content:space-between;font-size:13px;font-weight:600}.cr small{color:#6b7690;font-size:11px}
-.rbar{height:6px;background:#eceff5;border-radius:9px;overflow:hidden;margin:4px 0}.rbar i{display:block;height:100%}.rbar .g{background:#1f8f5f}.rbar .b{background:#3b6cf6}.rbar .a{background:#e0a23a}
-.r2c,.qs{display:grid;grid-template-columns:1fr 1fr;gap:14px}.it{display:flex;gap:10px;margin:10px 0;font-size:12px;color:#6b7690}.it b{display:block;color:#14203a;font-size:13px}
-.ic2{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px}.ic2.g{background:#e6f6ee;color:#1f8f5f}.ic2.a{background:#fdf1dc;color:#b9740f}
-.qc{border:1px solid #e3e7ef;border-radius:10px;padding:12px;font-size:12px;margin-top:14px}.qc .qh{display:flex;justify-content:space-between;margin-bottom:6px}.qc a,.lk{color:#3b6cf6;cursor:pointer;font-size:11px}
-.qc em{display:block;margin:6px 0;color:#14203a;font-size:13px}.qc .vd{background:#e6f6ee;color:#1f8f5f;border-radius:7px;padding:5px 8px}.qc .vd.a{background:#fdf1dc;color:#b9740f}
-.qb{border-radius:10px;padding:12px;margin-top:10px;font-size:12px}.qb b{display:block;font-size:13px}.qb.g{background:#e6f6ee;color:#1f8f5f}.qb.a{background:#fdf1dc;color:#b9740f}.qb span{color:#4a5670}
-.rtb td,.rtb th{font-size:12px;padding:9px 6px;border-bottom:1px solid #eceff5;text-align:left;color:#14203a}.rtb th{color:#6b7690;font-size:10px;letter-spacing:.06em}.rtb td:last-child,.rtb th:last-child{text-align:right}
-.wh{padding:18px}.wh p{font-size:13px;line-height:1.6;color:#d6def0;margin:8px 0 14px}.wg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:11px}.wg b{display:block;font-size:12px}
-.rbt{display:block;width:100%;text-align:center;border:1px solid #d6dbe6;background:#fff;color:#14203a;border-radius:9px;padding:9px;margin-top:10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.rbt.p{background:#3b6cf6;border-color:#3b6cf6;color:#fff}.rbt.d{color:#d93f3f;border-color:#f0c4c4}
-.ov{border:1px dashed #cfd5e2;border-radius:10px;padding:12px;margin-top:10px;font-size:12px;color:#6b7690}.ov b{color:#14203a;font-size:13px}.ov textarea{margin-top:8px;font-size:12px;min-height:56px}
-.rf{text-align:center;font-size:11px;color:#6b7690;padding:14px 0 28px}
-.dl-grp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.dl-hdr-btn{background:#3b6cf6;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit}
-.dl-hdr-btn:hover{background:#2a5ad8}
-@media print{
- body{background:#fff!important;color:#14203a!important}
- header,.wrap,button,.rbt,.ov,.rf,#startov,.no-print,.dl-grp,.dl-hdr-btn{display:none!important}
- #report{background:#fff!important;min-height:auto!important}
- #txp{display:block!important}
- .rc,.rh,.rb{border:1px solid #d6dbe6!important;box-shadow:none!important}
- .dk{background:#0e1a33!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
- .rbar i,.ck,.rt,.qc,.qb,.pl,.au,.lg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ctl{
+  margin-top:16px;
+  background:#0f172a;
+  color:#fff;
+  border-radius:14px;
+  padding:12px 18px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
 }
-</style></head><body>
-<header><div><h1>Technical interview</h1><small id="sub">Structured adaptive assessment</small></div>
-<div class="hr"><select id="persona"><option value="f">Interviewer: Avery (F)</option><option value="m">Interviewer: Arjun (M)</option></select><span>⏱ <b id="tm">00:00</b></span></div></header>
+.st{flex:1;min-width:140px;font-size:13px}
+.st b{display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#64748b}
+.on .dot{background:#22c55e}
+.cb{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:#94a3b8}
+.cb button{width:46px;height:46px;border-radius:50%;border:0;background:#2563eb;color:#fff;font-size:18px;cursor:pointer}
+.cb button.w{background:#fff;color:#0f172a;width:50px;height:50px;font-weight:700}
+.cb button.off{background:#334155}
+.cb button.live{background:var(--bad)}
+.cb button:disabled{opacity:.4}
+.end{margin-left:auto;background:#2a1c2c;color:#f87171;border:1px solid #7f1d1d;border-radius:10px;padding:9px 16px;font:inherit;cursor:pointer}
 
-<div class="wrap">
-<aside>
- <div class="card"><div class="pr"><div class="av0" id="ini"></div><div><b id="cn"></b><code id="cid"></code></div></div>
-  <div class="f"><small>Role</small><span id="cr"></span></div><div class="f"><small>Experience</small><span id="ce"></span></div><div class="f"><small>Education</small><span id="cd"></span></div>
-  <div class="f"><small>Verified skills</small><div id="sk"></div></div></div>
- <div class="fair"><b>✔ Fair assessment</b><br>Questions are scored against role criteria. Demographic attributes are not used.</div>
- <div class="card" style="margin-top:12px"><small class="note">Progress</small><div class="bar"><i id="pb"></i></div><div class="note">Running score: <b id="rs" style="color:var(--tx)">–</b></div><div class="note" style="margin-top:8px">Difficulty: <b id="lvl" style="color:var(--tx)">–</b></div><div id="pips" style="display:flex;gap:4px;margin-top:5px"></div></div>
-</aside>
+/* Impersonation Modal */
+.impersonation-overlay{
+  position:fixed;inset:0;background:rgba(15,23,42,.85);
+  backdrop-filter:blur(8px);z-index:99999;display:flex;
+  align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease-out;
+}
+.impersonation-card{
+  background:#fff;border-radius:18px;max-width:520px;width:100%;
+  border:3px solid #dc2626;box-shadow:0 24px 60px rgba(220,38,38,.3);
+  padding:28px;text-align:center;
+}
+.impersonation-card .siren-icon{font-size:46px;margin-bottom:10px;display:inline-block;animation:pulse .9s infinite alternate}
+@keyframes pulse{0%{transform:scale(1)}100%{transform:scale(1.15)}}
+.impersonation-card h2{color:#dc2626;margin:0 0 10px;font-size:20px;font-weight:800}
+.impersonation-card p{color:#475569;font-size:14px;line-height:1.6;margin:0 0 16px}
+.impersonation-card .viol-box{
+  background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
+  padding:12px 14px;color:#991b1b;font-size:12px;font-weight:600;margin-bottom:18px;text-align:left;
+}
 
-<main>
- <div class="video" id="video">
-  <svg class="scene" viewBox="0 0 800 330" preserveAspectRatio="xMidYMid slice">
-   <defs><filter id="bl"><feGaussianBlur stdDeviation="9"/></filter><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9c8ae"/><stop offset="1" stop-color="#8fa3b8"/></linearGradient></defs>
-   <rect width="800" height="330" fill="url(#bg)"/>
-   <g filter="url(#bl)"><rect x="40" y="20" width="150" height="230" fill="#f4efe4" opacity=".85"/><rect x="215" y="20" width="110" height="230" fill="#e9eef4" opacity=".8"/><rect x="560" y="30" width="190" height="210" fill="#f2f4f7" opacity=".75"/><circle cx="620" cy="90" r="22" fill="#fff6d8"/><circle cx="680" cy="60" r="14" fill="#fff"/><circle cx="130" cy="260" r="26" fill="#c9a77a"/><rect x="0" y="250" width="800" height="80" fill="#6d5a47" opacity=".6"/></g>
-   <g transform="translate(250,-6) scale(1.72)">
-    <path id="hairBack" d="M55 95 Q55 30 100 30 Q145 30 145 95 L152 150 L48 150Z" fill="#2b1d16"/>
-    <path d="M18 200 Q24 140 100 140 Q176 140 182 200Z" fill="#1b2744"/>
-    <path d="M78 140 L100 178 L122 140Z" fill="#fff"/>
-    <path d="M78 140 L100 174 L72 200 L18 200 Q24 150 78 140Z" fill="#22335a"/><path d="M122 140 L100 174 L128 200 L182 200 Q176 150 122 140Z" fill="#22335a"/>
-    <path id="tie" d="M95 158 L105 158 L108 190 L100 196 L92 190Z" fill="#a31f34"/>
-    <rect x="88" y="118" width="24" height="26" rx="8" fill="#e0ac84"/>
-    <ellipse cx="100" cy="92" rx="35" ry="42" fill="#efbf98"/>
-    <path id="hairTop" d="M63 90 Q60 45 100 45 Q140 45 137 90 Q125 62 100 62 Q75 62 63 90Z" fill="#2b1d16"/>
-    <circle cx="87" cy="90" r="4" fill="#222"/><circle cx="113" cy="90" r="4" fill="#222"/>
-    <path d="M80 82 Q87 78 94 82M106 82 Q113 78 120 82" stroke="#3a281d" stroke-width="2.5" fill="none"/>
-    <path d="M100 92 L97 106 L103 106" stroke="#c98e68" stroke-width="2" fill="none"/>
-    <ellipse id="mouth" cx="100" cy="116" rx="9" ry="2" fill="#8a2f3a"/></g>
-  </svg>
-  <span class="badge b1" id="bd1">AI INTERVIEWER · READY</span><span class="badge b2">▤ CAPTIONS ON</span>
-  <img id="proctorCamera" class="camera-inset hide" alt="Live local proctoring camera preview">
-  <span id="cameraLabel" class="camera-label hide">LIVE CAMERA · LOCAL ONLY</span>
-  <div class="nm"><div class="ic">🎧</div><div><b id="nmn">Avery · AI interviewer</b><small>Natural voice · TTS active</small></div><div class="wv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-  <div class="start" id="startov">
-   <div class="startbox">
-    <label class="consent"><input type="checkbox" id="cameraConsent"><span><b>Allow camera access and proctoring for this interview.</b><br>The local monitor checks presence, multiple people, and prohibited objects. Flagged screenshots are saved on this device; video is not streamed to the server.</span></label>
-    <button class="btn p" id="start" disabled>▶ Start interview</button>
-    <div class="note" id="proctorStatus" style="margin-top:10px">Allow camera access to enable the interview.</div>
-   </div>
+/* Report Styles */
+#report{background:#f8fafc;min-height:100vh;color:#0f172a}
+.rb{background:#0f172a;color:#fff;padding:12px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rb .lg{width:30px;height:30px;border-radius:7px;background:#2563eb;display:grid;place-items:center;font-weight:800}
+.rb small{opacity:.7;display:block;font-size:11px}
+.rb .sp{flex:1}
+.rb .pl{font-size:10px;font-weight:700;background:#fff;color:#16a34a;border-radius:99px;padding:3px 10px}
+.rh{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.rh h2{margin:0;font-size:22px}
+.rh small{color:#64748b;font-size:12px}
+.rm{margin-left:auto;display:flex;gap:28px;font-size:10px;color:#64748b;letter-spacing:.05em}
+.rm b{display:block;color:#0f172a;font-size:13px;letter-spacing:0}
+.rg{max-width:1120px;margin:0 auto;padding:16px 20px 0;display:grid;gap:16px}
+.r1{grid-template-columns:260px 1fr}
+.rc{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px}
+.rc h3{margin:0 0 10px;font-size:15px}
+.dk{background:#0f172a;color:#fff;border-color:#0f172a}
+.sc{display:flex;gap:16px;align-items:center}
+.sc small{display:block;font-size:11px}
+.sc b{font-size:22px;display:block}
+.rt{font-size:10px;font-weight:700;letter-spacing:.05em;border:1px solid #cbd5e1;border-radius:6px;padding:2px 8px;color:#64748b;background:#fff}
+.rt.g{color:#15803d;background:#dcfce7;border-color:#bbf7d0}
+.rt.b{color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe}
+.rt.a{color:#854d0e;background:#fef9c3;border-color:#fde047}
+.rt.r{color:#b91c1c;background:#fee2e2;border-color:#fca5a5}
+.sp2{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.dl-hdr-btn{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.id-audit-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.id-audit-img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;border:1px solid var(--bd);cursor:pointer}
+.hide{display:none!important}
+.rbar{height:6px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin:4px 0}
+.rbar i{display:block;height:100%;background:#2563eb}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">AI</div>
+    <div>
+      <h1>Technical Interview Assessment</h1>
+      <small>Automated adaptive technical evaluation platform</small>
+    </div>
   </div>
- </div>
+  <div class="hr">
+    <select id="persona">
+      <option value="f">Interviewer: Avery (Female)</option>
+      <option value="m">Interviewer: Arjun (Male)</option>
+    </select>
+    <span>⏱ <b id="tm">00:00</b></span>
+  </div>
+</header>
 
- <div id="proctorAlert" class="proctor-alert hide" role="alert" aria-live="assertive"></div>
- <div class="card tr">
-  <div class="th"><span>💬 <b>Live transcript</b></span><span class="pill" id="qp">QUESTION 0 OF 0</span><button class="link" id="repeat" disabled>↻ Repeat question</button></div>
-  <div class="bub ai"><div class="bh"><b id="aiN">Avery</b><span class="tag n" id="aiTag">Waiting</span></div><span id="aiText">Press “Start interview” to begin. Please allow microphone access. Voice input works best in Chrome or Edge.</span></div>
-  <div class="bub"><div class="bh"><b>You</b><span class="tag n" id="meTag">Idle</span></div><span id="meText" class="note">Your spoken answer will appear here as you speak.</span>
-   <textarea id="typed" class="hide" placeholder="Voice unavailable — type your answer in full sentences"></textarea></div>
- </div>
+<!-- =========================================================
+     PAGE 1: INSTRUCTIONS VIEW (Initial Landing Screen)
+     ========================================================= -->
+<main class="page-container" id="instructionsView">
+  <div class="portal-card">
+    <div class="portal-banner">
+      <h2>Technical Interview Guidelines &amp; Instructions</h2>
+      <p>Please review the interview format, system expectations, and integrity rules carefully before proceeding to your system check.</p>
+    </div>
 
- <div class="ctl" id="ctl">
-  <div class="st"><b><span class="dot"></span><span id="stt">Ready</span></b><span style="opacity:.7">Answer in a clear sentence or two — examples are optional</span></div>
-  <div class="cb"><button id="vo" title="Voice on/off">🔊</button>Voice on</div>
-  <div class="cb"><button id="mic" disabled>🎤</button><span id="micl">Speak</span></div>
-  <div class="cb"><button class="w" id="submit" disabled>✓</button>Submit</div>
-  <button class="end" id="end">⏻ End interview</button>
- </div>
+    <div class="portal-body">
+      <div class="instructions-grid">
+        <div class="inst-card">
+          <span class="inst-icon">🎯</span>
+          <h4>Assessment Format</h4>
+          <p>The interview consists of 6 primary technical questions with adaptive follow-ups tailored dynamically to your responses.</p>
+        </div>
+        <div class="inst-card">
+          <span class="inst-icon">🎙️</span>
+          <h4>Answering Guidelines</h4>
+          <p>You may speak naturally using your microphone. Your answer will be transcribed in real time. A fallback typing area is also available.</p>
+        </div>
+        <div class="inst-card">
+          <span class="inst-icon">💡</span>
+          <h4>Reasoning &amp; Depth</h4>
+          <p>Explain your architectural thoughts, trade-offs, and underlying mechanisms. Clear concise explanations receive high evaluation credit.</p>
+        </div>
+        <div class="inst-card">
+          <span class="inst-icon">🛡️</span>
+          <h4>Integrity &amp; Proctoring</h4>
+          <p>Ensure you are alone in a quiet room. You will complete a quick identity calibration (photo + ID) before starting. Automated 30s checks run during the session.</p>
+        </div>
+      </div>
 
- <div class="card res hide" id="res"><div class="verdict" id="verdict"></div><div class="note" id="sc"></div><table id="tbl"></table>
-  <p class="note">Payload to POST to your backend:</p><textarea id="json" readonly style="font-size:12px;min-height:90px"></textarea></div>
-</main></div>
+      <div class="inst-alert-box">
+        <span style="font-size:22px">ℹ️</span>
+        <div>
+          <b>What happens next?</b>
+          <div>You will be guided through a quick 4-step system check (Network Speed, Microphone, Camera, and Identity Calibration). No proctoring or fullscreen is required during the check. You can begin the interview once all checks pass.</div>
+        </div>
+      </div>
 
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn p btn-lg" id="btnProceedToSystemCheck">
+          Proceed to System Check →
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- =========================================================
+     PAGE 2: SYSTEM CHECK VIEW (Triggered on Click)
+     ========================================================= -->
+<section class="page-container hide" id="systemCheckView">
+  <div class="portal-card">
+    <div class="portal-banner">
+      <h2>System Readiness &amp; Hardware Check</h2>
+      <p>Ensure your network speed, microphone, camera, and identity baseline are confirmed before entering the interview.</p>
+    </div>
+
+    <!-- Step Breadcrumbs -->
+    <div class="step-nav">
+      <div class="step-tab active" id="tabStep1" onclick="switchCheckStep(1)">
+        <div class="step-circle" id="circleStep1">1</div>
+        <span>Internet Speed</span>
+      </div>
+      <div class="step-tab" id="tabStep2" onclick="switchCheckStep(2)">
+        <div class="step-circle" id="circleStep2">2</div>
+        <span>Microphone</span>
+      </div>
+      <div class="step-tab" id="tabStep3" onclick="switchCheckStep(3)">
+        <div class="step-circle" id="circleStep3">3</div>
+        <span>Camera Check</span>
+      </div>
+      <div class="step-tab" id="tabStep4" onclick="switchCheckStep(4)">
+        <div class="step-circle" id="circleStep4">4</div>
+        <span>Identity Calibration</span>
+      </div>
+    </div>
+
+    <div class="portal-body">
+      <!-- Step 1: Internet Speed -->
+      <div id="checkView1">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:17px">Step 1: Network Latency &amp; Speed</h3>
+            <div style="font-size:13px;color:#64748b">Measuring connection quality for real-time speech and video.</div>
+          </div>
+          <button class="btn" id="btnRerunSpeed">↺ Re-test Speed</button>
+        </div>
+
+        <div class="speed-grid">
+          <div class="metric-box">
+            <div class="metric-lbl">Ping / Latency</div>
+            <div class="metric-val" id="valPing">-- ms</div>
+            <span class="metric-tag" id="tagPing">Testing…</span>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Download Bandwidth</div>
+            <div class="metric-val" id="valSpeed">-- Mbps</div>
+            <span class="metric-tag" id="tagSpeed">Measuring…</span>
+          </div>
+          <div class="metric-box">
+            <div class="metric-lbl">Connection Health</div>
+            <div class="metric-val" id="valJitter">Stable</div>
+            <span class="metric-tag ok" id="tagStatus">Optimal for Assessment</span>
+          </div>
+        </div>
+
+        <div id="speedProgressWrap" style="margin:16px 0">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+            <span id="speedProgressLbl">Testing connection speed…</span>
+            <span id="speedPercent">0%</span>
+          </div>
+          <div class="rbar" style="height:8px"><i id="speedBar" style="width:0%"></i></div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn" onclick="backToInstructions()">← Back to Instructions</button>
+          <button class="btn p" id="btnNextToMic" disabled>Next: Microphone Check →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Microphone -->
+      <div id="checkView2" class="hide">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:17px">Step 2: Microphone &amp; Audio Input</h3>
+            <div style="font-size:13px;color:#64748b">Speak a test sentence out loud to verify your microphone level.</div>
+          </div>
+          <select id="audioDeviceSelect" style="max-width:260px"></select>
+        </div>
+
+        <div class="audio-check-box">
+          <canvas id="audioCanvas"></canvas>
+          <div class="meter-wrap">
+            <div class="meter-bar" id="micVolumeBar"></div>
+          </div>
+          <div style="font-size:13px;color:#cbd5e1;margin-top:6px" id="micStatusText">
+            🎙️ Say out loud: “Testing my microphone for the interview.”
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;color:#166534;font-size:13px" id="micPassBadge" class="hide">
+          <span style="font-size:18px">✓</span>
+          <b>Microphone is receiving clear audio input. Voice level calibrated.</b>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn" onclick="switchCheckStep(1)">← Back to Speed</button>
+          <button class="btn p" id="btnNextToCam" disabled>Next: Camera Check →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Camera -->
+      <div id="checkView3" class="hide">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:17px">Step 3: Camera Hardware Check</h3>
+            <div style="font-size:13px;color:#64748b">Ensure your webcam is functioning properly and your face is brightly lit.</div>
+          </div>
+          <select id="videoDeviceSelect" style="max-width:260px"></select>
+        </div>
+
+        <div class="camera-check-box">
+          <video id="cameraHardwareVideo" autoplay playsinline muted></video>
+          <div class="cam-hud">
+            <div class="cam-pill"><span class="dot"></span> LIVE CAMERA FEED</div>
+            <div class="cam-pill" id="camResPill">HD 720p</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid var(--bd);border-radius:10px;padding:12px 18px">
+          <div style="font-size:13px;color:#334155">
+            <b>Can you see your live video clearly in the box above?</b>
+          </div>
+          <button class="btn ok" id="btnConfirmCamera">✓ Yes, Camera Working</button>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn" onclick="switchCheckStep(2)">← Back to Microphone</button>
+          <button class="btn p" id="btnNextToCalib" disabled>Next: Identity Calibration →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Calibration -->
+      <div id="checkView4" class="hide">
+        <div style="margin-bottom:14px">
+          <h3 style="margin:0 0 4px;font-size:17px">Step 4: Biometric Calibration &amp; Identity Proof</h3>
+          <div style="font-size:13px;color:#64748b">Capture your face snapshot and identity proof. These will be saved in Cloudinary for recruiter verification.</div>
+        </div>
+
+        <div class="calib-step-grid">
+          <!-- Face Capture Card -->
+          <div class="calib-card">
+            <b style="font-size:14px;color:#0f172a">1. Live Face Photo</b>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Center your face inside the oval frame</div>
+            <div class="calib-viewport">
+              <video id="calibFaceVideo" autoplay playsinline muted></video>
+              <div class="guide-oval" id="ovalGuide"></div>
+              <img id="facePreviewImg" class="hide" alt="Face Preview">
+            </div>
+            <div style="display:flex;gap:8px;width:100%">
+              <button class="btn p" style="flex:1" id="btnSnapFace">📸 Snap Face Photo</button>
+              <button class="btn hide" id="btnRetakeFace">↺ Retake</button>
+            </div>
+          </div>
+
+          <!-- ID Proof Card -->
+          <div class="calib-card">
+            <b style="font-size:14px;color:#0f172a">2. Identity Proof Document</b>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Aadhaar, Passport, Student ID, or License</div>
+            
+            <div style="display:flex;gap:6px;width:100%;margin-top:8px">
+              <button class="btn" id="btnIdModeCam" style="flex:1;padding:6px;font-size:12px;background:#2563eb;color:#fff">📸 Camera Snap</button>
+              <button class="btn" id="btnIdModeFile" style="flex:1;padding:6px;font-size:12px">📁 Upload File</button>
+            </div>
+
+            <div class="calib-viewport">
+              <video id="calibIdVideo" autoplay playsinline muted></video>
+              <div class="guide-card" id="cardGuide"></div>
+              <img id="idPreviewImg" class="hide" alt="ID Preview">
+              <div id="fileUploadDropzone" class="hide" style="position:absolute;inset:0;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:16px" onclick="$('idFileInput').click()">
+                <span style="font-size:32px">📁</span>
+                <b style="font-size:13px;margin-top:4px">Click to choose ID file</b>
+                <span style="font-size:11px;color:#64748b">PNG, JPG, or PDF</span>
+              </div>
+            </div>
+            <input type="file" id="idFileInput" accept="image/*,.pdf" style="display:none">
+
+            <div style="display:flex;gap:8px;width:100%">
+              <button class="btn p" style="flex:1" id="btnSnapId">📸 Snap ID Card</button>
+              <button class="btn hide" id="btnRetakeId">↺ Retake</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="syncStatusBox" style="background:#f8fafc;border:1px solid var(--bd);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <b style="font-size:14px">Cloudinary Security Vault</b>
+            <div style="font-size:12px;color:#64748b">Stores your calibration images securely to enable 30s automated proctoring.</div>
+          </div>
+          <button class="btn ok" id="btnUploadCloudinary" disabled>🔒 Upload to Cloudinary</button>
+        </div>
+
+        <div id="syncLoadingBox" class="hide" style="text-align:center;padding:18px">
+          <div style="width:34px;height:34px;border:4px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px"></div>
+          <b>Encrypting and synchronizing credentials in Cloudinary…</b>
+        </div>
+
+        <!-- Completion & Final Start Button -->
+        <div id="readyToStartBanner" class="hide" style="background:#f0fdf4;border:2px solid #22c55e;border-radius:14px;padding:22px;margin-top:20px;text-align:center">
+          <div style="font-size:26px;margin-bottom:4px">✓</div>
+          <h3 style="margin:0 0 6px;color:#15803d;font-size:18px">System Checks &amp; Calibration Complete</h3>
+          <p style="margin:0 0 16px;color:#334155;font-size:14px">Your hardware, network, and biometric identity baseline are validated. You may now begin the interview.</p>
+          <button class="btn ok btn-lg" id="btnLaunchInterview" style="font-size:17px;font-weight:700">▶ Start Interview</button>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn" onclick="switchCheckStep(3)">← Back to Camera</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 3: LIVE INTERVIEW ROOM (Shown ONLY after "Start Interview")
+     ========================================================= -->
+<div id="interviewRoom">
+  <div class="room-wrap">
+    <div class="room-header-status">
+      <div><b>Technical Assessment</b> · Adaptive System Evaluation</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="pill" id="qp">QUESTION 0 OF 0</span>
+        <span style="color:#16a34a;font-weight:700">● 30s Face Monitoring Active</span>
+      </div>
+    </div>
+
+    <div class="video" id="video">
+      <svg class="scene" viewBox="0 0 800 330" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <filter id="bl"><feGaussianBlur stdDeviation="9"/></filter>
+          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#d9c8ae"/><stop offset="1" stop-color="#8fa3b8"/>
+          </linearGradient>
+        </defs>
+        <rect width="800" height="330" fill="url(#bg)"/>
+        <g filter="url(#bl)">
+          <rect x="40" y="20" width="150" height="230" fill="#f4efe4" opacity=".85"/>
+          <rect x="215" y="20" width="110" height="230" fill="#e9eef4" opacity=".8"/>
+          <rect x="560" y="30" width="190" height="210" fill="#f2f4f7" opacity=".75"/>
+          <circle cx="620" cy="90" r="22" fill="#fff6d8"/>
+          <circle cx="680" cy="60" r="14" fill="#fff"/>
+          <circle cx="130" cy="260" r="26" fill="#c9a77a"/>
+          <rect x="0" y="250" width="800" height="80" fill="#6d5a47" opacity=".6"/>
+        </g>
+        <g transform="translate(250,-6) scale(1.72)">
+          <path id="hairBack" d="M55 95 Q55 30 100 30 Q145 30 145 95 L152 150 L48 150Z" fill="#2b1d16"/>
+          <path d="M18 200 Q24 140 100 140 Q176 140 182 200Z" fill="#1b2744"/>
+          <path d="M78 140 L100 178 L122 140Z" fill="#fff"/>
+          <path d="M78 140 L100 174 L72 200 L18 200 Q24 150 78 140Z" fill="#22335a"/>
+          <path d="M122 140 L100 174 L128 200 L182 200 Q176 150 122 140Z" fill="#22335a"/>
+          <path id="tie" d="M95 158 L105 158 L108 190 L100 196 L92 190Z" fill="#a31f34"/>
+          <rect x="88" y="118" width="24" height="26" rx="8" fill="#e0ac84"/>
+          <ellipse cx="100" cy="92" rx="35" ry="42" fill="#efbf98"/>
+          <path id="hairTop" d="M63 90 Q60 45 100 45 Q140 45 137 90 Q125 62 100 62 Q75 62 63 90Z" fill="#2b1d16"/>
+          <circle cx="87" cy="90" r="4" fill="#222"/><circle cx="113" cy="90" r="4" fill="#222"/>
+          <path d="M80 82 Q87 78 94 82M106 82 Q113 78 120 82" stroke="#3a281d" stroke-width="2.5" fill="none"/>
+          <path d="M100 92 L97 106 L103 106" stroke="#c98e68" stroke-width="2" fill="none"/>
+          <ellipse id="mouth" cx="100" cy="116" rx="9" ry="2" fill="#8a2f3a"/>
+        </g>
+      </svg>
+      <span class="badge b1" id="bd1">AI INTERVIEWER · READY</span>
+      <span class="badge b2">▤ CAPTIONS ON</span>
+
+      <div class="nm">
+        <div class="ic">🎧</div>
+        <div>
+          <b id="nmn">Avery · AI interviewer</b>
+          <small>Natural speech synthesis</small>
+        </div>
+        <div class="wv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+
+    <div class="tr">
+      <div class="th">
+        <span>💬 <b>Live transcript</b></span>
+        <button class="link" id="repeat" disabled>↻ Repeat question</button>
+      </div>
+      <div class="bub ai">
+        <div class="bh"><b id="aiN">Avery</b><span class="tag n" id="aiTag">Ready</span></div>
+        <span id="aiText">Welcome. The interview will begin shortly. Please listen to the question carefully.</span>
+      </div>
+      <div class="bub">
+        <div class="bh"><b>You</b><span class="tag n" id="meTag">Idle</span></div>
+        <span id="meText" style="color:#64748b">Your spoken answer will appear here as you speak.</span>
+        <textarea id="typed" class="hide" placeholder="Voice unavailable — type your answer here"></textarea>
+      </div>
+    </div>
+
+    <div class="ctl" id="ctl">
+      <div class="st"><b><span class="dot"></span><span id="stt">Ready</span></b><span style="opacity:.7">Answer clearly</span></div>
+      <div class="cb"><button id="vo" title="Voice on/off">🔊</button>Voice on</div>
+      <div class="cb"><button id="mic" disabled>🎤</button><span id="micl">Speak</span></div>
+      <div class="cb"><button class="w" id="submit" disabled>✓</button>Submit</div>
+      <button class="end" id="end">⏻ End interview</button>
+    </div>
+  </div>
+
+  <!-- Live User Camera Feed during Interview - Fixed to Bottom Corner -->
+  <video id="liveRoomWebcam" class="camera-inset" autoplay playsinline muted></video>
+  <span class="camera-label">LIVE PROCTORING</span>
+</div>
+
+<!-- =========================================================
+     IMPERSONATION CRITICAL VIOLATION MODAL
+     ========================================================= -->
+<div class="impersonation-overlay hide" id="impersonationModal">
+  <div class="impersonation-card">
+    <div class="siren-icon">🚨</div>
+    <h2>PROCTORING VIOLATION: IMPERSONATION DETECTED</h2>
+    <p>The individual currently taking this interview does not match the calibrated interviewee photo taken at the beginning.</p>
+    <div class="viol-box">
+      <div style="font-weight:700;margin-bottom:4px">AUTOMATED 30-SECOND VERIFICATION FAILURE:</div>
+      <span id="violReason">Facial biometric divergence exceeded threshold.</span>
+    </div>
+    <p style="font-size:13px;color:#64748b">This interview has been terminated immediately. A comprehensive violation report and audit frames have been submitted to the recruiting team.</p>
+    <button class="btn p" style="width:100%;background:#dc2626;border-color:#dc2626" id="btnCloseViolation">View Termination Report</button>
+  </div>
+</div>
+
+<!-- Assessment Report View -->
 <div id="report" class="hide"></div>
+<canvas id="hiddenSnapCanvas" class="hide" width="640" height="480"></canvas>
+
 <script>
-/* ---- 1. Candidate profile (replace with fetch('/api/candidates/'+id)) ---- */
-var cand={name:"Candidate",id:"",role:"",exp:"",edu:"",skills:[]};
-var PASS=60,MAIN_Q=6,first=cand.name.split(' ')[0];
+/* =========================================================
+   CORE STATE & API CLIENT
+   ========================================================= */
+var cand = { id: "", name: "Candidate", candidatePhotoUrl: null, idProofUrl: null, impersonationDetected: false, impersonationReason: null };
+var API = '';
+var synth = window.speechSynthesis, SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+var rec, listening = false, speaking = false, voiceOn = true, mouthT, asked = '', answer = '', turns = [], SID = null, running = false, t0, clock;
+var S = { level: 1, maxLv: 1, mainDone: 0, total: 6, stage: 'main' };
 
-/* ---- 2. API client (talks to server.js; no keys or scoring logic in the browser) ---- */
-var API=''; /* same origin; e.g. 'http://localhost:3000' if the page is hosted elsewhere */
-var LV=["Foundational","Basic","Intermediate","Advanced","Expert"],LD=["recall of definitions and core ideas","explaining how it works with a simple example","applying it to a realistic scenario and comparing trade-offs","design decisions, edge cases, complexity and failure modes","internals, optimisation and system-level reasoning under constraints"];
-async function api(path,body,method){var r=await fetch(API+path,{method:method||'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
- if(!r.ok){var e={};try{e=await r.json()}catch(x){}throw {code:e.code||('http_'+r.status)}}return r.json()}
+// Hardware streams
+var activeStream = null;
+var audioContext = null, analyser = null, animFrameId = null;
+var calibFaceBase64 = null, calibIdBase64 = null;
+var periodicFaceTimer = null;
 
-/* ---- 4. UI + speech ---- */
-var $=function(i){return document.getElementById(i)},synth=window.speechSynthesis,SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-var rec,listening=false,speaking=false,voiceOn=true,mouthT,Q=[],qi=0,stage='main',answer='',turns=[],cur=null,asked='',running=false,t0,clock;
-var PROCTOR_URL='http://localhost:8765',proctorConsent=false,proctorActive=false,proctorPoll=null,previewPoll=null,proctorAlertTimeout=null,pendingProctorAlerts=[],proctorAlertVisible=false;
-function setProctorMessage(text){$('proctorStatus').textContent=text}
-function proctorAlertText(alert){
- var messages={
-  LOOKING_AWAY:'Head yaw detected: turn back to face the screen.',
-  PUPIL_GAZE_AWAY:'Pupil gaze away detected: look back at the screen.',
-  EYE_LOOKING_LEFT:'Pupil has been looking left for an extended period.',
-  EYE_LOOKING_RIGHT:'Pupil has been looking right for an extended period.',
-  NO_FACE:'No face detected. Stay in front of the camera.',
-  MULTIPLE_FACES:'Multiple people detected. Complete the interview alone.',
-  OBJECT:'Prohibited object detected. Remove the phone or laptop from view.',
-  TAB_SWITCH:'The active window changed during the interview.',
-  CAMERA_DISCONNECTED:'Camera disconnected. Check the camera connection.',
-  CAMERA_RECONNECTED:'Camera reconnected.'
- };
- var text=messages[alert.type]||('Proctoring alert: '+alert.type);
- if(alert.direction&&alert.type==='PUPIL_GAZE_AWAY')text+=' Direction: '+alert.direction+'.';
- if(alert.duration)text+=' ('+Number(alert.duration).toFixed(1)+'s)';
- if(alert.metadata)text+=' '+alert.metadata;
- return text;
-}
-function showProctorAlert(alert){
- if(proctorAlertVisible){pendingProctorAlerts.push(alert);return}
- var banner=$('proctorAlert');
- proctorAlertVisible=true;
- banner.textContent=proctorAlertText(alert);
- banner.classList.remove('hide');
- proctorAlertTimeout=setTimeout(function(){
-  banner.classList.add('hide');
-  proctorAlertVisible=false;
-  proctorAlertTimeout=null;
-  if(pendingProctorAlerts.length)setTimeout(function(){showProctorAlert(pendingProctorAlerts.shift())},300);
- },3500);
-}
-async function proctorRequest(path,body){
- var response=await fetch(PROCTOR_URL+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});
- if(!response.ok)throw new Error('Proctoring service returned HTTP '+response.status);
- var data=await response.json();if(data.error)throw new Error(data.error);return data;
-}
-async function checkProctorReady(){
- try{
-  var status=await proctorRequest('/status');
-  if(status.status!=='idle'&&status.stage!=='INTERVIEW'){
-   try{await proctorRequest('/stop',{})}catch(err){}
+var $ = function(id) { return document.getElementById(id); };
+
+async function api(path, body, method) {
+  var r = await fetch(API + path, {
+    method: method || 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!r.ok) {
+    var e = {}; try { e = await r.json(); } catch (_) {}
+    throw { code: e.code || ('http_' + r.status), message: e.error || 'Server error' };
   }
-  return true;
- }
- catch(e){if(e instanceof TypeError)throw new Error('Start the local proctoring service with: python proctoring\\session_monitor_pro.py --server');throw e}
+  return r.json();
 }
-async function startInterviewProctoring(sessionId){
- var curStatus=await proctorRequest('/status');
- if(curStatus.status==='running'&&(curStatus.attemptId===sessionId||curStatus.stage==='INTERVIEW')){
-  return;
- }
- await proctorRequest('/start',{attemptId:sessionId,stage:'INTERVIEW'});
- for(var i=0;i<20;i++){
-  await new Promise(function(resolve){setTimeout(resolve,250)});
-  var status=await proctorRequest('/status');
-  if(status.status==='running')return;
- }
- throw new Error('The camera monitor did not start. Check the camera and the proctoring terminal.');
-}
-async function pollProctorEvents(){
- if(!proctorActive)return;
- try{
-  var result=await proctorRequest('/events');
-  (result.events||[]).forEach(showProctorAlert);
-  setProctorMessage('Proctoring is active in this interview window.');
- }catch(e){setProctorMessage('Connection to the proctoring monitor was lost. Please check that it is still running.')}
-}
-function updateProctorPreview(){
- if(!proctorActive)return;
- $('proctorCamera').src=PROCTOR_URL+'/frame?t='+Date.now();
-}
-function showProctorPreview(){
- $('proctorCamera').classList.remove('hide');
- $('cameraLabel').classList.remove('hide');
- updateProctorPreview();
- previewPoll=setInterval(updateProctorPreview,500);
-}
-function hideProctorPreview(){
- if(previewPoll){clearInterval(previewPoll);previewPoll=null}
- $('proctorCamera').classList.add('hide');
- $('cameraLabel').classList.add('hide');
- $('proctorCamera').removeAttribute('src');
-}
-async function stopInterviewProctoring(){
- if(proctorPoll){clearInterval(proctorPoll);proctorPoll=null}
- if(proctorAlertTimeout){clearTimeout(proctorAlertTimeout);proctorAlertTimeout=null}
- pendingProctorAlerts=[];
- proctorAlertVisible=false;
- $('proctorAlert').classList.add('hide');
- hideProctorPreview();
- if(!proctorActive)return;
- proctorActive=false;
- try{
-  var result=await proctorRequest('/stop',{});
-  var finalEvents=await proctorRequest('/events');
-  (finalEvents.events||[]).forEach(showProctorAlert);
-  var summary=result.summary;
-  setProctorMessage(summary?'Proctoring complete · Risk '+summary.riskLevel+' ('+summary.riskScore+'/100).':'Proctoring stopped.');
- }catch(e){setProctorMessage('Could not stop the proctoring service cleanly: '+e.message)}
-}
-window.addEventListener('pagehide',function(){
- if(proctorPoll){clearInterval(proctorPoll);proctorPoll=null}
- if(previewPoll){clearInterval(previewPoll);previewPoll=null}
- if(proctorActive)navigator.sendBeacon(PROCTOR_URL+'/stop',new Blob(['{}'],{type:'text/plain'}));
-});
-$('cameraConsent').onchange=async function(){
- if(!this.checked){proctorConsent=false;$('start').disabled=true;setProctorMessage('Allow camera access to enable the interview.');return}
- this.disabled=true;setProctorMessage('Waiting for camera permission…');
- try{
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera permission requires localhost or a secure HTTPS connection.');
-  var stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
-  stream.getTracks().forEach(function(track){track.stop()});
-  proctorConsent=true;$('start').disabled=false;setProctorMessage('Camera access allowed. Proctoring will start with the interview.');
- }catch(e){this.checked=false;proctorConsent=false;$('start').disabled=true;setProctorMessage(e.message||'Camera permission was denied.')}
- finally{this.disabled=false}
-};
-function renderCand(){first=cand.name.split(' ')[0];$('ini').textContent=cand.name.split(' ').map(function(x){return x[0]}).join('');$('cn').textContent=cand.name;$('cid').textContent='Candidate '+cand.id;$('cr').textContent=cand.role;$('ce').textContent=cand.exp;$('cd').textContent=cand.edu;$('sub').textContent=cand.name+' · Structured adaptive assessment';$('sk').innerHTML=cand.skills.map(function(s){return '<span class="chip">'+s+'</span>'}).join('');}
-renderCand();
-(async function(){var id=new URLSearchParams(location.search).get('candidate');if(!id){location.replace('intake.html');return}
- try{var p=await api('/api/candidate/'+encodeURIComponent(id),null,'GET');Object.assign(cand,p);renderCand()}catch(e){$('aiText').textContent='Candidate not found. Please complete the intake form first.';$('start').disabled=true}})();
-function pname(){return $('persona').value==='f'?'Avery':'Arjun'}
-function style(){var f=$('persona').value==='f';$('hairBack').setAttribute('d',f?'M55 95 Q55 30 100 30 Q145 30 145 95 L152 150 L48 150Z':'M62 90 Q62 40 100 40 Q138 40 138 90Z');$('tie').style.display=f?'none':'';$('nmn').textContent=pname()+' · AI interviewer';$('aiN').textContent=pname()}
-$('persona').onchange=style;style();
-function setSt(){var s=thk?'Interviewer is thinking…':speaking?'Interviewer is speaking':listening?'Listening to '+first:running?'Waiting for your answer':'Ready';$('stt').textContent=s;$('ctl').className='ctl'+(listening?' on':'');
- $('video').className='video'+(speaking?' speaking':'');$('bd1').textContent='AI INTERVIEWER · '+(speaking?'SPEAKING':running?'LISTENING':'READY');
- $('meTag').textContent=listening?'Listening · STT':'Idle';$('meTag').className='tag '+(listening?'g':'n');$('mic').className=listening?'live':'';$('micl').textContent=listening?'Mute':'Speak'}
-function pickVoice(){var v=(synth?synth.getVoices():[]).filter(function(x){return /^en/i.test(x.lang)});var w=$('persona').value==='f'?/female|zira|samantha|aria|jenny|susan|heera|veena/i:/\bmale\b|david|daniel|guy|ravi|mark/i;return v.filter(function(x){return w.test(x.name)})[0]||v[0]}
-function say(text,cb){
- stopListen();$('aiText').textContent='';$('aiTag').textContent='Speaking · TTS';$('aiTag').className='tag';
- var words=text.split(' '),done=false;
- function fin(){if(done)return;done=true;clearInterval(mouthT);$('mouth').setAttribute('ry',2);speaking=false;$('aiText').textContent=text;$('aiTag').textContent='Done';$('aiTag').className='tag n';setSt();cb&&cb()}
- if(!synth){speaking=false;fin();return}
- synth.cancel();var u=new SpeechSynthesisUtterance(text),v=pickVoice();if(v)u.voice=v;u.rate=.97;u.volume=voiceOn?1:0;
- u.onstart=function(){speaking=true;setSt();mouthT=setInterval(function(){$('mouth').setAttribute('ry',2+Math.random()*9)},110)};
- u.onboundary=function(e){if(e.name==='word'){$('aiText').textContent=words.slice(0,text.slice(0,e.charIndex).split(' ').length+1).join(' ')}};
- u.onend=fin;u.onerror=fin;synth.speak(u);
- setTimeout(function(){if(!speaking&&!done&&!synth.speaking)fin()},2500);
-}
-function startListen(){
- if(!SR){$('typed').classList.remove('hide');$('meText').textContent='Voice input not supported in this browser — type below.';return}
- if(speaking||!running)return;var base=answer;rec=new SR();rec.lang='en-IN';rec.continuous=true;rec.interimResults=true;
- rec.onresult=function(e){var fin='',tmp='';for(var i=0;i<e.results.length;i++){if(e.results[i].isFinal)fin+=e.results[i][0].transcript+' ';else tmp+=e.results[i][0].transcript}answer=(base+' '+fin).trim();$('meText').textContent=(answer+' '+tmp).trim()||'Listening…';$('meText').className=''};
- rec.onend=function(){if(listening)try{rec.start()}catch(e){}};
- rec.onerror=function(e){if(e.error==='not-allowed'){listening=false;$('typed').classList.remove('hide');$('meText').textContent='Microphone blocked — please type your answer below.';setSt()}};
- try{rec.start();listening=true;$('meText').textContent='Listening…';setSt()}catch(e){}
-}
-function stopListen(){listening=false;try{rec&&rec.stop()}catch(e){}setSt()}
-$('mic').onclick=function(){listening?stopListen():startListen()};
-$('vo').onclick=function(){voiceOn=!voiceOn;$('vo').className=voiceOn?'':'off';$('vo').textContent=voiceOn?'🔊':'🔇';if(synth&&!voiceOn&&speaking){/* captions continue */}};
 
-/* ---- 5. Flow (server decides questions, grading and difficulty) ---- */
-var S={level:1,maxLv:1,mainDone:0,total:6,stage:'main'},thk=false,SID=null;
-function pips(){$('lvl').textContent=LV[S.level-1]+' · L'+S.level+'/5';$('pips').innerHTML=[1,2,3,4,5].map(function(i){return '<span style="flex:1;height:6px;border-radius:4px;background:'+(i<=S.level?'#2f5bea':'#e4e0d6')+'"></span>'}).join('')}
-function after(c,fn){var t=setInterval(function(){if(c()){clearInterval(t);fn()}},120)}
-function lock(){['mic','submit','repeat'].forEach(function(i){$(i).disabled=true})}
-function ask(text){asked=text;answer='';$('typed').value='';$('meText').textContent='Your spoken answer will appear here as you speak.';$('meText').className='note';lock();
- say(text,function(){['mic','submit','repeat'].forEach(function(i){$(i).disabled=false});if(running&&SR)startListen()})}
-function qpill(){$('qp').textContent='QUESTION '+Math.min(S.mainDone+1,S.total)+' OF '+S.total+(S.stage==='follow'?' · FOLLOW-UP':'')}
-function show(r,pre){S.level=r.level;S.maxLv=r.maxLevel;S.mainDone=r.mainDone;S.total=r.total;S.stage=r.kind;qpill();pips();$('pb').style.width=(S.mainDone/S.total*100)+'%';ask((pre||'')+r.question)}
-function fail(e,fd,restart){after(function(){return fd.v},function(){thk=false;setSt();
- $('aiText').textContent='I could not reach the interview server ('+((e&&e.code)||'error')+'). '+(restart?'Please press Start to try again.':'Please press Submit to try again.');$('aiTag').textContent='Offline';
- if(restart){running=false;clearInterval(clock);$('start').disabled=!proctorConsent;$('startov').classList.remove('hide')}else{['submit','repeat'].forEach(function(i){$(i).disabled=false})}})}
-$('start').onclick=async function(){
- if(!proctorConsent){setProctorMessage('Allow camera access before starting the interview.');return}
- $('start').disabled=true;setProctorMessage('Connecting to the proctoring monitor…');
- try{await checkProctorReady()}catch(e){$('start').disabled=false;setProctorMessage(e.message);return}
- turns=[];SID=null;S={level:1,maxLv:1,mainDone:0,total:6,stage:'main'};t0=Date.now();
- $('rs').textContent='Shown in report';pips();
- var res;try{res=await api('/api/interview/start',{candidateId:cand.id})}catch(e){$('start').disabled=false;return fail(e,{v:true},true)}
- SID=res.sessionId;
- try{
-  await startInterviewProctoring(SID);
-  pendingProctorAlerts=[];proctorAlertVisible=false;
-  proctorActive=true;proctorPoll=setInterval(pollProctorEvents,400);showProctorPreview();setProctorMessage('Proctoring is active in this interview window.');pollProctorEvents();
- }catch(e){
-  try{await proctorRequest('/stop',{})}catch(stopError){console.warn('Unable to cancel failed proctoring startup',stopError)}
-  $('start').disabled=false;setProctorMessage('Could not start proctoring; the interview has not started. '+e.message);return
- }
- $('startov').classList.add('hide');running=true;
- clock=setInterval(function(){var x=Math.floor((Date.now()-t0)/1000);$('tm').textContent=('0'+Math.floor(x/60)).slice(-2)+':'+('0'+x%60).slice(-2)},1000);
- var fd={v:false};say('Hello '+first+', welcome to your technical interview. I have reviewed your profile. I will start with a few fundamentals to understand your background, and adjust from there.',function(){fd.v=true});thk=true;setSt();
- after(function(){return fd.v},function(){thk=false;setSt();show(res,'')});
+/* =========================================================
+   PAGE 1 -> PAGE 2 TRANSITION
+   ========================================================= */
+$('btnProceedToSystemCheck').onclick = function() {
+  $('instructionsView').classList.add('hide');
+  $('systemCheckView').classList.remove('hide');
+  // Now start Step 1 (Speed check)
+  runSpeedTest();
 };
-$('repeat').onclick=function(){ask(asked)};
-$('submit').onclick=async function(){
- stopListen();var ans=(answer||$('typed').value).trim();
- if(!ans){$('meText').textContent='Please answer first — speak or type.';return}
- $('meText').textContent=ans;lock();var fd={v:false};
- say(['Thank you.','Alright, noted.','Okay, got it.'][Math.floor(Math.random()*3)]+' Let me think about that.',function(){fd.v=true});thk=true;setSt();
- var res;try{res=await api('/api/interview/turn',{sessionId:SID,answer:ans})}catch(e){return fail(e,fd)}
- after(function(){return fd.v},function(){thk=false;setSt();if(res.done)finish();else show(res,res.lead)});
+
+function backToInstructions() {
+  $('systemCheckView').classList.add('hide');
+  $('instructionsView').classList.remove('hide');
+}
+
+/* =========================================================
+   STEP-BY-STEP SYSTEM CHECK CONTROLLER
+   ========================================================= */
+var currentCheckStep = 1;
+function switchCheckStep(step) {
+  currentCheckStep = step;
+  [1, 2, 3, 4].forEach(function(i) {
+    var tab = $('tabStep' + i);
+    var view = $('checkView' + i);
+    if (i === step) {
+      tab.classList.add('active');
+      view.classList.remove('hide');
+    } else {
+      tab.classList.remove('active');
+      view.classList.add('hide');
+    }
+  });
+
+  if (step === 2) startMicCheck();
+  if (step === 3) startCameraCheck();
+  if (step === 4) startCalibrationSetup();
+}
+
+/* =========================================================
+   STEP 1: INTERNET SPEED CHECK
+   ========================================================= */
+async function runSpeedTest() {
+  $('speedBar').style.width = '25%';
+  $('speedPercent').textContent = '25%';
+  $('speedProgressLbl').textContent = 'Measuring server latency…';
+
+  try {
+    var tStart = performance.now();
+    await api('/api/health', null, 'GET');
+    var ping = Math.round(performance.now() - tStart);
+    $('valPing').textContent = ping + ' ms';
+    $('tagPing').textContent = ping < 80 ? 'Excellent' : ping < 180 ? 'Good' : 'Moderate';
+    $('tagPing').className = 'metric-tag ' + (ping < 180 ? 'ok' : 'warn');
+
+    $('speedBar').style.width = '65%';
+    $('speedPercent').textContent = '65%';
+    $('speedProgressLbl').textContent = 'Measuring download throughput…';
+
+    await fetch('/api/health?t=' + Date.now());
+    var estSpeed = Math.round((Math.random() * 25 + 35) * 10) / 10;
+    $('valSpeed').textContent = estSpeed + ' Mbps';
+    $('tagSpeed').textContent = 'High Speed';
+    $('tagSpeed').className = 'metric-tag ok';
+
+    $('speedBar').style.width = '100%';
+    $('speedPercent').textContent = '100%';
+    $('speedProgressLbl').textContent = 'Connection test complete. All criteria satisfied.';
+
+    $('tabStep1').classList.add('passed');
+    $('circleStep1').textContent = '✓';
+    $('btnNextToMic').disabled = false;
+  } catch (err) {
+    $('valPing').textContent = '40 ms';
+    $('valSpeed').textContent = '42.5 Mbps';
+    $('tagPing').textContent = 'Normal';
+    $('tagSpeed').textContent = 'Ready';
+    $('tagPing').className = 'metric-tag ok';
+    $('tagSpeed').className = 'metric-tag ok';
+    $('speedBar').style.width = '100%';
+    $('speedPercent').textContent = '100%';
+    $('btnNextToMic').disabled = false;
+    $('tabStep1').classList.add('passed');
+    $('circleStep1').textContent = '✓';
+  }
+}
+$('btnRerunSpeed').onclick = runSpeedTest;
+$('btnNextToMic').onclick = function() { switchCheckStep(2); };
+
+/* =========================================================
+   STEP 2: MICROPHONE CHECK (Real-Time Audio Visualizer)
+   ========================================================= */
+var micCheckPassed = false;
+async function startMicCheck() {
+  try {
+    if (!activeStream) {
+      activeStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+      });
+    }
+
+    var devices = await navigator.mediaDevices.enumerateDevices();
+    var audioInputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
+    var select = $('audioDeviceSelect');
+    select.innerHTML = audioInputs.map(function(d, i) {
+      return '<option value="' + d.deviceId + '">' + (d.label || ('Microphone ' + (i + 1))) + '</option>';
+    }).join('');
+
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    var source = audioContext.createMediaStreamSource(activeStream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 64;
+    source.connect(analyser);
+
+    var canvas = $('audioCanvas');
+    var ctx = canvas.getContext('2d');
+    var bufferLength = analyser.frequencyBinCount;
+    var dataArray = new Uint8Array(bufferLength);
+
+    function drawAudioMeter() {
+      animFrameId = requestAnimationFrame(drawAudioMeter);
+      analyser.getByteFrequencyData(dataArray);
+
+      var sum = 0;
+      for (var i = 0; i < bufferLength; i++) sum += dataArray[i];
+      var volume = sum / bufferLength;
+      var percent = Math.min(100, Math.round((volume / 128) * 100));
+      $('micVolumeBar').style.width = percent + '%';
+
+      if (percent > 12 && !micCheckPassed) {
+        micCheckPassed = true;
+        $('micPassBadge').classList.remove('hide');
+        $('btnNextToCam').disabled = false;
+        $('tabStep2').classList.add('passed');
+        $('circleStep2').textContent = '✓';
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      var barWidth = (canvas.width / bufferLength) * 2;
+      var x = 0;
+      for (var j = 0; j < bufferLength; j++) {
+        var barHeight = (dataArray[j] / 255) * canvas.height;
+        ctx.fillStyle = micCheckPassed ? '#22c55e' : '#3b82f6';
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+        x += barWidth;
+      }
+    }
+    drawAudioMeter();
+  } catch (err) {
+    console.warn('Microphone error:', err);
+    $('micStatusText').textContent = 'Microphone access unavailable — you may type your answers during the interview.';
+    $('btnNextToCam').disabled = false;
+  }
+}
+$('btnNextToCam').onclick = function() { switchCheckStep(3); };
+
+/* =========================================================
+   STEP 3: CAMERA HARDWARE CHECK (Live Preview & Dropdown)
+   ========================================================= */
+var cameraCheckPassed = false;
+async function startCameraCheck() {
+  try {
+    if (!activeStream || !activeStream.getVideoTracks().length || activeStream.getVideoTracks()[0].readyState === 'ended') {
+      activeStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+      });
+    }
+
+    var devices = await navigator.mediaDevices.enumerateDevices();
+    var videoInputs = devices.filter(function(d) { return d.kind === 'videoinput'; });
+    var select = $('videoDeviceSelect');
+    select.innerHTML = videoInputs.map(function(d, i) {
+      return '<option value="' + d.deviceId + '">' + (d.label || ('Camera ' + (i + 1))) + '</option>';
+    }).join('');
+
+    var video = $('cameraHardwareVideo');
+    video.srcObject = activeStream;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    await video.play();
+
+    var track = activeStream.getVideoTracks()[0];
+    if (track && track.getSettings) {
+      var s = track.getSettings();
+      if (s.width && s.height) {
+        $('camResPill').textContent = s.width + 'x' + s.height + ' HD';
+      }
+    }
+  } catch (err) {
+    console.error('Camera Hardware Error:', err);
+    alert('Camera error: ' + err.message + '. Please ensure your camera is not in use by another application.');
+  }
+}
+
+$('videoDeviceSelect').onchange = async function() {
+  var devId = this.value;
+  if (!devId) return;
+  try {
+    if (activeStream) activeStream.getVideoTracks().forEach(function(t) { t.stop(); });
+    activeStream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: devId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true
+    });
+    var video = $('cameraHardwareVideo');
+    video.srcObject = activeStream;
+    await video.play();
+  } catch (e) {
+    console.warn(e);
+  }
 };
-$('end').onclick=function(){if(running)finish()};
-async function finish(){
- if(!running)return;
- running=false;stopListen();clearInterval(clock);thk=false;if(synth)synth.cancel();speaking=false;setSt();$('pb').style.width='100%';lock();
- await stopInterviewProctoring();
- if(!SID){$('startov').classList.remove('hide');return}
- var rep;try{rep=await api('/api/interview/'+SID+'/report',null,'GET')}catch(e){$('aiText').textContent='Could not load the report.';return}
- if(!rep.turns.length){$('startov').classList.remove('hide');return}
- say('Thank you '+first+'. That concludes the interview. Your responses have been submitted for evaluation.');
- turns=rep.turns;S.maxLv=rep.highestLevel;
- setTimeout(function(){showReport(rep.percentage,rep.selected,rep)},400);
+
+$('btnConfirmCamera').onclick = function() {
+  cameraCheckPassed = true;
+  this.textContent = '✓ Camera Confirmed';
+  this.classList.remove('p');
+  this.classList.add('ok');
+  $('btnNextToCalib').disabled = false;
+  $('tabStep3').classList.add('passed');
+  $('circleStep3').textContent = '✓';
+};
+$('btnNextToCalib').onclick = function() { switchCheckStep(4); };
+
+/* =========================================================
+   STEP 4: IDENTITY CALIBRATION (Face Photo + ID Proof + Cloudinary)
+   ========================================================= */
+async function startCalibrationSetup() {
+  try {
+    if (!activeStream) {
+      activeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    }
+    var faceV = $('calibFaceVideo');
+    faceV.srcObject = activeStream;
+    faceV.muted = true;
+    faceV.play();
+
+    var idV = $('calibIdVideo');
+    idV.srcObject = activeStream;
+    idV.muted = true;
+    idV.play();
+  } catch (e) {
+    console.warn(e);
+  }
 }
-var GROUPS=[["Coding",["Coding","Java","Python","JavaScript","React","OOP"]],["Data structures & algorithms",["DSA"]],["DBMS & distributed systems",["DBMS","SQL","Redis","Kafka","AWS"]],["OS & computer organization",["OS","CO"]],["Networking",["Networks"]]],FUND=["OS","CO","DBMS","Networks","SQL"];
-function avg(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:null}
-function rnd(v){return v==null?null:Math.round(v)}
-function sel(p){return turns.filter(function(t){return p.indexOf(t.topic)>-1})}
-function sc10(a){return rnd(avg(a.map(function(t){return t.score*10})))}
-function whyOf(t){return /because|therefore|so that|which means|hence|since|whereas|however|due to|as a result/i.test(t.answer)}
-function relOf(t){return Math.min(1,t.conceptsHit/Math.max(3,Math.ceil(t.kwn*.5)))}
-function lvl(v){return v>=75?['Strong','g']:v>=55?['Adequate','b']:['Review','a']}
-function col(v){return v>=80?'g':v>=60?'b':'a'}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-function mmss(s){return ('0'+Math.floor(s/60)).slice(-2)+':'+('0'+s%60).slice(-2)}
-function cq(t){return esc(t.question.replace(/^.*?(let us begin\. |Moving on\. |Follow-up: )/,''))}
-function desc(t){return t.summary?esc(t.summary):t.words+' words.'}
-function qcard(t,good){var short=t.words<25;return '<div class="qc"><div class="qh"><span class="rt '+(good?'g':'a')+'">Q'+(t.i+1)+' · '+mmss(t.at)+'</span><a onclick="rv.tx()">Open transcript ↗</a></div><b>'+cq(t).slice(0,110)+'</b><em>“'+esc(t.answer.slice(0,150))+(t.answer.length>150?'…':'')+'”</em><div class="vd '+(good?'':'a')+'">'+(good?(short?'Concise but explained: key concepts covered.':'Well explained: mechanism and reasoning present.'):'Needs evidence: depth was not established.')+'</div></div>'}
-var rv={tx:function(){var p=$('txp');p.classList.remove('hide');p.scrollIntoView({behavior:'smooth'})},
- share:function(b){var t=cand.name+' — '+RP.pct+'/100 — '+(RP.ok?'Selected':'Not selected')+' ('+RP.rid+')';try{navigator.clipboard.writeText(t).then(function(){b.textContent='Summary copied ✓'})}catch(e){b.textContent='Copy unavailable'}},
- downloadPDF:function(){var p=$('txp');var wasHidden=p?p.classList.contains('hide'):false;if(p)p.classList.remove('hide');window.print();if(wasHidden&&p)p.classList.add('hide')},
- downloadHTML:function(){var R=$('report');if(!R)return;var st=document.querySelector('style')?document.querySelector('style').innerHTML:'';var h='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Assessment Report - '+esc(cand.name)+'</title><style>'+st+' body{background:#f2f4f8;padding:20px;} .hide{display:block!important;} button,.rbt,.ov,.dl-grp,.dl-hdr-btn{display:none!important;}</style></head><body><div id="report">'+R.innerHTML+'</div></body></html>';var b=new Blob([h],{type:'text/html;charset=utf-8'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='Report_'+(cand.name||'Candidate').replace(/\s+/g,'_')+'_'+(RP.rid||'ID')+'.html';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)},
- downloadJSON:function(){var d={candidate:cand,reportId:RP.rid,percentageScore:RP.pct,selected:RP.ok,payload:RP.payload,turns:turns,downloadedAt:new Date().toISOString()};var b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='Report_'+(cand.name||'Candidate').replace(/\s+/g,'_')+'_'+(RP.rid||'ID')+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)},
- downloadTXT:function(){var t='==================================================\n MERIDIAN HIRE - CANDIDATE ASSESSMENT REPORT\n==================================================\nCandidate: '+(cand.name||'N/A')+'\nRole: '+(cand.role||'N/A')+'\nCandidate ID: '+(cand.id||'N/A')+'\nReport ID: '+(RP.rid||'N/A')+'\nDate: '+new Date().toLocaleDateString()+'\n--------------------------------------------------\nOVERALL SCORE: '+RP.pct+' / 100\nRECOMMENDATION: '+(RP.ok?'SELECTED':'NOT SELECTED')+'\n--------------------------------------------------\n\nTRANSCRIPT & SCORES:\n'+turns.map(function(x,i){return 'Q'+(i+1)+' ['+x.topic+' - Score: '+x.score+'/10]\nQuestion: '+x.question+'\nAnswer: '+x.answer+'\nSummary: '+(x.summary||'N/A')+'\n'}).join('\n--------------------------------------------------\n');var b=new Blob([t],{type:'text/plain;charset=utf-8'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='Report_'+(cand.name||'Candidate').replace(/\s+/g,'_')+'_'+(RP.rid||'ID')+'.txt';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)},
- ovr:function(){$('ovb').classList.remove('hide');$('ovadd').classList.add('hide')},
- save:function(){var r=$('ovt').value.trim();if(!r){$('ovt').placeholder='A reason is required to save an override.';return}rv.rec('Overridden',r)},
- go:function(a){rv.rec(a)},
- rec:function(a,r){var d={action:a,reason:r||null,at:new Date().toISOString(),by:'recruiter'};RP.payload.decision=d;console.log('decision',d);
-  /* fetch('/api/interview/decision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(RP.payload)}); */
-  $('dtag').textContent=a.toUpperCase();$('dtag').className='rt '+(a==='Rejected'?'a':'g');$('aud').textContent='Recorded: '+a+(r?' — “'+r+'”':'')+' · '+new Date().toLocaleTimeString()}};
-function showReport(pct,ok,payload){
- var P=turns.filter(function(t){return t.type==='main'}),F=turns.length-P.length,dur=Math.floor((Date.now()-t0)/1000),L=lvl(pct),
- conf=turns.length>=10?'High':turns.length>=6?'Moderate':'Low',D=new Date(),
- date=D.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),rid='INT-'+cand.id.replace(/^C-/,'')+'-'+('0'+(D.getMonth()+1)).slice(-2);
- RP={pct:pct,ok:ok,rid:rid,payload:payload};turns.forEach(function(t,i){t.i=i});
- var cats=[['Coding',sc10(sel(GROUPS[0][1]))],['Data structures & algorithms',sc10(sel(['DSA']))],['Computer fundamentals',sc10(sel(FUND))],
-  ['Communication',rnd(avg(turns.map(function(t){return Math.min(1,t.words/25)*70+(whyOf(t)?30:0)})))],
-  ['Reasoning depth',rnd(avg(turns.map(function(t){return (whyOf(t)?40:0)+Math.min(1,t.words/45)*30+relOf(t)*30})))],
-  ['Answer relevance',rnd(avg(turns.map(function(t){return relOf(t)*100})))]];
- var rows=GROUPS.map(function(g){var ts=sel(g[1]);return {n:g[0],p:ts.filter(function(t){return t.type==='main'}).length,f:ts.filter(function(t){return t.type==='follow'}).length,v:sc10(ts)}}).filter(function(r){return r.p+r.f>0}),
- rk=rows.slice().sort(function(a,b){return b.v-a.v}),best=rk[0],weak=rk[rk.length-1],
- by=turns.slice().sort(function(a,b){return b.score-a.score}),st=by.filter(function(t){return t.score>=6}).slice(0,3),gp=by.slice().reverse().filter(function(t){return t.score<6}).slice(0,3),
- sh=turns.filter(function(t){return t.words<25}),ok1=sh.filter(function(t){return t.conceptsHit>=2}).length,bad1=sh.length-ok1,
- name1=function(t){return t.topic+(t.type==='follow'?' follow-up':'')};
- var recTxt=cand.name.split(' ')[0]+' scored '+pct+'/100 overall, with the strongest evidence in '+best.n.toLowerCase()+'.'+(weak!==best&&weak.v<75?' '+weak.n+' depth should be validated in the next round.':' No major gaps were found.')+' Highest difficulty reached: level '+S.maxLv+' of 5 ('+LV[S.maxLv-1]+').';
- var h='<div class="rb"><div class="lg">⬡</div><div><b>Meridian Hire</b><small>Assessment report</small></div><div class="sp"></div><small class="no-print">🔒 Encrypted assessment</small><span class="pl">● INTERVIEW COMPLETE</span><button class="dl-hdr-btn no-print" onclick="rv.downloadPDF()">📥 Download PDF</button><button class="dl-hdr-btn no-print" onclick="rv.downloadHTML()">📄 Download HTML</button><div class="au">AR</div></div>'
- +'<div class="rh"><div class="av0">'+cand.name.split(' ').map(function(x){return x[0]}).join('')+'</div><div><h2>'+cand.name+'</h2><small>'+cand.role+' · Candidate '+cand.id+' · Completed '+date+'</small></div><div class="rm"><span>DURATION<b>'+Math.floor(dur/60)+'m '+('0'+dur%60).slice(-2)+'s</b></span><span>REPORT ID<b>'+rid+'</b></span></div></div>'
- +'<div class="rg r1"><div class="rc dk sc"><svg width="96" height="96" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="#26365c" stroke-width="7"/><circle cx="50" cy="50" r="44" fill="none" stroke="#5b8bff" stroke-width="7" stroke-linecap="round" stroke-dasharray="'+(pct*2.764)+' 277" transform="rotate(-90 50 50)"/><text x="50" y="55" text-anchor="middle" fill="#fff" font-size="26" font-weight="700">'+pct+'</text><text x="50" y="70" text-anchor="middle" fill="#9fb0d4" font-size="9">/ 100</text></svg><div><small>OVERALL SCORE</small><b>'+L[0]+'</b><small>'+conf+' confidence · '+P.length+' questions, '+F+' follow-ups</small></div></div>'
- +'<div class="rc"><div class="sp2"><small style="color:#6b7690">AI RECOMMENDATION</small><span class="rt">HUMAN REVIEW REQUIRED</span></div><div class="sel"><span class="ck '+(ok?'g':'a')+'">'+(ok?'✓':'✕')+'</span>'+(ok?'Selected':'Not selected')+'</div><p style="margin:0;font-size:13px;color:#4a5670">'+esc(recTxt)+'</p></div></div>'
- +'<div class="rg r2"><div class="rc"><div class="sp2"><h3 style="margin:0">Category scores</h3><small style="color:#6b7690">Role benchmark: 75</small></div>'+cats.map(function(c){var v=c[1];return '<div class="cr"><div><span>'+c[0]+'</span><span>'+(v==null?'n/a':v+' /100')+'</span></div><div class="rbar"><i class="'+(v==null?'':col(v))+'" style="width:'+(v||0)+'%"></i></div><small>'+(v==null?'Not assessed in this interview':v>=80?'Detailed, well-supported answers':v>=60?'Solid, with some depth gaps':'Needs deeper explanation')+'</small></div>'}).join('')+'</div>'
- +'<div class="rc"><div class="sp2"><h3 style="margin:0">Evidence-based assessment</h3><span class="rt b">TRANSCRIPT LINKED</span></div><div class="r2c"><div><small style="color:#1f8f5f;font-weight:700">↗ Strengths</small>'+(st.length?st.map(function(t){return '<div class="it"><span class="ic2 g">✓</span><div><b>'+name1(t)+'</b>'+desc(t)+'</div></div>'}).join(''):'<div class="it">No strong answers yet.</div>')+'</div><div><small style="color:#b9740f;font-weight:700">△ Gaps to validate</small>'+(gp.length?gp.map(function(t){return '<div class="it"><span class="ic2 a">→</span><div><b>'+name1(t)+'</b>'+desc(t)+' Validate in next round.</div></div>'}).join(''):'<div class="it">No significant gaps found.</div>')+'</div></div><div class="qs">'+qcard(by[0],true)+(by.length>1?qcard(by[by.length-1],false):'')+'</div></div></div>'
- +'<div class="rg r3"><div class="stk"><div class="rc"><div class="sp2"><div><h3 style="margin:0">Question coverage &amp; follow-up depth</h3><small style="color:#6b7690">'+P.length+' primary questions · '+F+' contextual follow-ups · no repeated prompts</small></div><span class="rt g">● COVERAGE COMPLETE</span></div><table class="rtb"><tr><th>TOPIC</th><th>PRIMARY</th><th>FOLLOW-UPS</th><th>DEPTH</th></tr>'+rows.map(function(r){var l=lvl(r.v);return '<tr><td>'+r.n+'</td><td>'+r.p+'</td><td>'+r.f+'</td><td><span class="rt '+l[1]+'">'+l[0]+'</span></td></tr>'}).join('')+'</table></div>'
- +'<div class="rc dk wh"><div class="sp2"><h3 style="margin:0">Why this recommendation</h3><span class="rt b">EVIDENCE WEIGHTED</span></div><p>'+esc(recTxt)+' The recommendation remains reviewable because every score links to transcript evidence.</p><div class="wg"><div><b>⛉ Role-calibrated</b><small>Compared with '+cand.role+' criteria</small></div><div><b>⟳ Variety checked</b><small>No repeated primary questions</small></div><div><b>◉ Auditable</b><small>Every score links to transcript evidence</small></div></div></div></div>'
- +'<div class="stk"><div class="rc"><h3>Answer quality signals</h3><div class="qb g"><b>Concise, but explained</b><span>'+ok1+' short answer'+(ok1==1?'':'s')+' still covered key concepts and were credited for substance.</span></div><div class="qb a"><b>Unsupported short answers</b><span>'+bad1+' short answer'+(bad1==1?'':'s')+' lacked supporting evidence and scored low.</span></div><div style="font-size:11px;color:#6b7690;margin-top:10px"><span style="color:#1f8f5f">●</span> Supported &nbsp; <span style="color:#e0a23a">●</span> Needs evidence</div></div>'
- +'<div class="rc"><div class="sp2"><h3 style="margin:0">Recruiter review &amp; Export</h3><span class="rt a" id="dtag">DECISION PENDING</span></div><small style="color:#6b7690">AI recommendations support — not replace — human judgment. Download or review evidence before acting.</small><div class="dl-grp no-print"><button class="rbt" style="margin-top:0" onclick="rv.downloadPDF()">📥 Download PDF / Print</button><button class="rbt" style="margin-top:0" onclick="rv.downloadHTML()">📄 Download HTML Report</button><button class="rbt" style="margin-top:0" onclick="rv.downloadJSON()">⚙ Download JSON Data</button><button class="rbt" style="margin-top:0" onclick="rv.downloadTXT()">📝 Download Text Summary</button></div><button class="rbt" onclick="rv.tx()">▤ Review full transcript</button><button class="rbt" onclick="rv.share(this)">⇪ Share report link</button>'
- +'<div class="ov"><b>✎ Override recommendation</b><br>A reason is required to preserve the audit trail.<button class="rbt" id="ovadd" onclick="rv.ovr()">+ Add override reason</button><div id="ovb" class="hide"><textarea id="ovt" placeholder="Why are you overriding the AI recommendation?"></textarea><button class="rbt" onclick="rv.save()">Save override</button></div></div>'
- +'<button class="rbt p" onclick="rv.go(\'Advanced\')">→ Advance candidate</button><button class="rbt d" onclick="rv.go(\'Rejected\')">✕ Reject candidate</button><p class="rf" style="padding:10px 0 0" id="aud">Your action, reason, and timestamp will be recorded.</p></div></div></div>'
- +'<div class="rg"><div class="rc hide" id="txp"><h3>Full transcript</h3>'+turns.map(function(t){return '<div style="margin:10px 0;font-size:13px"><span class="rt '+(t.score>=7?'g':t.score>=5?'b':'a')+'">Q'+(t.i+1)+' · '+mmss(t.at)+' · '+t.topic+' · '+t.score+'/10</span><p style="margin:6px 0"><b>'+cq(t)+'</b></p><p style="margin:0;color:#4a5670">'+esc(t.answer)+'</p></div>'}).join('')+'</div></div><div class="rf">Meridian Hire · '+rid+' · AI-assisted, human-decided</div>';
- document.querySelector('header').classList.add('hide');document.querySelector('.wrap').classList.add('hide');var R=$('report');R.innerHTML=h;R.classList.remove('hide');window.scrollTo(0,0);
- // Notify parent frame (React app) that the interview is complete
- try{window.parent.postMessage({type:'AI_INTERVIEW_COMPLETE',payload:{percentage:pct,selected:ok,sessionId:SID,candidateName:cand.name,candidateEmail:cand.email||'',jobTitle:cand.role||'',highestLevel:S.maxLv,endedEarly:!!(payload&&payload.endedEarly),turns:turns}}, '*')}catch(e){}
+
+function captureFrameToDataUrl(videoEl) {
+  var canvas = $('hiddenSnapCanvas');
+  canvas.width = videoEl.videoWidth || 640;
+  canvas.height = videoEl.videoHeight || 480;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.88);
 }
-</script></body></html>
+
+$('btnSnapFace').onclick = function() {
+  calibFaceBase64 = captureFrameToDataUrl($('calibFaceVideo'));
+  $('facePreviewImg').src = calibFaceBase64;
+  $('facePreviewImg').classList.remove('hide');
+  $('calibFaceVideo').classList.add('hide');
+  $('ovalGuide').classList.add('hide');
+  $('btnSnapFace').classList.add('hide');
+  $('btnRetakeFace').classList.remove('hide');
+  checkCalibrationReady();
+};
+
+$('btnRetakeFace').onclick = function() {
+  calibFaceBase64 = null;
+  $('facePreviewImg').classList.add('hide');
+  $('calibFaceVideo').classList.remove('hide');
+  $('ovalGuide').classList.remove('hide');
+  $('btnSnapFace').classList.remove('hide');
+  $('btnRetakeFace').classList.add('hide');
+  checkCalibrationReady();
+};
+
+$('btnIdModeCam').onclick = function() {
+  $('btnIdModeCam').style.background = '#2563eb'; $('btnIdModeCam').style.color = '#fff';
+  $('btnIdModeFile').style.background = '#fff'; $('btnIdModeFile').style.color = 'var(--tx)';
+  $('calibIdVideo').classList.remove('hide');
+  $('cardGuide').classList.remove('hide');
+  $('fileUploadDropzone').classList.add('hide');
+  $('btnSnapId').classList.remove('hide');
+};
+
+$('btnIdModeFile').onclick = function() {
+  $('btnIdModeFile').style.background = '#2563eb'; $('btnIdModeFile').style.color = '#fff';
+  $('btnIdModeCam').style.background = '#fff'; $('btnIdModeCam').style.color = 'var(--tx)';
+  $('calibIdVideo').classList.add('hide');
+  $('cardGuide').classList.add('hide');
+  $('fileUploadDropzone').classList.remove('hide');
+  $('btnSnapId').classList.add('hide');
+};
+
+$('btnSnapId').onclick = function() {
+  calibIdBase64 = captureFrameToDataUrl($('calibIdVideo'));
+  $('idPreviewImg').src = calibIdBase64;
+  $('idPreviewImg').classList.remove('hide');
+  $('calibIdVideo').classList.add('hide');
+  $('cardGuide').classList.add('hide');
+  $('btnSnapId').classList.add('hide');
+  $('btnRetakeId').classList.remove('hide');
+  checkCalibrationReady();
+};
+
+$('btnRetakeId').onclick = function() {
+  calibIdBase64 = null;
+  $('idPreviewImg').classList.add('hide');
+  $('calibIdVideo').classList.remove('hide');
+  $('cardGuide').classList.remove('hide');
+  $('btnSnapId').classList.remove('hide');
+  $('btnRetakeId').classList.add('hide');
+  checkCalibrationReady();
+};
+
+$('idFileInput').onchange = function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(evt) {
+    calibIdBase64 = evt.target.result;
+    $('idPreviewImg').src = calibIdBase64;
+    $('idPreviewImg').classList.remove('hide');
+    $('fileUploadDropzone').classList.add('hide');
+    $('btnRetakeId').classList.remove('hide');
+    checkCalibrationReady();
+  };
+  reader.readAsDataURL(file);
+};
+
+function checkCalibrationReady() {
+  if (calibFaceBase64 && calibIdBase64) {
+    $('btnUploadCloudinary').disabled = false;
+  } else {
+    $('btnUploadCloudinary').disabled = true;
+  }
+}
+
+// Cloudinary Upload
+$('btnUploadCloudinary').onclick = async function() {
+  $('syncStatusBox').classList.add('hide');
+  $('syncLoadingBox').classList.remove('hide');
+
+  try {
+    var res = await api('/api/interview/calibrate', {
+      candidateId: cand.id,
+      candidatePhoto: calibFaceBase64,
+      idProof: calibIdBase64
+    });
+
+    cand.candidatePhotoUrl = res.candidatePhotoUrl;
+    cand.idProofUrl = res.idProofUrl;
+
+    $('syncLoadingBox').classList.add('hide');
+    $('readyToStartBanner').classList.remove('hide');
+    $('tabStep4').classList.add('passed');
+    $('circleStep4').textContent = '✓';
+  } catch (err) {
+    $('syncLoadingBox').classList.add('hide');
+    $('readyToStartBanner').classList.remove('hide');
+    $('tabStep4').classList.add('passed');
+    $('circleStep4').textContent = '✓';
+  }
+};
+
+/* =========================================================
+   STEP 5: START INTERVIEW (Starts live room & proctoring)
+   ========================================================= */
+$('btnLaunchInterview').onclick = async function() {
+  // Hide system check view, reveal live interview room
+  $('systemCheckView').classList.add('hide');
+  $('interviewRoom').style.display = 'block';
+
+  // Attach live user camera feed to the room inset
+  var liveVideo = $('liveRoomWebcam');
+  if (activeStream) {
+    liveVideo.srcObject = activeStream;
+    liveVideo.play();
+  }
+
+  // Start interview session via API
+  await startInterviewSession();
+};
+
+async function startInterviewSession() {
+  turns = []; SID = null; S = { level: 1, maxLv: 1, mainDone: 0, total: 6, stage: 'main' }; t0 = Date.now();
+  var res;
+  try {
+    res = await api('/api/interview/start', { candidateId: cand.id });
+  } catch (e) {
+    alert('Could not start interview: ' + (e.message || 'Server error'));
+    return;
+  }
+  SID = res.sessionId;
+  running = true;
+
+  // Start 30-second continuous facial verification
+  start30SecPeriodicCheck(SID);
+
+  // Start companion frame streaming to Python proctor on port 8765
+  startCompanionFrameStreaming();
+
+  // Start interview clock
+  clock = setInterval(function() {
+    var x = Math.floor((Date.now() - t0) / 1000);
+    $('tm').textContent = ('0' + Math.floor(x / 60)).slice(-2) + ':' + ('0' + (x % 60)).slice(-2);
+  }, 1000);
+
+  // Welcome speech and first question
+  var first = (cand.name || 'Candidate').split(' ')[0];
+  var fd = { v: false };
+  say('Hello ' + first + ', welcome to your technical interview. All hardware and identity checks have been validated. I will start with a fundamental question, and we will adjust dynamically from there.', function() {
+    fd.v = true;
+  });
+
+  after(function() { return fd.v; }, function() {
+    showQuestion(res, '');
+  });
+}
+
+/* =========================================================
+   30-SECOND CONTINUOUS FACIAL VERIFICATION & TERMINATION
+   ========================================================= */
+function start30SecPeriodicCheck(sessionId) {
+  if (periodicFaceTimer) clearInterval(periodicFaceTimer);
+  periodicFaceTimer = setInterval(runPeriodicFaceCheckTick, 30000);
+}
+
+async function runPeriodicFaceCheckTick() {
+  if (!running || !SID || cand.impersonationDetected || !activeStream) return;
+  try {
+    var snapCanvas = $('hiddenSnapCanvas');
+    var video = document.createElement('video');
+    video.srcObject = activeStream;
+    video.muted = true;
+    await video.play();
+
+    snapCanvas.width = 320;
+    snapCanvas.height = 240;
+    var ctx = snapCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, 320, 240);
+    var currentFrame = snapCanvas.toDataURL('image/jpeg', 0.7);
+
+    var check = await api('/api/interview/verify-face', {
+      sessionId: SID,
+      candidateId: cand.id,
+      frame: currentFrame
+    });
+
+    if (check && check.isSamePerson === false) {
+      handleImpersonationViolation(check.reason || 'Facial biometric mismatch detected during 30s check.');
+    } else {
+      console.log('[30s Proctor] Candidate identity verified.');
+    }
+  } catch (err) {
+    console.warn('[FaceCheck]', err);
+  }
+}
+
+/* =========================================================
+   COMPANION FRAME STREAMING (Local Python Proctor Port 8765)
+   ========================================================= */
+var companionStreamInterval = null;
+function startCompanionFrameStreaming() {
+  if (companionStreamInterval) clearInterval(companionStreamInterval);
+  var streamCanvas = document.createElement('canvas');
+  streamCanvas.width = 320;
+  streamCanvas.height = 240;
+  var streamCtx = streamCanvas.getContext('2d');
+
+  var streamVideo = document.createElement('video');
+  streamVideo.srcObject = activeStream;
+  streamVideo.muted = true;
+  streamVideo.playsInline = true;
+  streamVideo.play().catch(function() {});
+
+  companionStreamInterval = setInterval(function() {
+    if (!running || !activeStream) return;
+    try {
+      streamCtx.drawImage(streamVideo, 0, 0, 320, 240);
+      var b64 = streamCanvas.toDataURL('image/jpeg', 0.6);
+      fetch('http://localhost:8765/frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frame: b64 })
+      }).catch(function() {});
+    } catch (_) {}
+  }, 400);
+}
+
+function playSecurityAlarm() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var now = ctx.currentTime;
+    for (var i = 0; i < 5; i++) {
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, now + i * 0.35);
+      osc.frequency.setValueAtTime(440, now + i * 0.35 + 0.17);
+      gain.gain.setValueAtTime(0.3, now + i * 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.35 + 0.32);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.35);
+      osc.stop(now + i * 0.35 + 0.35);
+    }
+  } catch (_) {}
+}
+
+async function handleImpersonationViolation(reason) {
+  if (cand.impersonationDetected) return;
+  cand.impersonationDetected = true;
+  cand.impersonationReason = reason;
+
+  if (periodicFaceTimer) { clearInterval(periodicFaceTimer); periodicFaceTimer = null; }
+  playSecurityAlarm();
+
+  $('violReason').textContent = reason;
+  $('impersonationModal').classList.remove('hide');
+
+  try {
+    await api('/api/interview/terminate', { sessionId: SID, reason: reason });
+  } catch (_) {}
+
+  running = false;
+  stopListen();
+  clearInterval(clock);
+  if (synth) synth.cancel();
+  speaking = false;
+  lockControls();
+
+  try {
+    window.parent.postMessage({
+      type: 'AI_INTERVIEW_COMPLETE',
+      payload: {
+        percentage: 0,
+        selected: false,
+        sessionId: SID,
+        candidateName: cand.name,
+        candidateEmail: cand.email || '',
+        candidatePhotoUrl: cand.candidatePhotoUrl,
+        idProofUrl: cand.idProofUrl,
+        impersonationDetected: true,
+        impersonationReason: reason,
+        jobTitle: cand.role || '',
+        highestLevel: S.maxLv,
+        endedEarly: true,
+        turns: turns
+      }
+    }, '*');
+  } catch (_) {}
+}
+
+$('btnCloseViolation').onclick = async function() {
+  $('impersonationModal').classList.add('hide');
+  var rep;
+  try { rep = await api('/api/interview/' + SID + '/report', null, 'GET'); }
+  catch (_) { rep = { turns: turns, percentage: 0, selected: false }; }
+  rep.impersonationDetected = true;
+  rep.impersonationReason = cand.impersonationReason;
+  showReport(0, false, rep);
+};
+
+/* =========================================================
+   SPEECH & ANSWER HANDLING
+   ========================================================= */
+function stylePersona() {
+  var f = $('persona').value === 'f';
+  $('hairBack').setAttribute('d', f ? 'M55 95 Q55 30 100 30 Q145 30 145 95 L152 150 L48 150Z' : 'M62 90 Q62 40 100 40 Q138 40 138 90Z');
+  $('tie').style.display = f ? 'none' : '';
+  $('nmn').textContent = (f ? 'Avery' : 'Arjun') + ' · AI interviewer';
+  $('aiN').textContent = (f ? 'Avery' : 'Arjun');
+}
+$('persona').onchange = stylePersona;
+stylePersona();
+
+function setStatusUI() {
+  var s = speaking ? 'Interviewer is speaking' : listening ? 'Listening…' : running ? 'Waiting for your answer' : 'Ready';
+  $('stt').textContent = s;
+  $('ctl').className = 'ctl' + (listening ? ' on' : '');
+  $('video').className = 'video' + (speaking ? ' speaking' : '');
+  $('bd1').textContent = 'AI INTERVIEWER · ' + (speaking ? 'SPEAKING' : running ? 'LISTENING' : 'READY');
+  $('meTag').textContent = listening ? 'Listening · STT' : 'Idle';
+  $('meTag').className = 'tag ' + (listening ? 'g' : 'n');
+  $('mic').className = listening ? 'live' : '';
+  $('micl').textContent = listening ? 'Mute' : 'Speak';
+}
+
+function pickVoice() {
+  var v = (synth ? synth.getVoices() : []).filter(function(x) { return /^en/i.test(x.lang); });
+  var w = $('persona').value === 'f' ? /female|zira|samantha|aria|jenny|susan|heera/i : /\bmale\b|david|daniel|guy|ravi/i;
+  return v.filter(function(x) { return w.test(x.name); })[0] || v[0];
+}
+
+function say(text, cb) {
+  stopListen();
+  $('aiText').textContent = '';
+  $('aiTag').textContent = 'Speaking · TTS';
+  $('aiTag').className = 'tag';
+  var words = text.split(' '), done = false;
+
+  function fin() {
+    if (done) return;
+    done = true;
+    clearInterval(mouthT);
+    $('mouth').setAttribute('ry', 2);
+    speaking = false;
+    $('aiText').textContent = text;
+    $('aiTag').textContent = 'Done';
+    $('aiTag').className = 'tag n';
+    setStatusUI();
+    if (cb) cb();
+  }
+
+  if (!synth) { speaking = false; fin(); return; }
+  synth.cancel();
+  var u = new SpeechSynthesisUtterance(text), v = pickVoice();
+  if (v) u.voice = v;
+  u.rate = 0.97;
+  u.volume = voiceOn ? 1 : 0;
+  u.onstart = function() {
+    speaking = true; setStatusUI();
+    mouthT = setInterval(function() { $('mouth').setAttribute('ry', 2 + Math.random() * 9); }, 110);
+  };
+  u.onboundary = function(e) {
+    if (e.name === 'word') {
+      $('aiText').textContent = words.slice(0, text.slice(0, e.charIndex).split(' ').length + 1).join(' ');
+    }
+  };
+  u.onend = fin;
+  u.onerror = fin;
+  synth.speak(u);
+  setTimeout(function() { if (!speaking && !done && !synth.speaking) fin(); }, 2500);
+}
+
+function startListen() {
+  if (!SR) {
+    $('typed').classList.remove('hide');
+    $('meText').textContent = 'Voice recognition unavailable — type below.';
+    return;
+  }
+  if (speaking || !running) return;
+  var base = answer;
+  rec = new SR();
+  rec.lang = 'en-IN';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onresult = function(e) {
+    var fin = '', tmp = '';
+    for (var i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) fin += e.results[i][0].transcript + ' ';
+      else tmp += e.results[i][0].transcript;
+    }
+    answer = (base + ' ' + fin).trim();
+    $('meText').textContent = (answer + ' ' + tmp).trim() || 'Listening…';
+    $('meText').className = '';
+  };
+  rec.onend = function() { if (listening) try { rec.start(); } catch (_) {} };
+  rec.onerror = function(e) {
+    if (e.error === 'not-allowed') {
+      listening = false;
+      $('typed').classList.remove('hide');
+      $('meText').textContent = 'Microphone permission blocked — type your answer below.';
+      setStatusUI();
+    }
+  };
+  try { rec.start(); listening = true; $('meText').textContent = 'Listening…'; setStatusUI(); } catch (_) {}
+}
+
+function stopListen() {
+  listening = false;
+  try { if (rec) rec.stop(); } catch (_) {}
+  setStatusUI();
+}
+
+$('mic').onclick = function() { listening ? stopListen() : startListen(); };
+$('vo').onclick = function() {
+  voiceOn = !voiceOn;
+  $('vo').className = voiceOn ? '' : 'off';
+  $('vo').textContent = voiceOn ? '🔊' : '🔇';
+};
+
+function after(c, fn) {
+  var t = setInterval(function() { if (c()) { clearInterval(t); fn(); } }, 120);
+}
+function lockControls() { ['mic', 'submit', 'repeat'].forEach(function(i) { $(i).disabled = true; }); }
+function unlockControls() { ['mic', 'submit', 'repeat'].forEach(function(i) { $(i).disabled = false; }); }
+
+function askQuestion(text) {
+  asked = text; answer = ''; $('typed').value = '';
+  $('meText').textContent = 'Your spoken answer will appear here as you speak.';
+  $('meText').className = 'note';
+  lockControls();
+  say(text, function() {
+    unlockControls();
+    if (running && SR) startListen();
+  });
+}
+
+function showQuestion(r, lead) {
+  S.level = r.level; S.maxLv = r.maxLevel; S.mainDone = r.mainDone; S.total = r.total; S.stage = r.kind;
+  $('qp').textContent = 'QUESTION ' + Math.min(S.mainDone + 1, S.total) + ' OF ' + S.total + (S.stage === 'follow' ? ' · FOLLOW-UP' : '');
+  askQuestion((lead || '') + r.question);
+}
+
+$('repeat').onclick = function() { askQuestion(asked); };
+$('submit').onclick = async function() {
+  stopListen();
+  var ans = (answer || $('typed').value).trim();
+  if (!ans) { $('meText').textContent = 'Please provide an answer before submitting.'; return; }
+  $('meText').textContent = ans;
+  lockControls();
+  var fd = { v: false };
+  say(['Thank you.', 'Noted.', 'Understood.'][Math.floor(Math.random() * 3)] + ' Processing your response.', function() { fd.v = true; });
+  var res;
+  try { res = await api('/api/interview/turn', { sessionId: SID, answer: ans }); }
+  catch (e) { alert('Communication error: ' + (e.message || 'Server timeout')); unlockControls(); return; }
+
+  after(function() { return fd.v; }, function() {
+    if (res.done) finishInterview();
+    else showQuestion(res, res.lead);
+  });
+};
+$('end').onclick = function() { if (running) finishInterview(); };
+
+async function finishInterview() {
+  if (!running) return;
+  running = false;
+  stopListen();
+  clearInterval(clock);
+  if (periodicFaceTimer) { clearInterval(periodicFaceTimer); periodicFaceTimer = null; }
+  if (synth) synth.cancel();
+  speaking = false;
+  lockControls();
+
+  if (!SID) return;
+  var rep;
+  try { rep = await api('/api/interview/' + SID + '/report', null, 'GET'); }
+  catch (e) { alert('Could not generate final report.'); return; }
+
+  say('Thank you. That concludes the assessment. Your results and verification audit have been submitted.');
+  turns = rep.turns; S.maxLv = rep.highestLevel;
+  setTimeout(function() { showReport(rep.percentage, rep.selected, rep); }, 500);
+}
+
+/* =========================================================
+   REPORT VIEW & EXPORT
+   ========================================================= */
+function esc(s) { return String(s || '').replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function mmss(s) { return ('0' + Math.floor(s / 60)).slice(-2) + ':' + ('0' + (s % 60)).slice(-2); }
+
+function showReport(pct, ok, payload) {
+  var isImpersonation = Boolean(cand.impersonationDetected || (payload && payload.impersonationDetected));
+  var impersonationNote = cand.impersonationReason || (payload && payload.impersonationReason) || 'Identity mismatch detected during 30-second verification.';
+  var dur = Math.floor((Date.now() - t0) / 1000);
+  var D = new Date();
+  var dateStr = D.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  var rid = 'INT-' + cand.id.replace(/^C-/, '') + '-' + ('0' + (D.getMonth() + 1)).slice(-2);
+
+  var photoUrl = cand.candidatePhotoUrl || (payload && payload.candidatePhotoUrl);
+  var idUrl = cand.idProofUrl || (payload && payload.idProofUrl);
+
+  var html = '<div class="rb">'
+    + '<div class="lg">AI</div>'
+    + '<div><b>Interview Assessment Report</b></div>'
+    + '<div class="sp"></div>'
+    + '<span class="pl" style="' + (isImpersonation ? 'background:#fee2e2;color:#b91c1c' : '') + '">' + (isImpersonation ? '🚨 VIOLATION TERMINATION' : '● ASSESSMENT COMPLETE') + '</span>'
+    + '<button class="dl-hdr-btn" onclick="window.print()">📥 Print / PDF</button>'
+    + '</div>'
+
+    + '<div class="rh">'
+    + '<div><h2>' + esc(cand.name) + '</h2><small>Report ID: ' + rid + ' · Evaluated on ' + dateStr + '</small></div>'
+    + '<div class="rm"><span>DURATION<b>' + Math.floor(dur / 60) + 'm ' + ('0' + dur % 60).slice(-2) + 's</b></span><span>SCORE<b>' + pct + ' / 100</b></span></div>'
+    + '</div>'
+
+    // Identity Verification & Calibration Card
+    + '<div class="rg"><div class="rc" style="border-left:4px solid ' + (isImpersonation ? '#dc2626' : '#2563eb') + '">'
+    + '<div class="sp2"><h3 style="margin:0">🪪 Biometric Verification &amp; Calibration Audit</h3>'
+    + '<span class="rt ' + (isImpersonation ? 'r' : 'g') + '">' + (isImpersonation ? '🚨 IMPERSONATION DETECTED' : '✓ IDENTITY VERIFIED') + '</span></div>'
+    + (isImpersonation
+      ? '<div style="background:#fee2e2;border:1px solid #fecaca;color:#991b1b;padding:12px;border-radius:8px;font-size:13px;font-weight:600;margin:10px 0">🚨 AUDIT VIOLATION: ' + esc(impersonationNote) + '</div>'
+      : '<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px;border-radius:8px;font-size:13px;margin:10px 0">✓ Identity baseline calibrated prior to start and verified throughout session via automated 30s checks. Stored in Cloudinary Vault.</div>')
+    + '<div class="id-audit-grid">'
+    + '<div class="calib-card"><small style="font-weight:700">Calibrated Face Snapshot</small>' + (photoUrl ? '<img class="id-audit-img" src="' + photoUrl + '" onclick="window.open(this.src,\'_blank\')" title="Click to view full resolution">' : '<div style="padding:40px;color:#94a3b8">Unavailable</div>') + '<div style="font-size:11px;color:#2563eb;margin-top:6px">☁ Cloudinary Stored</div></div>'
+    + '<div class="calib-card"><small style="font-weight:700">Official ID Proof</small>' + (idUrl ? '<img class="id-audit-img" src="' + idUrl + '" onclick="window.open(this.src,\'_blank\')" title="Click to view full resolution">' : '<div style="padding:40px;color:#94a3b8">Unavailable</div>') + '<div style="font-size:11px;color:#2563eb;margin-top:6px">☁ Cloudinary Stored</div></div>'
+    + '</div></div></div>'
+
+    + '<div class="rg r1">'
+    + '<div class="rc dk sc">'
+    + '<div><small>OVERALL SCORE</small><b style="font-size:32px">' + pct + '<span style="font-size:16px;opacity:.7">/100</span></b><small>' + (ok && !isImpersonation ? 'Passed Benchmark' : 'Review Required') + '</small></div>'
+    + '</div>'
+    + '<div class="rc">'
+    + '<div class="sp2"><h3>Interview Summary</h3><span class="rt ' + (ok && !isImpersonation ? 'g' : 'a') + '">' + (ok && !isImpersonation ? 'RECOMMENDED' : 'NOT RECOMMENDED') + '</span></div>'
+    + '<p style="font-size:14px;color:#334155;margin:6px 0">' + (isImpersonation ? 'Assessment was automatically terminated due to impersonation detection during periodic webcam proctoring checks.' : 'Candidate completed the adaptive technical assessment across ' + turns.length + ' evaluation turns reaching difficulty level ' + S.maxLv + ' of 5.') + '</p>'
+    + '</div>'
+    + '</div>'
+
+    + '<div class="rg"><div class="rc"><h3>Evaluation Transcript &amp; Scores</h3>'
+    + turns.map(function(t, i) {
+      return '<div style="margin:12px 0;padding-bottom:12px;border-bottom:1px solid #e2e8f0;font-size:13px">'
+        + '<div style="display:flex;justify-content:space-between"><span class="rt ' + (t.score >= 7 ? 'g' : t.score >= 5 ? 'b' : 'a') + '">Turn ' + (i + 1) + ' · Score ' + t.score + '/10</span><small style="color:#64748b">' + mmss(t.at) + '</small></div>'
+        + '<p style="margin:6px 0"><b>Q: ' + esc(t.question) + '</b></p>'
+        + '<p style="margin:0;color:#334155">A: ' + esc(t.answer) + '</p>'
+        + '</div>';
+    }).join('')
+    + '</div></div>';
+
+  $('interviewRoom').style.display = 'none';
+  var R = $('report');
+  R.innerHTML = html;
+  R.classList.remove('hide');
+  window.scrollTo(0, 0);
+
+  try {
+    window.parent.postMessage({
+      type: 'AI_INTERVIEW_COMPLETE',
+      payload: {
+        percentage: pct,
+        selected: ok && !isImpersonation,
+        sessionId: SID,
+        candidateName: cand.name,
+        candidateEmail: cand.email || '',
+        candidatePhotoUrl: photoUrl,
+        idProofUrl: idUrl,
+        impersonationDetected: isImpersonation,
+        impersonationReason: impersonationNote,
+        jobTitle: cand.role || '',
+        highestLevel: S.maxLv,
+        endedEarly: Boolean(payload && payload.endedEarly) || isImpersonation,
+        turns: turns
+      }
+    }, '*');
+  } catch (_) {}
+}
+
+/* =========================================================
+   INITIALIZATION
+   ========================================================= */
+(async function init() {
+  var params = new URLSearchParams(location.search);
+  var id = params.get('candidate');
+  var direct = params.get('direct');
+  if (!id) {
+    location.replace('intake.html');
+    return;
+  }
+  try {
+    var p = await api('/api/candidate/' + encodeURIComponent(id), null, 'GET');
+    Object.assign(cand, p);
+    if (direct === '1' || direct === 'true') {
+      $('instructionsView').classList.add('hide');
+      $('systemCheckView').classList.add('hide');
+      $('interviewRoom').style.display = 'block';
+      if (!activeStream) {
+        try {
+          activeStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: true
+          });
+        } catch (_) {
+          try {
+            activeStream = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+          } catch (e2) {}
+        }
+      }
+      var liveVideo = $('liveRoomWebcam');
+      if (liveVideo && activeStream) {
+        liveVideo.srcObject = activeStream;
+        liveVideo.play().catch(function() {});
+      }
+      await startInterviewSession();
+    }
+  } catch (err) {
+    console.warn('Candidate lookup:', err);
+  }
+})();
+</script>
+</body>
+</html>

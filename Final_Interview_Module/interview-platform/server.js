@@ -208,7 +208,11 @@ function calcLv(st, sc, first) { let l = st.level; if (sc >= 7) l += (first && s
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 
 /* ---------- API ---------- */
+const { uploadToCloudinary } = require('./cloudinaryService');
+const { compareFaceMetrics, compareImageStructural } = require('./faceVerification');
+
 const sessions = new Map();
+const calibrationStore = new Map(); // candidateId -> { candidatePhotoUrl, idProofUrl, referencePhoto, faceMetrics, calibratedAt }
 setInterval(() => { for (const [k, s] of sessions) if (Date.now() - s.t0 > 3 * 3600e3) sessions.delete(k); }, 600e3).unref();
 const app = express();
 app.use((req, res, next) => {
@@ -218,26 +222,198 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
-app.use(express.json({ limit: '50kb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 app.use('/api/', rateLimit({ windowMs: 60e3, limit: 120 }));
 app.use(express.static(path.join(__dirname, 'public')));
-const { getCandidate, saveInterview, loadReport } = require('./intake')(app, llm);
+const { getCandidate, saveInterview, loadReport, saveCandidateCalibration } = require('./intake')(app, llm);
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e.message); res.status(502).json({ code: 'llm_error', error: 'AI service unavailable' }); });
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', gen: GEN, grade: GRADE }));
 
-app.get('/api/candidate/:id', (req, res) => { const c = getCandidate(req.params.id); c ? res.json(c) : res.status(404).json({ code: 'no_candidate' }); });  // TODO: restrict access (contains personal data)
+app.get('/api/candidate/:id', (req, res) => {
+  const c = getCandidate(req.params.id);
+  if (!c) return res.status(404).json({ code: 'no_candidate' });
+  const calib = calibrationStore.get(String(c.id));
+  if (calib) {
+    c.candidatePhotoUrl = calib.candidatePhotoUrl || c.candidatePhotoUrl;
+    c.idProofUrl = calib.idProofUrl || c.idProofUrl;
+  }
+  res.json(c);
+});
+
+/* ---------- Candidate Calibration (Photo + Identity Proof to Cloudinary) ---------- */
+app.post('/api/interview/calibrate', wrap(async (req, res) => {
+  const { candidateId, candidatePhoto, idProof, faceMetrics } = req.body;
+  if (!candidateId) return res.status(400).json({ code: 'missing_id', error: 'Candidate ID is required' });
+  if (!candidatePhoto) return res.status(400).json({ code: 'missing_photo', error: 'Interviewee photo is required' });
+  if (!idProof) return res.status(400).json({ code: 'missing_id_proof', error: 'Identity proof is required' });
+
+  // 1. Upload Interviewee Photo to Cloudinary (or local fallback)
+  const photoResult = await uploadToCloudinary(candidatePhoto, {
+    folder: 'hiresense_calibration',
+    publicId: `cand_${candidateId}_photo_${Date.now()}`
+  });
+
+  // 2. Upload Identity Proof to Cloudinary (or local fallback)
+  const idResult = await uploadToCloudinary(idProof, {
+    folder: 'hiresense_calibration',
+    publicId: `cand_${candidateId}_idproof_${Date.now()}`
+  });
+
+  const candidatePhotoUrl = photoResult.url;
+  const idProofUrl = idResult.url;
+
+  // 3. Save to database for this candidate
+  saveCandidateCalibration(candidateId, candidatePhotoUrl, idProofUrl);
+
+  // 4. Cache in memory for quick 30s comparison during this session
+  calibrationStore.set(String(candidateId), {
+    candidatePhotoUrl,
+    idProofUrl,
+    referencePhoto: typeof candidatePhoto === 'string' ? candidatePhoto.slice(0, 150000) : null,
+    faceMetrics: faceMetrics || null,
+    calibratedAt: new Date().toISOString()
+  });
+
+  console.log(`[Calibrate] Candidate ${candidateId} calibrated. Photo: ${candidatePhotoUrl}, ID: ${idProofUrl}`);
+  res.json({
+    success: true,
+    candidateId,
+    candidatePhotoUrl,
+    idProofUrl,
+    photoProvider: photoResult.provider,
+    idProvider: idResult.provider
+  });
+}));
+
+/* ---------- Continuous Face Verification (Called every 30 seconds) ---------- */
+app.post('/api/interview/verify-face', wrap(async (req, res) => {
+  const { sessionId, candidateId, frame, faceMetrics } = req.body;
+  const session = sessions.get(sessionId);
+  const candId = candidateId || (session && session.cand && session.cand.id);
+  const calib = calibrationStore.get(String(candId));
+
+  if (!frame && !faceMetrics) {
+    return res.status(400).json({ code: 'missing_data', error: 'Frame or face metrics required for verification' });
+  }
+
+  // If no calibration registered yet, pass gracefully
+  if (!calib) {
+    return res.json({ isSamePerson: true, confidence: 1.0, reason: 'Initial baseline' });
+  }
+
+  let isSamePerson = true;
+  let confidence = 0.95;
+  let reason = 'Face matches calibrated candidate';
+
+  if (faceMetrics && calib.faceMetrics) {
+    const sim = compareFaceMetrics(faceMetrics, calib.faceMetrics);
+    confidence = sim;
+    if (sim < 0.45) {
+      isSamePerson = false;
+      reason = `Identity mismatch: facial biometric similarity (${Math.round(sim * 100)}%) is below match threshold (45%).`;
+    }
+  } else if (frame && calib.referencePhoto) {
+    const sim = compareImageStructural(frame, calib.referencePhoto);
+    confidence = sim;
+    if (sim < 0.40) {
+      isSamePerson = false;
+      reason = `Identity mismatch: camera visual profile (${Math.round(sim * 100)}%) does not match registered interviewee.`;
+    }
+  }
+
+  if (!isSamePerson && session) {
+    session.impersonationDetected = true;
+    session.impersonationReason = reason;
+    session.endedEarly = true;
+    session.done = true;
+    saveInterview(session);
+  }
+
+  res.json({
+    isSamePerson,
+    confidence: Math.round(confidence * 100) / 100,
+    reason,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/* ---------- Terminate Interview on Critical Identity Violation ---------- */
+app.post('/api/interview/terminate', wrap(async (req, res) => {
+  const { sessionId, reason, details } = req.body;
+  const s = sessions.get(sessionId);
+  const violationReason = reason || details || 'Candidate Identity Mismatch Detected during proctoring check';
+
+  if (s) {
+    s.done = true;
+    s.endedEarly = true;
+    s.impersonationDetected = true;
+    s.impersonationReason = violationReason;
+    saveInterview(s);
+
+    // Notify backend webhook
+    try {
+      const http = require('http');
+      const pct = Math.round(avg(s.turns.map(t => t.score)) * 10);
+      const photo = s.candidatePhotoUrl || (s.cand && s.cand.candidatePhotoUrl) || '';
+      const idProof = s.idProofUrl || (s.cand && s.cand.idProofUrl) || '';
+      const body = JSON.stringify({
+        candidateName: s.cand.name,
+        candidateEmail: s.cand.email || '',
+        jobTitle: s.cand.role || 'Software Development Engineer',
+        interviewSessionId: sessionId,
+        percentage: pct,
+        selected: false,
+        highestLevel: s.st.maxLv,
+        endedEarly: true,
+        impersonationDetected: true,
+        impersonationReason: violationReason,
+        candidatePhotoUrl: photo,
+        idProofUrl: idProof,
+        turns: s.turns,
+        screenViolations: (s.screenViolations || 0) + 1
+      });
+      const webhook = http.request({
+        hostname: 'localhost', port: 5000, path: '/api/internal/interview-report',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-internal-secret': 'hiresense-internal-2024' }
+      }, r => r.resume());
+      webhook.on('error', () => {});
+      webhook.write(body); webhook.end();
+    } catch (_) {}
+  }
+
+  res.json({ status: 'terminated', reason: violationReason });
+}));
 
 app.post('/api/interview/start', wrap(async (req, res) => {
   const cand = getCandidate(String(req.body.candidateId || ''));
   if (!cand) return res.status(404).json({ code: 'no_candidate', error: 'Unknown candidate' });
   const st = { level: 1, cap: 3, atCap: 0, mainDone: 0, cats: [], used: {}, failL1: 0, maxLv: 1, mainScore: 0, skills: [...new Set([...((cand.job && cand.job.required_skills) || []), ...cand.skills])].slice(0, 8) };
-  const s = { id: crypto.randomUUID(), cand, st, turns: [], t0: Date.now(), done: false, busy: false, cur: null };
+  const calib = calibrationStore.get(String(cand.id));
+  const candidatePhotoUrl = (calib && calib.candidatePhotoUrl) || cand.candidatePhotoUrl || req.body.candidatePhotoUrl || '';
+  const idProofUrl = (calib && calib.idProofUrl) || cand.idProofUrl || req.body.idProofUrl || '';
+  const s = {
+    id: crypto.randomUUID(),
+    cand,
+    st,
+    turns: [],
+    t0: Date.now(),
+    done: false,
+    busy: false,
+    cur: null,
+    candidatePhotoUrl,
+    idProofUrl,
+    impersonationDetected: false,
+    impersonationReason: ''
+  };
   const t = chooseTopic(st), next = { kind: 'main', cat: t[0], sub: t[1], level: 1 };
   const q = await genQ(s, next, null);
   st.used[t[1]] = 1; st.cats.push(t[0]); pushRecent(t[1], q);
   s.cur = { question: q, ...next }; sessions.set(s.id, s); saveInterview(s);
-  res.json({ sessionId: s.id, question: q, kind: 'main', level: 1, maxLevel: 1, mainDone: 0, total: TOTAL, lead: '' });
+  res.json({ sessionId: s.id, question: q, kind: 'main', level: 1, maxLevel: 1, mainDone: 0, total: TOTAL, lead: '', candidatePhotoUrl, idProofUrl });
 }));
 
 app.post('/api/interview/turn', wrap(async (req, res) => {
@@ -291,14 +467,51 @@ app.get('/api/interview/:id/report', (req, res) => {
   if (!s) { const r = loadReport(req.params.id); return r ? res.json(r) : res.status(404).json({ code: 'no_session' }); }
   if (!s.done) { s.done = true; saveInterview(s); }
   const pct = Math.round(avg(s.turns.map(t => t.score)) * 10);
-  const rep = { candidate: s.cand.name, candidateEmail: s.cand.email || '', candidateId: s.cand.id, role: s.cand.role || '', percentage: pct, selected: pct >= PASS, highestLevel: s.st.maxLv, endedEarly: !!s.endedEarly, turns: s.turns };
+  const photo = s.candidatePhotoUrl || (s.cand && s.cand.candidatePhotoUrl) || '';
+  const idProof = s.idProofUrl || (s.cand && s.cand.idProofUrl) || '';
+  const rep = {
+    candidate: s.cand.name,
+    candidateEmail: s.cand.email || '',
+    candidateId: s.cand.id,
+    role: s.cand.role || '',
+    percentage: pct,
+    selected: pct >= PASS && !s.impersonationDetected,
+    highestLevel: s.st.maxLv,
+    endedEarly: !!s.endedEarly,
+    impersonationDetected: !!s.impersonationDetected,
+    impersonationReason: s.impersonationReason || '',
+    candidatePhotoUrl: photo,
+    idProofUrl: idProof,
+    turns: s.turns
+  };
   res.json(rep);
 
   // Fire-and-forget: notify main backend so recruiter can see the report
   try {
     const http = require('http');
-    const body = JSON.stringify({ candidateName: s.cand.name, candidateEmail: s.cand.email || '', jobTitle: s.cand.role || 'Software Development Engineer', interviewSessionId: req.params.id, percentage: pct, selected: pct >= PASS, highestLevel: s.st.maxLv, endedEarly: !!s.endedEarly, turns: s.turns, screenViolations: 0 });
-    const webhook = http.request({ hostname: 'localhost', port: 5000, path: '/api/internal/interview-report', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-internal-secret': 'hiresense-internal-2024' } }, r => r.resume());
+    const body = JSON.stringify({
+      candidateName: s.cand.name,
+      candidateEmail: s.cand.email || '',
+      jobTitle: s.cand.role || 'Software Development Engineer',
+      interviewSessionId: req.params.id,
+      percentage: pct,
+      selected: pct >= PASS && !s.impersonationDetected,
+      highestLevel: s.st.maxLv,
+      endedEarly: !!s.endedEarly,
+      impersonationDetected: !!s.impersonationDetected,
+      impersonationReason: s.impersonationReason || '',
+      candidatePhotoUrl: photo,
+      idProofUrl: idProof,
+      turns: s.turns,
+      screenViolations: s.screenViolations || 0
+    });
+    const webhook = http.request({
+      hostname: 'localhost',
+      port: 5000,
+      path: '/api/internal/interview-report',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-internal-secret': 'hiresense-internal-2024' }
+    }, r => r.resume());
     webhook.on('error', () => {});
     webhook.write(body); webhook.end();
   } catch (e) {}

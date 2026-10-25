@@ -5,8 +5,9 @@ import { getImageUrl } from '../../lib/utils';
 import {
   MessageSquare, Search, CheckCircle2, Briefcase,
   Award, Loader2, Eye, ThumbsUp, ThumbsDown,
-  ChevronDown, ChevronUp, ShieldAlert,
-  MessageCircle, RefreshCw
+  ChevronDown, ChevronUp, ShieldAlert, ShieldCheck,
+  MessageCircle, RefreshCw, ZoomIn, X, Image as ImageIcon,
+  FileText, AlertTriangle, AlertOctagon, ExternalLink
 } from 'lucide-react';
 
 const InterviewDashboard = () => {
@@ -19,6 +20,7 @@ const InterviewDashboard = () => {
   const [decisionLoading, setDecisionLoading] = useState({});
   const [noteInputs, setNoteInputs] = useState({});
   const [showNoteFor, setShowNoteFor] = useState(null);
+  const [previewModal, setPreviewModal] = useState(null);
 
   const fetchReports = async () => {
     try {
@@ -294,9 +296,120 @@ const InterviewDashboard = () => {
                         {report.selected ? '✓ AI Recommends: SELECTED' : '✕ AI Recommends: NOT SELECTED'}
                       </p>
                       <p className="text-muted-foreground">
-                        This candidate scored {report.percentage}/100 overall{report.endedEarly ? ', but the interview ended early (likely due to repeated low scores)' : ''}. The AI recommendation is advisory — your final decision overrides it.
+                        This candidate scored {report.percentage}/100 overall{report.endedEarly ? ', but the interview ended early (likely due to repeated low scores or integrity violations)' : ''}. The AI recommendation is advisory — your final decision overrides it.
                         {report.screenViolations > 0 && ` ⚠ ${report.screenViolations} screen violation(s) were detected during the session.`}
                       </p>
+                    </div>
+
+                    {/* Identity Verification & Calibration Audit Card */}
+                    <div className="bg-card rounded-2xl p-4 border border-border shadow-sm space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                            <ShieldCheck size={16} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-xs text-foreground">Identity Verification & Calibration Audit</h4>
+                            <p className="text-[11px] text-muted-foreground">Stored securely in Cloudinary vault & checked every 30s</p>
+                          </div>
+                        </div>
+
+                        {report.impersonationDetected ? (
+                          <span className="px-3 py-1 bg-destructive/15 text-destructive border border-destructive/30 rounded-full font-bold text-xs flex items-center gap-1.5 animate-pulse">
+                            <AlertTriangle size={13} /> 🚨 Impersonation Detected
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-full font-bold text-xs flex items-center gap-1.5">
+                            <CheckCircle2 size={13} /> Verified (30s Checks Passed)
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Impersonation Critical Warning Banner */}
+                      {report.impersonationDetected && (
+                        <div className="p-3 bg-destructive/10 border-2 border-destructive/30 rounded-xl text-xs text-destructive font-semibold flex items-start gap-2.5">
+                          <AlertOctagon size={16} className="shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-extrabold uppercase tracking-wide">Automatic Session Termination Triggered</p>
+                            <p className="mt-0.5 text-destructive/90">
+                              {report.impersonationReason || 'Person mismatch detected: Candidate in front of camera did not match calibration photo during 30-second continuous proctoring verification.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Photo & ID Proof Grid */}
+                      <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                        {/* Interviewee Calibration Live Photo */}
+                        <div className="border border-border/80 rounded-xl p-3 bg-muted/20 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-foreground flex items-center gap-1.5">
+                              <ImageIcon size={14} className="text-primary" /> Interviewee Photo
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-semibold px-2 py-0.5 bg-muted rounded-md">
+                              Live Webcam Portrait
+                            </span>
+                          </div>
+                          {report.candidatePhotoUrl ? (
+                            <div className="relative group rounded-lg overflow-hidden border border-border bg-black/5 aspect-[4/3] flex items-center justify-center">
+                              <img
+                                src={report.candidatePhotoUrl.startsWith('http') ? report.candidatePhotoUrl : `http://localhost:3000${report.candidatePhotoUrl}`}
+                                alt="Interviewee Photo"
+                                className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200"
+                              />
+                              <button
+                                onClick={() => setPreviewModal({
+                                  url: report.candidatePhotoUrl.startsWith('http') ? report.candidatePhotoUrl : `http://localhost:3000${report.candidatePhotoUrl}`,
+                                  title: `${report.candidateName} - Interviewee Photo (Calibration Baseline)`
+                                })}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 text-white text-xs font-bold transition-opacity cursor-pointer backdrop-blur-[2px]"
+                              >
+                                <ZoomIn size={16} /> View Full Photo
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground bg-muted/30">
+                              <ImageIcon size={24} className="mx-auto mb-1 opacity-40" />
+                              <p>No calibration photo captured</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Identity Proof Document */}
+                        <div className="border border-border/80 rounded-xl p-3 bg-muted/20 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-foreground flex items-center gap-1.5">
+                              <FileText size={14} className="text-primary" /> Identity Proof
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-semibold px-2 py-0.5 bg-muted rounded-md">
+                              Govt / Student ID
+                            </span>
+                          </div>
+                          {report.idProofUrl ? (
+                            <div className="relative group rounded-lg overflow-hidden border border-border bg-black/5 aspect-[4/3] flex items-center justify-center">
+                              <img
+                                src={report.idProofUrl.startsWith('http') ? report.idProofUrl : `http://localhost:3000${report.idProofUrl}`}
+                                alt="Identity Proof"
+                                className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200"
+                              />
+                              <button
+                                onClick={() => setPreviewModal({
+                                  url: report.idProofUrl.startsWith('http') ? report.idProofUrl : `http://localhost:3000${report.idProofUrl}`,
+                                  title: `${report.candidateName} - Identity Proof Document`
+                                })}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 text-white text-xs font-bold transition-opacity cursor-pointer backdrop-blur-[2px]"
+                              >
+                                <ZoomIn size={16} /> View Full ID Proof
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground bg-muted/30">
+                              <FileText size={24} className="mx-auto mb-1 opacity-40" />
+                              <p>No identity proof uploaded</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Transcript */}
@@ -389,11 +502,36 @@ const InterviewDashboard = () => {
         )}
       </div>
 
-      {/* Footer note */}
-      {reports.length > 0 && (
-        <p className="text-center text-xs text-muted-foreground pb-4">
-          AI recommendations support — not replace — human judgment. Review transcript evidence before making decisions.
-        </p>
+      {/* Lightbox Preview Modal for Photo / ID Proof */}
+      {previewModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-card border border-border rounded-3xl max-w-2xl w-full p-5 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                <ImageIcon size={16} className="text-primary" /> {previewModal.title}
+              </h3>
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden bg-black/10 border border-border flex items-center justify-center max-h-[70vh] p-1">
+              <img src={previewModal.url} alt="" className="max-h-[68vh] w-auto max-w-full object-contain rounded-xl" />
+            </div>
+            <div className="flex justify-end pt-1">
+              <a
+                href={previewModal.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+              >
+                Open Original in New Tab <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
