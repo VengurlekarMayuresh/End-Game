@@ -50,6 +50,7 @@ const ResumeAptitudeTestInterface = () => {
   const [proctorWarning, setProctorWarning] = useState(null);
   const [isFinished, setIsFinished] = useState(false);
   const [isSubmittingTest, setIsSubmittingTest] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
 
   const cameraVideoRef = useRef(null);
   const proctorStartedRef = useRef(false);
@@ -426,6 +427,23 @@ const ResumeAptitudeTestInterface = () => {
     try { await api.post(`/student/resume-aptitude/session/${attempt?.id}/submit`); } catch (e) {}
   };
 
+  // Auto-redirect to student dashboard 5s after test finishes
+  useEffect(() => {
+    if (!isFinished) return;
+    setRedirectCountdown(5);
+    const interval = setInterval(() => {
+      setRedirectCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          navigate('/student');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isFinished]);
+
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto my-12 p-8 bg-card border border-border rounded-3xl shadow-xl text-center space-y-6 animate-in fade-in duration-300">
@@ -523,12 +541,15 @@ const ResumeAptitudeTestInterface = () => {
           </p>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-2 space-y-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Redirecting to your dashboard in <span className="font-bold text-primary">{redirectCountdown}s</span>...
+          </p>
           <button
-            onClick={() => navigate('/student/dashboard')}
+            onClick={() => navigate('/student')}
             className="w-full px-6 py-3.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
-            Return to Student Dashboard
+            Go to Dashboard Now
           </button>
         </div>
       </div>
@@ -734,7 +755,7 @@ const ResumeAptitudeTestInterface = () => {
             >
               {isLocked ? <Lock size={12} /> : <span>Q{idx + 1}</span>}
               <span className={`text-[10px] opacity-80 ${isCurrent ? 'text-primary-foreground' : catColor}`}>
-                ({q.category === 'DSA_CODE' ? 'CODE' : q.category === 'PROJECT_LADDER' ? 'LADDER' : q.category})
+                ({q.category === 'DSA_CODE' ? 'CODE' : q.category === 'PROJECT_LADDER' ? 'JD' : q.category})
               </span>
             </button>
           );
