@@ -225,6 +225,26 @@ const getSession = async (req, res, next) => {
       return res.status(404).json({ message: 'Session attempt not found.' });
     }
 
+    if (attempt.jobId) {
+      try {
+        const job = await prisma.job.findUnique({
+          where: { id: attempt.jobId },
+          select: {
+            id: true,
+            title: true,
+            recruiter: {
+              select: { companyName: true, companyLogo: true }
+            }
+          }
+        });
+        if (job) {
+          attempt.companyName = job.recruiter?.companyName || 'Hiring Company';
+          attempt.companyLogo = job.recruiter?.companyLogo || null;
+          attempt.jobTitle = job.title;
+        }
+      } catch (e) {}
+    }
+
     const now = new Date();
     const expiresAt = new Date(attempt.expiresAt);
     const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
@@ -782,10 +802,64 @@ const getAssignedSessionsForCandidate = async (req, res, next) => {
       } else throw dbErr;
     }
 
+    // Lookup associated jobs and company info
+    const jobIds = [...new Set(attempts.map(a => a.jobId).filter(Boolean))];
+    let jobMap = {};
+    if (jobIds.length > 0) {
+      try {
+        const jobs = await prisma.job.findMany({
+          where: { id: { in: jobIds } },
+          select: {
+            id: true,
+            title: true,
+            recruiter: {
+              select: { companyName: true, companyLogo: true }
+            }
+          }
+        });
+        jobMap = Object.fromEntries(jobs.map(j => [j.id, j]));
+      } catch (e) {}
+    }
+
+    // Fallback: candidate's latest applied job
+    let fallbackJob = null;
+    try {
+      const app = await prisma.jobApplication.findFirst({
+        where: { studentId: student.id },
+        orderBy: { appliedAt: 'desc' },
+        include: {
+          job: {
+            select: {
+              id: true,
+              title: true,
+              recruiter: {
+                select: { companyName: true, companyLogo: true }
+              }
+            }
+          }
+        }
+      });
+      if (app?.job) fallbackJob = app.job;
+    } catch (e) {}
+
+    const enrichedAttempts = attempts.map(att => {
+      const job = (att.jobId && jobMap[att.jobId]) || fallbackJob;
+      const companyName = job?.recruiter?.companyName || 'Hiring Company';
+      const companyLogo = job?.recruiter?.companyLogo || null;
+      const jobTitle = job?.title || 'Engineering Role';
+      return {
+        ...att,
+        companyName,
+        companyLogo,
+        jobTitle,
+        job: job ? { id: job.id, title: job.title, companyName, companyLogo } : null
+      };
+    });
+
     return res.json({
-      assigned: attempts.filter(a => a.status === 'IN_PROGRESS' || a.status === 'ASSIGNED'),
-      completed: attempts.filter(a => a.status === 'COMPLETED' || a.status === 'AUTO_SUBMITTED'),
-      all: attempts
+      assigned: enrichedAttempts.filter(a => a.status === 'IN_PROGRESS' || a.status === 'ASSIGNED'),
+      completed: enrichedAttempts.filter(a => a.status === 'COMPLETED' || a.status === 'AUTO_SUBMITTED'),
+      all: enrichedAttempts
     });
   } catch (error) {
     next(error);

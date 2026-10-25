@@ -4,7 +4,7 @@ import api from '../../lib/axios';
 import {
   Clock, AlertTriangle, CheckCircle2, Play, Send, ChevronRight, ChevronLeft,
   Sparkles, Database, Code, Cpu, BookOpen, Layers, Lock, ShieldAlert, Award,
-  Terminal, CheckCheck, XCircle, RotateCcw, Camera, ShieldCheck, Video
+  Terminal, CheckCheck, XCircle, RotateCcw, Camera, ShieldCheck, Video, Building2
 } from 'lucide-react';
 import ViolationModal from '../../components/ViolationModal';
 import { useProctoring } from '../../hooks/useProctoring';
@@ -629,10 +629,17 @@ const ResumeAptitudeTestInterface = () => {
       {/* Header */}
       <div className="bg-card border border-border rounded-2xl p-4 sticky top-4 z-20 shadow-md flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-bold text-lg flex items-center gap-2">
-            <Sparkles size={20} className="text-primary" /> Role-Specific Aptitude Round
-          </h1>
-          <p className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="font-bold text-lg flex items-center gap-2">
+              <Sparkles size={20} className="text-primary" /> Role-Specific Aptitude Round
+            </h1>
+            {(attempt?.companyName || attempt?.job?.companyName) && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold">
+                <Building2 size={12} /> {attempt?.companyName || attempt?.job?.companyName}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
             15 Questions · 2 DSA Code + 3 SQL + 2 Theory + 8 Project Ladder · 45 minutes
           </p>
         </div>

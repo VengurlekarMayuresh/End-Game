@@ -164,15 +164,21 @@ const StudentTests = () => {
               <div className="bg-gradient-to-r from-primary/10 via-violet-500/10 to-emerald-500/10 border-2 border-primary/30 rounded-2xl p-6 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 bg-primary text-primary-foreground font-bold text-xs rounded-full uppercase tracking-wider">
-                      Assigned by Recruiter · Role-Specific Aptitude
+                    <span className="px-2.5 py-0.5 bg-primary text-primary-foreground font-bold text-xs rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 size={12} />
+                      {assignedResumeAptitude.companyName || assignedResumeAptitude.job?.companyName || 'Assigned by Recruiter'}
                     </span>
                     <h3 className="font-bold text-xl text-foreground">Role-Specific Aptitude Round</h3>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    You have been shortlisted! Complete your 45-minute hybrid test combining core theory questions with JD-filtered DSA/SQL and an adaptive project ladder based on your resume.
+                    You have been assigned to this round by <strong className="text-foreground">{assignedResumeAptitude.companyName || assignedResumeAptitude.job?.companyName || 'the hiring company'}</strong>! Complete your 45-minute hybrid test combining core theory questions with JD-filtered DSA/SQL and an adaptive project ladder based on your resume.
                   </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium pt-1">
+                    {(assignedResumeAptitude.jobTitle || assignedResumeAptitude.job?.title) && (
+                      <span className="px-2 py-0.5 bg-secondary/15 text-secondary-foreground border border-secondary/20 rounded font-semibold text-[10px]">
+                        Job Posting: {assignedResumeAptitude.jobTitle || assignedResumeAptitude.job?.title}
+                      </span>
+                    )}
                     <span className="flex items-center gap-1 font-bold text-foreground"><Clock size={13} /> 45 Minutes (Server Authoritative)</span>
                     <span>15 Questions Total (2 Theory + 2 DSA + 2 SQL + 9 Project Ladder)</span>
                   </div>
@@ -431,9 +437,17 @@ const StudentTests = () => {
                     {completedResumeAptitude.map(att => (
                       <div key={att.id} className="bg-card border border-border rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="space-y-2 flex-1">
-                          <h3 className="font-bold text-lg text-foreground">Role-Specific Aptitude Round</h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-lg text-foreground">Role-Specific Aptitude Round</h3>
+                            {(att.companyName || att.job?.companyName) && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold">
+                                <Building2 size={12} /> {att.companyName || att.job?.companyName}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground font-medium">
                             <span className="flex items-center gap-1"><Clock size={13} />45 minutes</span>
+                            {(att.jobTitle || att.job?.title) && <span>Job: {att.jobTitle || att.job?.title}</span>}
                             <span className="text-amber-600 font-semibold">Results will be declared soon</span>
                           </div>
                         </div>
